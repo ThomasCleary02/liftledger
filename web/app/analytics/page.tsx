@@ -35,7 +35,7 @@ type TabType = "overview" | "strength" | "cardio" | "prs";
 
 export default function Analytics() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>("overview");
   const [workouts, setWorkouts] = useState<Workout[]>([]);
   const [exercises, setExercises] = useState<Map<string, ExerciseDoc>>(() => new Map<string, ExerciseDoc>());
@@ -46,12 +46,15 @@ export default function Analytics() {
   const { preferences } = usePreferences();
 
   useEffect(() => {
+    // Wait for auth to finish loading
+    if (authLoading) return;
+    
     if (!user) {
       router.replace("/login");
       return;
     }
     loadData();
-  }, [user, router]);
+  }, [user, router, authLoading]);
 
   useEffect(() => {
     if (preferences.defaultChartView && preferences.defaultChartView !== timePeriod) {
@@ -94,7 +97,7 @@ export default function Analytics() {
 
   const filteredWorkouts = filterWorkoutsByPeriod(workouts, timePeriod);
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50">
         <div className="text-center">

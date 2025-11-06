@@ -1,16 +1,19 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "../providers/Auth";
 
 export default function Home() {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, loading } = useAuth();
 
   useEffect(() => {
+    // Only redirect if we're actually on the root path
+    if (pathname !== "/") return;
+    
     // Wait for auth state to be determined before redirecting
-    // This ensures we check localStorage for persisted sessions
     if (!loading) {
       if (user) {
         router.replace("/workouts");
@@ -18,10 +21,9 @@ export default function Home() {
         router.replace("/login");
       }
     }
-  }, [user, loading, router]);
+  }, [user, loading, router, pathname]);
 
   // Show loading while auth state is being determined
-  // This is important for checking persisted sessions
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50">

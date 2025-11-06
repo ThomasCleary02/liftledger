@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "../../providers/Auth";
 import { deleteUserAccount } from "../../lib/firestore/account";
 import { getPreferences, UnitSystem, DefaultChartView } from "../../lib/preferences";
@@ -20,7 +20,8 @@ import { ConfirmDialog } from "../../components/ConfirmDialog";
 
 export default function Settings() {
   const router = useRouter();
-  const { signOutUser, user } = useAuth();
+  const pathname = usePathname();
+  const { signOutUser, user, loading: authLoading } = useAuth();
   const [unitsModalOpen, setUnitsModalOpen] = useState(false);
   const [chartModalOpen, setChartModalOpen] = useState(false);
   const { preferences, updateUnits, updateChartView } = usePreferences();
@@ -30,10 +31,13 @@ export default function Settings() {
   const [deleteAccountConfirmOpen, setDeleteAccountConfirmOpen] = useState(false);
 
   useEffect(() => {
+    // Wait for auth to finish loading
+    if (authLoading) return;
+    
     if (!user) {
       router.replace("/login");
     }
-  }, [user, router]);
+  }, [user, router, authLoading]);
 
   const handleSignOut = () => {
     setSignOutConfirmOpen(true);
@@ -75,7 +79,7 @@ export default function Settings() {
     return labels[view];
   };
 
-  if (!user) return null;
+  if (authLoading || !user) return null;
 
   return (
     <div className="min-h-screen bg-gray-50">
