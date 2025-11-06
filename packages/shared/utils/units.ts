@@ -1,4 +1,6 @@
-import { UnitSystem } from "../preferences";
+// UnitSystem type - this should be defined in a shared types file
+// For now, we'll define it here or import from a types file
+export type UnitSystem = "metric" | "imperial";
 
 /**
  * Convert weight from stored value (always in lbs) to display unit

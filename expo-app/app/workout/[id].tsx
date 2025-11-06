@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useLayoutEffect } from "react";
 import { View, Text, ActivityIndicator, Pressable, Alert, ScrollView, TextInput, KeyboardAvoidingView, Platform } from "react-native";
 import { useLocalSearchParams, useRouter, useNavigation } from "expo-router";
-import { getWorkout, updateWorkout, deleteWorkout, Workout, Exercise } from "../../lib/firestore/workouts";
+import { getWorkout, updateWorkout, deleteWorkout, Workout, Exercise, StrengthSetEntry, CalisthenicsSetEntry } from "../../lib/firestore/workouts";
 import ExerciseSearch from "../../components/ExerciseSearch";
 
 type DraftSet = {
@@ -176,7 +176,7 @@ export default function WorkoutDetail() {
     if (!workout) return;
     setSaving(true);
     try {
-      const next = (workout.exercises || []).filter((_, i) => i !== idx);
+      const next = (workout.exercises || []).filter((_: any, i: number) => i !== idx);
       await updateWorkout(workout.id, { exercises: next });
       setWorkout({ ...workout, exercises: next });
     } catch (e: any) {
@@ -261,7 +261,7 @@ export default function WorkoutDetail() {
         <View className="mb-6">
           <Text className="text-lg font-semibold mb-3">Exercises</Text>
           {(workout.exercises || []).length ? (
-            (workout.exercises || []).map((ex, idx) => (
+            (workout.exercises || []).map((ex: Exercise, idx: number) => (
               <View key={`${ex.name}-${idx}`} className="bg-white border border-gray-200 rounded-lg p-4 mb-3">
                 <View className="flex-row justify-between items-start mb-2">
                   <View className="flex-1">
@@ -273,7 +273,7 @@ export default function WorkoutDetail() {
                   </Pressable>
                 </View>
                 <View className="flex-row flex-wrap gap-2">
-                  {ex.modality === "strength" && ex.strengthSets?.map((st, i) => (
+                  {ex.modality === "strength" && ex.strengthSets?.map((st: StrengthSetEntry, i: number) => (
                     <View key={i} className="bg-gray-100 rounded px-3 py-1">
                       <Text className="text-gray-700 text-sm">
                         {st.reps}×{st.weight}lb
@@ -289,7 +289,7 @@ export default function WorkoutDetail() {
                       </Text>
                     </View>
                   )}
-                  {ex.modality === "calisthenics" && ex.calisthenicsSets?.map((st, i) => (
+                  {ex.modality === "calisthenics" && ex.calisthenicsSets?.map((st: CalisthenicsSetEntry, i: number) => (
                     <View key={i} className="bg-gray-100 rounded px-3 py-1">
                       <Text className="text-gray-700 text-sm">
                         {st.reps} reps

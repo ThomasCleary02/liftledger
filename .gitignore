@@ -1,7 +1,9 @@
-# dependencies
+# Dependencies
 node_modules/
 .pnp
 .pnp.js
+package-lock.json
+yarn.lock
 
 # Expo
 .expo/
@@ -24,7 +26,14 @@ expo-env.d.ts
 # Metro
 .metro-health-check*
 
-# debug
+# Next.js
+.next/
+out/
+.next/cache/
+.vercel
+.netlify/
+
+# Debug
 npm-debug.*
 yarn-debug.*
 yarn-error.*
@@ -42,20 +51,22 @@ Thumbs.db
 ehthumbs.db
 Desktop.ini
 
-# local env files
+# Local env files
 .env
-.env.local
 .env*.local
 .env.production
+.env.development
 
-# typescript
+# TypeScript
 *.tsbuildinfo
 .tscache
 
-# generated native folders
+# Generated native folders
 /ios
 /android
 /build
+/expo-app/android
+/expo-app/ios
 
 # IDE
 .vscode/
@@ -79,3 +90,8 @@ logs/
 *.temp
 *.bak
 *.cache
+
+# Build artifacts
+*.apk
+*.aab
+*.ipa

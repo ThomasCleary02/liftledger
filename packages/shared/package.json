@@ -1,0 +1,15 @@
+{
+    "name": "@liftledger/shared",
+    "version": "1.0.0",
+    "main": "./index.ts",
+    "types": "./index.ts",
+    "scripts": {
+      "type-check": "tsc --noEmit"
+    },
+    "dependencies": {
+      "firebase": "^12.5.0"
+    },
+    "devDependencies": {
+      "typescript": "^5.9.3"
+    }
+  }

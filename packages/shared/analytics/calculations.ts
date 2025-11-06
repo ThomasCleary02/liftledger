@@ -1,6 +1,6 @@
 import { Workout, Exercise } from "../firestore/workouts";
 import { ExerciseDoc } from "../firestore/exercises";
-import { AnalyticsSummary, ExercisePR, VolumeDataPoint, MuscleGroupStats, TimePeriod } from "../analytics/types";
+import { AnalyticsSummary, ExercisePR, VolumeDataPoint, MuscleGroupStats, TimePeriod } from "./types";
 
 /**
  * Calculate total volume from workouts
@@ -10,77 +10,91 @@ export function calculateTotalVolume(workouts: Workout[]): number {
 }
 
 /**
- * Calculate current streak (consecutive days with workouts)
+ * Helper function to get unique workout dates (normalized to midnight)
  */
-export function calculateCurrentStreak(workouts: Workout[]): number {
-  if (workouts.length === 0) return 0;
+function getUniqueWorkoutDates(workouts: Workout[]): Date[] {
+  const dateMap = new Map<string, Date>();
   
-  const sorted = [...workouts].sort((a, b) => {
-    const dateA = (a.date as any)?.toDate ? (a.date as any).toDate() : new Date(a.date as any);
-    const dateB = (b.date as any)?.toDate ? (b.date as any).toDate() : new Date(b.date as any);
-    return dateB.getTime() - dateA.getTime();
-  });
-
-  let streak = 0;
-  let currentDate = new Date();
-  currentDate.setHours(0, 0, 0, 0);
-
-  for (const workout of sorted) {
+  workouts.forEach(workout => {
     const workoutDate = (workout.date as any)?.toDate 
       ? (workout.date as any).toDate() 
       : new Date(workout.date as any);
     workoutDate.setHours(0, 0, 0, 0);
     
-    const daysDiff = Math.floor((currentDate.getTime() - workoutDate.getTime()) / (1000 * 60 * 60 * 24));
+    // Use date string as key to deduplicate
+    const dateKey = workoutDate.toISOString().split('T')[0];
+    if (!dateMap.has(dateKey)) {
+      dateMap.set(dateKey, workoutDate);
+    }
+  });
+  
+  return Array.from(dateMap.values()).sort((a, b) => b.getTime() - a.getTime());
+}
+
+/**
+ * Calculate current streak (consecutive days with workouts ending today or yesterday)
+ */
+export function calculateCurrentStreak(workouts: Workout[]): number {
+  if (workouts.length === 0) return 0;
+  
+  const uniqueDates = getUniqueWorkoutDates(workouts);
+  if (uniqueDates.length === 0) return 0;
+  
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  let streak = 0;
+  let expectedDate = new Date(today);
+  
+  for (const workoutDate of uniqueDates) {
+    const daysDiff = Math.floor((expectedDate.getTime() - workoutDate.getTime()) / (1000 * 60 * 60 * 24));
     
-    if (daysDiff === streak) {
+    // If the workout date matches the expected date (today, yesterday, etc.)
+    if (daysDiff === 0) {
       streak++;
-      currentDate = new Date(workoutDate);
-      currentDate.setDate(currentDate.getDate() - 1);
-    } else if (daysDiff > streak) {
+      expectedDate.setDate(expectedDate.getDate() - 1);
+    } else if (daysDiff > 0) {
+      // If there's a gap, the streak is broken
       break;
     }
+    // If daysDiff < 0, it's a future date, skip it
   }
-
+  
   return streak;
 }
 
 /**
- * Calculate longest streak
+ * Calculate longest streak (any period in history)
  */
 export function calculateLongestStreak(workouts: Workout[]): number {
   if (workouts.length === 0) return 0;
   
-  const sorted = [...workouts].sort((a, b) => {
-    const dateA = (a.date as any)?.toDate ? (a.date as any).toDate() : new Date(a.date as any);
-    const dateB = (b.date as any)?.toDate ? (b.date as any).toDate() : new Date(b.date as any);
-    return dateA.getTime() - dateB.getTime();
-  });
-
+  const uniqueDates = getUniqueWorkoutDates(workouts);
+  if (uniqueDates.length === 0) return 0;
+  
+  // Sort oldest to newest for longest streak calculation
+  uniqueDates.sort((a, b) => a.getTime() - b.getTime());
+  
   let longestStreak = 1;
   let currentStreak = 1;
-
-  for (let i = 1; i < sorted.length; i++) {
-    const prevDate = (sorted[i - 1].date as any)?.toDate 
-      ? (sorted[i - 1].date as any).toDate() 
-      : new Date(sorted[i - 1].date as any);
-    const currDate = (sorted[i].date as any)?.toDate 
-      ? (sorted[i].date as any).toDate() 
-      : new Date(sorted[i].date as any);
+  
+  for (let i = 1; i < uniqueDates.length; i++) {
+    const prevDate = uniqueDates[i - 1];
+    const currDate = uniqueDates[i];
     
-    prevDate.setHours(0, 0, 0, 0);
-    currDate.setHours(0, 0, 0, 0);
-    
+    // Calculate days difference
     const daysDiff = Math.floor((currDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
     
     if (daysDiff === 1) {
+      // Consecutive day - increment streak
       currentStreak++;
       longestStreak = Math.max(longestStreak, currentStreak);
     } else {
+      // Gap in dates - reset current streak
       currentStreak = 1;
     }
   }
-
+  
   return longestStreak;
 }
 
@@ -269,9 +283,10 @@ export function findAllPRs(workouts: Workout[]): ExercisePR[] {
               updatedAny = true;
             }
             
+            // Still track maxReps but don't display it
             if (set.reps > current.reps) {
               updated.reps = set.reps;
-              updatedAny = true;
+              // Don't set updatedAny - we track but don't create PR for it
             }
             
             const volume = set.reps * set.weight;
@@ -295,24 +310,39 @@ export function findAllPRs(workouts: Workout[]): ExercisePR[] {
         const current = cardioPRs.get(exerciseId);
         const data = ex.cardioData;
         
-        if (!current || (data.distance || 0) > current.distance) {
+        // Track max distance
+        if (!current || (data.distance || 0) > (current.distance || 0)) {
           cardioPRs.set(exerciseId, {
-            ...current || { duration: 0, pace: Infinity, date: workoutDate, workoutId: workout.id, name: ex.name },
             distance: data.distance || 0,
+            duration: current?.duration || data.duration || 0,
+            pace: current?.pace || (data.pace || Infinity),
+            date: workoutDate,
+            workoutId: workout.id,
+            name: ex.name,
           });
         }
         
-        if (!current || data.duration > current.duration) {
+        // Track max duration
+        if (!current || data.duration > (current.duration || 0)) {
           cardioPRs.set(exerciseId, {
-            ...current || { distance: 0, pace: Infinity, date: workoutDate, workoutId: workout.id, name: ex.name },
+            distance: current?.distance || (data.distance || 0),
             duration: data.duration,
+            pace: current?.pace || (data.pace || Infinity),
+            date: workoutDate,
+            workoutId: workout.id,
+            name: ex.name,
           });
         }
         
-        if (data.pace && (!current || data.pace < current.pace)) {
+        // Track best pace (lower is better)
+        if (data.pace && data.pace > 0 && (!current || data.pace < (current.pace || Infinity))) {
           cardioPRs.set(exerciseId, {
-            ...current || { distance: 0, duration: 0, date: workoutDate, workoutId: workout.id, name: ex.name },
+            distance: current?.distance || (data.distance || 0),
+            duration: current?.duration || data.duration || 0,
             pace: data.pace,
+            date: workoutDate,
+            workoutId: workout.id,
+            name: ex.name,
           });
         }
       }
@@ -325,6 +355,8 @@ export function findAllPRs(workouts: Workout[]): ExercisePR[] {
             calisthenicsPRs.set(exerciseId, {
               ...current || { duration: undefined, date: workoutDate, workoutId: workout.id, name: ex.name },
               reps: set.reps,
+              date: workoutDate,
+              workoutId: workout.id,
             });
           }
           
@@ -332,6 +364,8 @@ export function findAllPRs(workouts: Workout[]): ExercisePR[] {
             calisthenicsPRs.set(exerciseId, {
               ...current || { reps: 0, date: workoutDate, workoutId: workout.id, name: ex.name },
               duration: set.duration,
+              date: workoutDate,
+              workoutId: workout.id,
             });
           }
         });
@@ -354,18 +388,7 @@ export function findAllPRs(workouts: Workout[]): ExercisePR[] {
       });
     }
     
-    // Only add maxReps PR if reps > 0
-    if (pr.reps > 0) {
-      prs.push({
-        exerciseId,
-        exerciseName: pr.name,
-        modality: "strength",
-        prType: "maxReps",
-        value: pr.reps,
-        date: pr.date,
-        workoutId: pr.workoutId,
-      });
-    }
+    // REMOVED: maxReps for strength - we track but don't display
     
     // Only add maxVolume PR if volume > 0
     if (pr.volume > 0) {
@@ -381,7 +404,9 @@ export function findAllPRs(workouts: Workout[]): ExercisePR[] {
     }
   });
 
+  // Add cardio PRs
   cardioPRs.forEach((pr, exerciseId) => {
+    // Max distance PR
     if (pr.distance > 0) {
       prs.push({
         exerciseId,
@@ -393,18 +418,47 @@ export function findAllPRs(workouts: Workout[]): ExercisePR[] {
         workoutId: pr.workoutId,
       });
     }
+    
+    // Max duration PR
+    if (pr.duration > 0) {
+      prs.push({
+        exerciseId,
+        exerciseName: pr.name,
+        modality: "cardio",
+        prType: "maxDuration",
+        value: pr.duration,
+        date: pr.date,
+        workoutId: pr.workoutId,
+      });
+    }
+    
+    // Best pace PR (only if we have a valid pace)
+    if (pr.pace && isFinite(pr.pace) && pr.pace > 0 && pr.pace !== Infinity) {
+      prs.push({
+        exerciseId,
+        exerciseName: pr.name,
+        modality: "cardio",
+        prType: "bestPace",
+        value: pr.pace,
+        date: pr.date,
+        workoutId: pr.workoutId,
+      });
+    }
   });
 
+  // Add calisthenics PRs (keep maxReps for calisthenics)
   calisthenicsPRs.forEach((pr, exerciseId) => {
-    prs.push({
-      exerciseId,
-      exerciseName: pr.name,
-      modality: "calisthenics",
-      prType: "maxReps",
-      value: pr.reps,
-      date: pr.date,
-      workoutId: pr.workoutId,
-    });
+    if (pr.reps > 0) {
+      prs.push({
+        exerciseId,
+        exerciseName: pr.name,
+        modality: "calisthenics",
+        prType: "maxReps",
+        value: pr.reps,
+        date: pr.date,
+        workoutId: pr.workoutId,
+      });
+    }
   });
 
   return prs;

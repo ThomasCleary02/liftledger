@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { View, Text, ActivityIndicator, TextInput, Pressable, Alert, ScrollView, KeyboardAvoidingView, Platform } from "react-native";
 import { useRouter } from "expo-router";
-import { createWorkout, Exercise } from "../../lib/firestore/workouts";
+import { createWorkout, Exercise, StrengthSetEntry, CalisthenicsSetEntry } from "../../lib/firestore/workouts";
 import ExerciseSearch from "../../components/ExerciseSearch";
 import StrengthSetInput, { StrengthSet } from "../../components/StrengthSetInput";
 import CardioInput, { CardioData } from "../../components/CardioInput";
@@ -212,7 +212,7 @@ export default function NewWorkout() {
                       </Pressable>
                     </View>
                     <View className="flex-row flex-wrap gap-2">
-                      {ex.modality === "strength" && ex.strengthSets?.map((st, i) => (
+                      {ex.modality === "strength" && ex.strengthSets?.map((st: StrengthSetEntry, i: number) => (
                         <View key={i} className="bg-blue-50 rounded-xl px-3 py-2 border border-blue-100">
                           <Text className="text-blue-900 font-semibold">
                             {st.reps} × {formatWeight(st.weight, units)}
@@ -227,7 +227,7 @@ export default function NewWorkout() {
                           </Text>
                         </View>
                       )}
-                      {ex.modality === "calisthenics" && ex.calisthenicsSets?.map((st, i) => (
+                      {ex.modality === "calisthenics" && ex.calisthenicsSets?.map((st: CalisthenicsSetEntry, i: number) => (
                         <View key={i} className="bg-green-50 rounded-xl px-3 py-2 border border-green-100">
                           <Text className="text-green-900 font-semibold">
                             {st.reps} reps
