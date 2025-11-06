@@ -13,7 +13,7 @@ import { WorkoutCardSkeleton } from "../../components/LoadingSkeleton";
 
 export default function Workouts() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth(); // Add loading check
   const [items, setItems] = useState<Workout[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -23,6 +23,9 @@ export default function Workouts() {
   });
 
   useEffect(() => {
+    // Wait for auth to finish loading before checking user
+    if (authLoading) return;
+    
     if (!user) {
       router.replace("/login");
       return;
@@ -47,7 +50,7 @@ export default function Workouts() {
       { limit: 50, order: "desc" }
     );
     return () => unsub();
-  }, [user, router]);
+  }, [user, router, authLoading]); // Add authLoading to dependencies
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -77,7 +80,7 @@ export default function Workouts() {
     }
   }, [deleteConfirm.workout]);
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="flex h-screen flex-col overflow-hidden bg-gray-50">
         <header className="flex-shrink-0 border-b border-gray-200 bg-white px-4 py-4 md:px-8 md:py-6">
