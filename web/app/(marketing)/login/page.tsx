@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "../../providers/Auth";
+import { useAuth } from "../../../providers/Auth";
 import { Mail, Lock, Eye, EyeOff, Dumbbell } from "lucide-react";
 
 export default function Login() {
