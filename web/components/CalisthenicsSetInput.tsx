@@ -5,35 +5,22 @@ import { Plus, X } from "lucide-react";
 
 export interface CalisthenicsSet {
   reps: string;
-  duration?: string; // seconds, for holds like planks
+  duration?: string;
 }
 
 interface CalisthenicsSetInputProps {
   sets: CalisthenicsSet[];
   onSetsChange: (sets: CalisthenicsSet[]) => void;
-  showDuration?: boolean; // for exercises like planks
+  showDuration?: boolean;
 }
+
+const sanitizeValue = (value: string) => value.replace(/\D/g, "");
 
 export default function CalisthenicsSetInput({
   sets,
   onSetsChange,
   showDuration = false,
 }: CalisthenicsSetInputProps) {
-
-  const sanitizeValue = (field: keyof CalisthenicsSet, value: string) => {
-    if (value === "") return "";
-    
-    if (field === "reps") {
-      return value.replace(/\D/g, "");
-    }
-  
-    if (field === "duration") {
-      return value.replace(/\D/g, "");
-    }
-  
-    return value;
-  };
-
   const addSet = () => {
     const lastSet = sets[sets.length - 1];
     onSetsChange([...sets, lastSet ? { ...lastSet } : { reps: "10" }]);
@@ -44,8 +31,8 @@ export default function CalisthenicsSetInput({
   };
 
   const updateSet = (idx: number, field: keyof CalisthenicsSet, value: string) => {
-    const sanitizedValue = sanitizeValue(field, value);
-    onSetsChange(sets.map((s, i) => (i === idx ? { ...s, [field]: sanitizedValue } : s)));
+    const sanitized = field === "reps" || field === "duration" ? sanitizeValue(value) : value;
+    onSetsChange(sets.map((s, i) => (i === idx ? { ...s, [field]: sanitized } : s)));
   };
 
   return (
@@ -58,8 +45,7 @@ export default function CalisthenicsSetInput({
             <input
               type="text"
               inputMode="numeric"
-              pattern="[0-9]*"
-              className="mr-2 flex-1 rounded-lg bg-gray-100 px-3 py-2 outline-none"
+              className="mr-2 flex-1 rounded-lg bg-gray-100 px-3 py-2 text-gray-900 placeholder:text-gray-400 outline-none focus:bg-white focus:ring-2 focus:ring-black"
               value={set.reps}
               onChange={(e) => updateSet(idx, "reps", e.target.value)}
               placeholder="Reps"
@@ -68,7 +54,8 @@ export default function CalisthenicsSetInput({
             {sets.length > 1 && (
               <button
                 onClick={() => removeSet(idx)}
-                className="ml-2 text-red-600 hover:text-red-700"
+                className="ml-2 text-red-600 transition-colors hover:text-red-700"
+                aria-label={`Remove set ${idx + 1}`}
               >
                 <X className="h-5 w-5" />
               </button>
@@ -79,8 +66,7 @@ export default function CalisthenicsSetInput({
               <input
                 type="text"
                 inputMode="numeric"
-                pattern="[0-9]*"
-                className="mr-2 flex-1 rounded-lg bg-gray-100 px-3 py-2 outline-none"
+                className="mr-2 flex-1 rounded-lg bg-gray-100 px-3 py-2 text-gray-900 placeholder:text-gray-400 outline-none focus:bg-white focus:ring-2 focus:ring-black"
                 value={set.duration || ""}
                 onChange={(e) => updateSet(idx, "duration", e.target.value)}
                 placeholder="Hold time (seconds)"

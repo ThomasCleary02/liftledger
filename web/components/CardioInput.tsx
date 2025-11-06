@@ -1,6 +1,3 @@
-
-
-
 "use client";
 
 import React from "react";
@@ -55,12 +52,14 @@ export default function CardioInput({ data, onDataChange }: CardioInputProps) {
       </div>
 
       <div>
-        <label className="mb-2 block text-sm font-medium text-gray-700">Distance (optional)</label>
+        <label className="mb-2 block text-sm font-medium text-gray-700">
+          Distance (optional)
+        </label>
         <div className="flex items-center">
           <input
             type="text"
             inputMode="decimal"
-            pattern="[0-9]*"
+            pattern="[0-9.]*"
             className="flex-1 rounded-lg bg-gray-100 px-3 py-3 text-gray-900 placeholder:text-gray-400 outline-none transition-all focus:bg-white focus:ring-2 focus:ring-black"
             value={data.distance}
             onChange={(e) =>

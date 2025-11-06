@@ -2,12 +2,26 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createWorkout, Exercise, StrengthSetEntry, CalisthenicsSetEntry } from "../../../../lib/firestore/workouts";
+import {
+  createWorkout,
+  Exercise,
+  StrengthSetEntry,
+  CalisthenicsSetEntry,
+} from "../../../../lib/firestore/workouts";
 import ExerciseSearch from "../../../../components/ExerciseSearch";
 import StrengthSetInput, { StrengthSet } from "../../../../components/StrengthSetInput";
 import CardioInput, { CardioData } from "../../../../components/CardioInput";
 import CalisthenicsSetInput, { CalisthenicsSet } from "../../../../components/CalisthenicsSetInput";
-import { Calendar, Plus, Trash2, Dumbbell, Heart, Activity, ArrowLeft } from "lucide-react";
+import {
+  Calendar,
+  Plus,
+  Trash2,
+  Dumbbell,
+  Heart,
+  Activity,
+  ArrowLeft,
+  Pencil,
+} from "lucide-react";
 import { usePreferences } from "../../../../lib/hooks/usePreferences";
 import { formatWeight, formatDistance } from "../../../../lib/utils/units";
 import { toast } from "../../../../lib/toast";
@@ -21,18 +35,18 @@ type SelectedExercise = {
 
 export default function NewWorkout() {
   const router = useRouter();
-  // Fix: Format date as local YYYY-MM-DD instead of UTC
   const getLocalDateString = () => {
     const now = new Date();
     const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
   };
   const [dateStr, setDateStr] = useState<string>(getLocalDateString());
   const [loading, setLoading] = useState(false);
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [selectedExercise, setSelectedExercise] = useState<SelectedExercise | null>(null);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
   const [strengthSets, setStrengthSets] = useState<StrengthSet[]>([{ reps: "10", weight: "135" }]);
   const [cardioData, setCardioData] = useState<CardioData>({ duration: "30", distance: "5" });
@@ -40,7 +54,11 @@ export default function NewWorkout() {
 
   const { preferences } = usePreferences();
 
-  const handleExerciseSelect = (id: string, name: string, modality: "strength" | "cardio" | "calisthenics") => {
+  const handleExerciseSelect = (
+    id: string,
+    name: string,
+    modality: "strength" | "cardio" | "calisthenics"
+  ) => {
     setSelectedExercise({ id, name, modality });
 
     if (modality === "cardio") {
@@ -49,6 +67,37 @@ export default function NewWorkout() {
       setCalisthenicsSets([{ reps: "10" }]);
     } else {
       setStrengthSets([{ reps: "10", weight: "135" }]);
+    }
+  };
+
+  const startEditingExercise = (idx: number) => {
+    const ex = exercises[idx];
+    setEditingIndex(idx);
+    setSelectedExercise({
+      id: ex.exerciseId ?? "",
+      name: ex.name,
+      modality: ex.modality,
+    });
+
+    if (ex.modality === "strength") {
+      setStrengthSets(
+        ex.strengthSets?.map((s) => ({
+          reps: String(s.reps),
+          weight: String(s.weight),
+        })) ?? [{ reps: "10", weight: "135" }]
+      );
+    } else if (ex.modality === "cardio") {
+      setCardioData({
+        duration: ex.cardioData ? String(Math.round(ex.cardioData.duration / 60)) : "",
+        distance: ex.cardioData?.distance != null ? String(ex.cardioData.distance) : "",
+      });
+    } else {
+      setCalisthenicsSets(
+        ex.calisthenicsSets?.map((s) => ({
+          reps: String(s.reps),
+          duration: s.duration != null ? String(s.duration) : "",
+        })) ?? [{ reps: "10" }]
+      );
     }
   };
 
@@ -83,7 +132,6 @@ export default function NewWorkout() {
           const reps = Number(s.reps);
           const duration = s.duration ? Number(s.duration) : undefined;
           if (!isFinite(reps) || reps <= 0) return null;
-          // Only include duration if it's a valid number
           const setObj: { reps: number; duration?: number } = { reps };
           if (duration && isFinite(duration) && duration > 0) {
             setObj.duration = duration;
@@ -126,19 +174,29 @@ export default function NewWorkout() {
       };
     }
 
-    setExercises((prev) => [...prev, exercise]);
+    setExercises((prev) => {
+      if (editingIndex !== null) {
+        return prev.map((item, i) => (i === editingIndex ? exercise : item));
+      }
+      return [...prev, exercise];
+    });
     setSelectedExercise(null);
+    setEditingIndex(null);
   };
 
-  const removeExercise = (idx: number) => setExercises((prev) => prev.filter((_, i) => i !== idx));
+  const removeExercise = (idx: number) => {
+    setExercises((prev) => prev.filter((_, i) => i !== idx));
+    setEditingIndex((prev) => (prev !== null && prev === idx ? null : prev !== null && prev > idx ? prev - 1 : prev));
+    if (editingIndex === idx) {
+      setSelectedExercise(null);
+    }
+  };
 
   const save = async () => {
-    // Fix: Parse date string as local date (not UTC)
-    // When you select "2025-11-05", we want it to be Nov 5 in local time, not UTC
-    const [year, month, day] = dateStr.split('-').map(Number);
-    const date = new Date(year, month - 1, day); // month is 0-indexed
-    date.setHours(0, 0, 0, 0); // Set to midnight local time
-    
+    const [year, month, day] = dateStr.split("-").map(Number);
+    const date = new Date(year, month - 1, day);
+    date.setHours(0, 0, 0, 0);
+
     if (isNaN(date.getTime())) {
       toast.error("Invalid date. Use YYYY-MM-DD format.");
       return;
@@ -199,7 +257,6 @@ export default function NewWorkout() {
           </div>
         </div>
 
-        {/* Date Input */}
         <div className="mb-4 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
           <div className="flex items-center">
             <div className="mr-3 rounded-full bg-gray-100 p-2">
@@ -217,7 +274,6 @@ export default function NewWorkout() {
           </div>
         </div>
 
-        {/* Exercises List */}
         {exercises.length > 0 && (
           <div className="mb-4">
             <div className="mb-4 flex items-center justify-between">
@@ -236,16 +292,28 @@ export default function NewWorkout() {
                   <div className="mb-3 flex items-start justify-between">
                     <div className="flex-1">
                       <h3 className="mb-1 text-lg font-bold text-gray-900">{ex.name}</h3>
-                      <div className={`inline-block self-start rounded-full px-2.5 py-1 ${getModalityColor(ex.modality)}`}>
+                      <div
+                        className={`inline-block self-start rounded-full px-2.5 py-1 ${getModalityColor(
+                          ex.modality
+                        )}`}
+                      >
                         <span className="text-xs font-semibold capitalize">{ex.modality}</span>
                       </div>
                     </div>
-                    <button
-                      onClick={() => removeExercise(idx)}
-                      className="rounded-full bg-red-50 p-2 text-red-600 transition-colors hover:bg-red-100"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => startEditingExercise(idx)}
+                        className="rounded-full bg-gray-100 p-2 text-gray-600 transition-colors hover:bg-gray-200"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => removeExercise(idx)}
+                        className="rounded-full bg-red-50 p-2 text-red-600 transition-colors hover:bg-red-100"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {ex.modality === "strength" &&
@@ -282,9 +350,14 @@ export default function NewWorkout() {
           </div>
         )}
 
-        {/* Add Exercise */}
         <div className="mb-4 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
           <h2 className="mb-4 text-xl font-bold text-gray-900">Add Exercise</h2>
+
+          {editingIndex !== null && (
+            <div className="mb-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+              Editing exercise #{editingIndex + 1}. Saving will replace the existing entry.
+            </div>
+          )}
 
           {!selectedExercise ? (
             <ExerciseSearch onSelect={handleExerciseSelect} />
@@ -303,12 +376,17 @@ export default function NewWorkout() {
                           : "bg-green-100"
                       }`}
                     >
-                      <span className="text-xs font-semibold capitalize">{selectedExercise.modality}</span>
+                      <span className="text-xs font-semibold capitalize">
+                        {selectedExercise.modality}
+                      </span>
                     </div>
                   </div>
                 </div>
                 <button
-                  onClick={() => setSelectedExercise(null)}
+                  onClick={() => {
+                    setSelectedExercise(null);
+                    setEditingIndex(null);
+                  }}
                   className="rounded-full bg-gray-100 px-4 py-2 font-semibold text-gray-700 transition-colors hover:bg-gray-200"
                 >
                   Change
@@ -336,13 +414,12 @@ export default function NewWorkout() {
                 className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-black px-4 py-4 font-bold text-white shadow-lg transition-opacity hover:opacity-90"
               >
                 <Plus className="h-5 w-5" />
-                Add to Workout
+                {editingIndex !== null ? "Update Exercise" : "Add to Workout"}
               </button>
             </div>
           )}
         </div>
 
-        {/* Save Button */}
         <button
           onClick={save}
           disabled={loading || exercises.length === 0}

@@ -3,11 +3,20 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "../../../../providers/Auth";
-import { getWorkout, updateWorkout, deleteWorkout, Workout, Exercise, StrengthSetEntry, CalisthenicsSetEntry } from "../../../../lib/firestore/workouts";
+import {
+  getWorkout,
+  updateWorkout,
+  deleteWorkout,
+  Workout,
+  Exercise,
+  StrengthSetEntry,
+  CalisthenicsSetEntry,
+} from "../../../../lib/firestore/workouts";
 import ExerciseSearch from "../../../../components/ExerciseSearch";
-import StrengthSetInput from "../../../../components/StrengthSetInput";
-import CalisthenicsSetInput from "../../../../components/CalisthenicsSetInput";
-import { Trash2, Dumbbell, Heart, Activity, ArrowLeft } from "lucide-react";
+import StrengthSetInput, { StrengthSet } from "../../../../components/StrengthSetInput";
+import CalisthenicsSetInput, { CalisthenicsSet } from "../../../../components/CalisthenicsSetInput";
+import CardioInput, { CardioData } from "../../../../components/CardioInput";
+import { Trash2, Dumbbell, Heart, Activity, ArrowLeft, Pencil, Plus } from "lucide-react";
 import { usePreferences } from "../../../../lib/hooks/usePreferences";
 import { formatWeight, formatDistance } from "../../../../lib/utils/units";
 import { toast } from "../../../../lib/toast";
@@ -15,14 +24,10 @@ import { logger } from "../../../../lib/logger";
 import { Timestamp } from "firebase/firestore";
 import { ConfirmDialog } from "../../../../components/ConfirmDialog";
 
-type DraftSet = {
-  mode: "reps" | "time";
-  reps?: string;
-  weight?: string;
-  seconds?: string;
-  distance?: string;
-  note?: string;
-  kind?: "normal" | "warmup" | "amrap" | "drop" | "rest-pause";
+type SelectedExercise = {
+  id: string;
+  name: string;
+  modality: "strength" | "cardio" | "calisthenics";
 };
 
 export default function WorkoutDetail() {
@@ -34,10 +39,12 @@ export default function WorkoutDetail() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const [selectedExercise, setSelectedExercise] = useState<{ id: string; name: string; modality: "strength" | "cardio" | "calisthenics" } | null>(null);
-  const [draftSets, setDraftSets] = useState<DraftSet[]>([
-    { mode: "reps", reps: "10", weight: "0", kind: "normal" }
-  ]);
+  const [selectedExercise, setSelectedExercise] = useState<SelectedExercise | null>(null);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+
+  const [strengthSets, setStrengthSets] = useState<StrengthSet[]>([{ reps: "10", weight: "135" }]);
+  const [cardioData, setCardioData] = useState<CardioData>({ duration: "30", distance: "5" });
+  const [calisthenicsSets, setCalisthenicsSets] = useState<CalisthenicsSet[]>([{ reps: "10" }]);
 
   const { preferences } = usePreferences();
 
@@ -45,12 +52,12 @@ export default function WorkoutDetail() {
 
   useEffect(() => {
     if (authLoading) return;
-    
+
     if (!user) {
       router.replace("/login");
       return;
     }
-    
+
     let mounted = true;
     (async () => {
       try {
@@ -65,34 +72,58 @@ export default function WorkoutDetail() {
         if (mounted) setLoading(false);
       }
     })();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, [id, user, router, authLoading]);
 
-  const handleExerciseSelect = (exerciseId: string, name: string, modality: "strength" | "cardio" | "calisthenics") => {
+  const handleExerciseSelect = (
+    exerciseId: string,
+    name: string,
+    modality: "strength" | "cardio" | "calisthenics"
+  ) => {
     setSelectedExercise({ id: exerciseId, name, modality });
-    
+
     if (modality === "cardio") {
-      setDraftSets([{ mode: "time", seconds: "30", distance: "5", kind: "normal" }]);
+      setCardioData({ duration: "30", distance: "5" });
     } else if (modality === "calisthenics") {
-      setDraftSets([{ mode: "reps", reps: "10", weight: "0", kind: "normal" }]);
+      setCalisthenicsSets([{ reps: "10" }]);
     } else {
-      setDraftSets([{ mode: "reps", reps: "10", weight: "135", kind: "normal" }]);
+      setStrengthSets([{ reps: "10", weight: "135" }]);
     }
   };
 
-  const addDraftSet = (mode: "reps" | "time") => {
-    setDraftSets(p => [...p, mode === "reps"
-      ? { mode, reps: "10", weight: "0", kind: "normal" }
-      : { mode, seconds: "300", distance: "0", kind: "normal" }
-    ]);
-  };
+  const startEditingExercise = (idx: number) => {
+    const ex = workout?.exercises[idx];
+    if (!ex) return;
 
-  const removeDraftSet = (idx: number) => setDraftSets(p => p.filter((_, i) => i !== idx));
+    setEditingIndex(idx);
+    setSelectedExercise({
+      id: ex.exerciseId ?? "",
+      name: ex.name,
+      modality: ex.modality,
+    });
 
-  const copyLastSet = () => {
-    if (draftSets.length === 0) return;
-    const last = draftSets[draftSets.length - 1];
-    setDraftSets(p => [...p, { ...last }]);
+    if (ex.modality === "strength") {
+      setStrengthSets(
+        ex.strengthSets?.map((s) => ({
+          reps: String(s.reps),
+          weight: String(s.weight),
+        })) ?? [{ reps: "10", weight: "135" }]
+      );
+    } else if (ex.modality === "cardio") {
+      setCardioData({
+        duration: ex.cardioData ? String(Math.round(ex.cardioData.duration / 60)) : "",
+        distance: ex.cardioData?.distance != null ? String(ex.cardioData.distance) : "",
+      });
+    } else {
+      setCalisthenicsSets(
+        ex.calisthenicsSets?.map((s) => ({
+          reps: String(s.reps),
+          duration: s.duration != null ? String(s.duration) : "",
+        })) ?? [{ reps: "10" }]
+      );
+    }
   };
 
   const addExercise = async () => {
@@ -101,23 +132,12 @@ export default function WorkoutDetail() {
     let exercise: Exercise;
 
     if (selectedExercise.modality === "cardio") {
-      const cardioSet = draftSets[0];
-      if (!cardioSet || cardioSet.mode !== "time") {
-        toast.error("Cardio exercises require time/distance mode.");
-        return;
-      }
-
-      const durationMinutes = Number(cardioSet.seconds);
+      const durationMinutes = Number(cardioData.duration);
       const duration = durationMinutes * 60;
-      const distance = cardioSet.distance ? Number(cardioSet.distance) : undefined;
+      const distance = cardioData.distance ? Number(cardioData.distance) : undefined;
 
       if (!isFinite(durationMinutes) || durationMinutes <= 0) {
         toast.error("Duration must be a positive number of minutes.");
-        return;
-      }
-
-      if (distance !== undefined && (!isFinite(distance) || distance <= 0)) {
-        toast.error("Distance must be a positive number.");
         return;
       }
 
@@ -129,17 +149,18 @@ export default function WorkoutDetail() {
           duration,
           distance: distance && isFinite(distance) && distance > 0 ? distance : undefined,
           pace: distance && distance > 0 && duration > 0 ? duration / distance : undefined,
-        }
+        },
       };
     } else if (selectedExercise.modality === "calisthenics") {
-      const sets = draftSets
-        .filter(s => s.mode === "reps")
-        .map(s => {
+      const sets = calisthenicsSets
+        .map((s) => {
           const reps = Number(s.reps);
-          const duration = s.seconds ? Number(s.seconds) : undefined;
+          const duration = s.duration ? Number(s.duration) : undefined;
           if (!isFinite(reps) || reps <= 0) return null;
-          // Only include duration if it's a valid number
-          const setObj: { reps: number; duration?: number } = { reps };
+          const setObj: {
+            reps: number;
+            duration?: number;
+          } = { reps };
           if (duration && isFinite(duration) && duration > 0) {
             setObj.duration = duration;
           }
@@ -159,21 +180,17 @@ export default function WorkoutDetail() {
         calisthenicsSets: sets,
       };
     } else {
-      const sets = draftSets
-        .filter(s => s.mode === "reps")
-        .map(s => {
+      const sets = strengthSets
+        .map((s) => {
           const reps = Number(s.reps);
           const weight = Number(s.weight);
           if (!isFinite(reps) || reps <= 0 || !isFinite(weight) || weight < 0) return null;
-          return {
-            reps,
-            weight,
-          };
+          return { reps, weight };
         })
         .filter((s): s is { reps: number; weight: number } => s !== null);
 
       if (sets.length === 0) {
-        toast.error("Add at least one valid set with reps and weight.");
+        toast.error("Add at least one valid set.");
         return;
       }
 
@@ -187,15 +204,22 @@ export default function WorkoutDetail() {
 
     setSaving(true);
     try {
-      const next = [...(workout.exercises || []), exercise];
-      await updateWorkout(workout.id, { exercises: next });
-      setWorkout({ ...workout, exercises: next });
+      const nextExercises =
+        editingIndex !== null
+          ? workout.exercises.map((item, i) => (i === editingIndex ? exercise : item))
+          : [...(workout.exercises || []), exercise];
+
+      await updateWorkout(workout.id, { exercises: nextExercises });
+      setWorkout({ ...workout, exercises: nextExercises });
       setSelectedExercise(null);
-      setDraftSets([{ mode: "reps", reps: "10", weight: "0", kind: "normal" }]);
-      toast.success("Exercise added successfully");
+      setEditingIndex(null);
+      setStrengthSets([{ reps: "10", weight: "135" }]);
+      setCardioData({ duration: "30", distance: "5" });
+      setCalisthenicsSets([{ reps: "10" }]);
+      toast.success(editingIndex !== null ? "Exercise updated" : "Exercise added successfully");
     } catch (error) {
-      logger.error("Failed to add exercise", error);
-      const message = error instanceof Error ? error.message : "Failed to add exercise";
+      logger.error("Failed to save exercise", error);
+      const message = error instanceof Error ? error.message : "Failed to save exercise";
       toast.error(message);
     } finally {
       setSaving(false);
@@ -210,6 +234,12 @@ export default function WorkoutDetail() {
       await updateWorkout(workout.id, { exercises: next });
       setWorkout({ ...workout, exercises: next });
       toast.success("Exercise removed");
+      if (editingIndex === idx) {
+        setSelectedExercise(null);
+        setEditingIndex(null);
+      } else if (editingIndex !== null && editingIndex > idx) {
+        setEditingIndex(editingIndex - 1);
+      }
     } catch (error) {
       logger.error("Failed to remove exercise", error);
       const message = error instanceof Error ? error.message : "Failed to remove exercise";
@@ -236,21 +266,18 @@ export default function WorkoutDetail() {
     }
   };
 
-  // Helper function to safely convert workout date to Date
   const getWorkoutDate = (date: Date | Timestamp | string | any): Date => {
-    if (date && typeof date.toDate === 'function') {
-      // It's a Firestore Timestamp
+    if (date && typeof date.toDate === "function") {
       return date.toDate();
     }
     if (date instanceof Date) {
       return date;
     }
-    // Fallback to parsing as string or creating new Date
     return new Date(date);
   };
 
   const date = workout ? getWorkoutDate(workout.date) : null;
-  
+
   const formatDuration = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -308,7 +335,9 @@ export default function WorkoutDetail() {
               <ArrowLeft className="h-5 w-5" />
             </button>
             <div className="min-w-0 flex-1">
-              <h1 className="mb-0.5 text-lg font-bold text-gray-900 md:text-xl">{date ? date.toDateString() : "Unknown Date"}</h1>
+              <h1 className="mb-0.5 text-lg font-bold text-gray-900 md:text-xl">
+                {date ? date.toDateString() : "Unknown Date"}
+              </h1>
               <div className="flex flex-wrap gap-2 text-xs text-gray-600 md:gap-3 md:text-sm">
                 {workout.totalVolume && workout.totalVolume > 0 && (
                   <span>Volume: {formatWeight(workout.totalVolume, preferences.units)}</span>
@@ -346,43 +375,64 @@ export default function WorkoutDetail() {
                     <div className="mb-2 flex items-start justify-between">
                       <div className="flex-1">
                         <h3 className="font-semibold text-gray-900">{ex.name}</h3>
-                        <span className={`mt-1 inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${getModalityColor(ex.modality)}`}>
+                        <span
+                          className={`mt-1 inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${getModalityColor(
+                            ex.modality
+                          )}`}
+                        >
                           {ex.modality}
                         </span>
                       </div>
-                      <button
-                        onClick={() => removeExercise(idx)}
-                        className="text-sm text-red-600 transition-colors hover:text-red-700"
-                        aria-label={`Remove ${ex.name}`}
-                      >
-                        Remove
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => startEditingExercise(idx)}
+                          className="rounded-full bg-gray-100 p-2 text-gray-600 transition-colors hover:bg-gray-200"
+                          aria-label={`Edit ${ex.name}`}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => removeExercise(idx)}
+                          className="rounded-full bg-red-50 p-2 text-red-600 transition-colors hover:bg-red-100"
+                          aria-label={`Remove ${ex.name}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      {ex.modality === "strength" && ex.strengthSets?.map((st: StrengthSetEntry, i: number) => (
-                        <div key={i} className="rounded bg-gray-100 px-3 py-1">
-                          <span className="text-sm text-gray-700">
-                            {st.reps}×{formatWeight(st.weight, preferences.units)}
-                          </span>
-                        </div>
-                      ))}
+                      {ex.modality === "strength" &&
+                        ex.strengthSets?.map((st: StrengthSetEntry, i: number) => (
+                          <div key={i} className="rounded bg-gray-100 px-3 py-1">
+                            <span className="text-sm text-gray-700">
+                              {st.reps}×{formatWeight(st.weight, preferences.units)}
+                            </span>
+                          </div>
+                        ))}
                       {ex.modality === "cardio" && ex.cardioData && (
                         <div className="rounded bg-gray-100 px-3 py-1">
                           <span className="text-sm text-gray-700">
                             {formatDuration(ex.cardioData.duration)}
-                            {ex.cardioData.distance ? ` • ${formatDistance(ex.cardioData.distance, preferences.units)}` : null}
-                            {ex.cardioData.pace ? ` • ${ex.cardioData.pace.toFixed(1)}s/${preferences.units === "metric" ? "km" : "mi"} pace` : null}
+                            {ex.cardioData.distance
+                              ? ` • ${formatDistance(ex.cardioData.distance, preferences.units)}`
+                              : null}
+                            {ex.cardioData.pace
+                              ? ` • ${ex.cardioData.pace.toFixed(1)}s/${
+                                  preferences.units === "metric" ? "km" : "mi"
+                                } pace`
+                              : null}
                           </span>
                         </div>
                       )}
-                      {ex.modality === "calisthenics" && ex.calisthenicsSets?.map((st: CalisthenicsSetEntry, i: number) => (
-                        <div key={i} className="rounded bg-gray-100 px-3 py-1">
-                          <span className="text-sm text-gray-700">
-                            {st.reps} reps
-                            {st.duration ? ` • ${formatDuration(st.duration)}` : null}
-                          </span>
-                        </div>
-                      ))}
+                      {ex.modality === "calisthenics" &&
+                        ex.calisthenicsSets?.map((st: CalisthenicsSetEntry, i: number) => (
+                          <div key={i} className="rounded bg-gray-100 px-3 py-1">
+                            <span className="text-sm text-gray-700">
+                              {st.reps} reps
+                              {st.duration ? ` • ${formatDuration(st.duration)}` : null}
+                            </span>
+                          </div>
+                        ))}
                     </div>
                   </div>
                 );
@@ -393,23 +443,36 @@ export default function WorkoutDetail() {
           )}
         </div>
 
-        {/* Add Exercise */}
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        {/* Add / Edit Exercise */}
+        <div className="rounded-lg border border-gray-200 bgwhite px-4 py-5">
           <h2 className="mb-3 text-lg font-semibold text-gray-900">Add Exercise</h2>
-          
+
+          {editingIndex !== null && (
+            <div className="mb-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+              Editing exercise #{editingIndex + 1}. Saving will replace the existing entry.
+            </div>
+          )}
+
           {!selectedExercise ? (
             <ExerciseSearch onSelect={handleExerciseSelect} />
           ) : (
-            <div className="rounded-lg border border-gray-200 bg-white p-4">
+            <div>
               <div className="mb-4 flex items-center justify-between border-b border-gray-200 pb-4">
                 <div>
                   <h3 className="font-semibold text-gray-900">{selectedExercise.name}</h3>
-                  <span className={`mt-1 inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${getModalityColor(selectedExercise.modality)}`}>
+                  <span
+                    className={`mt-1 inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${getModalityColor(
+                      selectedExercise.modality
+                    )}`}
+                  >
                     {selectedExercise.modality}
                   </span>
                 </div>
                 <button
-                  onClick={() => setSelectedExercise(null)}
+                  onClick={() => {
+                    setSelectedExercise(null);
+                    setEditingIndex(null);
+                  }}
                   className="text-sm text-gray-600 transition-colors hover:text-gray-700"
                   aria-label="Change exercise"
                 >
@@ -417,40 +480,18 @@ export default function WorkoutDetail() {
                 </button>
               </div>
 
-              {selectedExercise.modality === "cardio" ? (
-                <div>
-                  <div className="mb-4">
-                    <label className="mb-2 block text-sm font-medium text-gray-700">Duration (minutes)</label>
-                    <input
-                      type="number"
-                      className="w-full rounded-lg bg-gray-100 px-3 py-2 outline-none"
-                      value={draftSets[0]?.seconds || ""}
-                      onChange={(e) => setDraftSets([{ ...draftSets[0], seconds: e.target.value, mode: "time", kind: "normal" }])}
-                      placeholder="30"
-                      aria-label="Duration in minutes"
-                    />
-                  </div>
-                  <div className="mb-4">
-                    <label className="mb-2 block text-sm font-medium text-gray-700">Distance (optional)</label>
-                    <input
-                      type="number"
-                      className="w-full rounded-lg bg-gray-100 px-3 py-2 outline-none"
-                      value={draftSets[0]?.distance || ""}
-                      onChange={(e) => setDraftSets([{ ...draftSets[0], distance: e.target.value, mode: "time", kind: "normal" }])}
-                      placeholder="5"
-                      aria-label="Distance"
-                    />
-                  </div>
-                </div>
-              ) : selectedExercise.modality === "strength" ? (
-                <StrengthSetInput
-                  sets={draftSets.map(s => ({ reps: s.reps || "10", weight: s.weight || "0" }))}
-                  onSetsChange={(sets) => setDraftSets(sets.map(s => ({ mode: "reps" as const, reps: s.reps, weight: s.weight, kind: "normal" as const })))}
-                />
-              ) : (
+              {selectedExercise.modality === "strength" && (
+                <StrengthSetInput sets={strengthSets} onSetsChange={setStrengthSets} />
+              )}
+
+              {selectedExercise.modality === "cardio" && (
+                <CardioInput data={cardioData} onDataChange={setCardioData} />
+              )}
+
+              {selectedExercise.modality === "calisthenics" && (
                 <CalisthenicsSetInput
-                  sets={draftSets.map(s => ({ reps: s.reps || "10", duration: s.seconds }))}
-                  onSetsChange={(sets) => setDraftSets(sets.map(s => ({ mode: "reps" as const, reps: s.reps, seconds: s.duration, kind: "normal" as const })))}
+                  sets={calisthenicsSets}
+                  onSetsChange={setCalisthenicsSets}
                   showDuration={false}
                 />
               )}
@@ -458,17 +499,19 @@ export default function WorkoutDetail() {
               <button
                 onClick={addExercise}
                 disabled={saving}
-                className={`mt-4 w-full rounded-lg px-4 py-3 font-semibold transition-opacity ${
+                className={`mt-4 flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 font-semibold transition-opacity ${
                   saving ? "cursor-not-allowed bg-gray-300 text-gray-600" : "bg-black text-white hover:opacity-90"
                 }`}
-                aria-label="Add exercise to workout"
+                aria-label={editingIndex !== null ? "Update exercise" : "Add exercise to workout"}
               >
-                {saving ? "Adding..." : "Add Exercise"}
+                <Plus className="h-5 w-5" />
+                {saving ? "Saving..." : editingIndex !== null ? "Update Exercise" : "Add Exercise"}
               </button>
             </div>
           )}
         </div>
       </main>
+
       <ConfirmDialog
         open={deleteConfirmOpen}
         title="Delete Workout"
