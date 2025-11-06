@@ -1,0 +1,29 @@
+{
+  "name": "liftledger-web",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@liftledger/shared": "*",
+    "firebase": "^12.5.0",
+    "next": "^15.1.0",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "lucide-react": "^0.468.0",
+    "tailwindcss": "^3.4.18",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "typescript": "^5.9.3"
+  }
+}

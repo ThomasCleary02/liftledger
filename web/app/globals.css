@@ -1,0 +1,47 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2;
+  }
+  
+  button:focus-visible,
+  a:focus-visible {
+    @apply ring-offset-white;
+  }
+  
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible {
+    @apply ring-offset-1;
+  }
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@layer components {
+  .touch-target {
+    @apply min-h-[44px] min-w-[44px];
+  }
+}
+
+/* Safe area padding for mobile devices */
+@supports (padding: max(0px)) {
+  body {
+    padding-bottom: max(0px, env(safe-area-inset-bottom));
+  }
+}
