@@ -2,14 +2,14 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "../../providers/Auth";
-import { listWorkouts, subscribeToWorkouts, deleteWorkout, Workout } from "../../lib/firestore/workouts";
-import WorkoutCard from "../../components/WorkoutCard";
+import { useAuth } from "../../../providers/Auth";
+import { listWorkouts, subscribeToWorkouts, deleteWorkout, Workout } from "../../../lib/firestore/workouts";
+import WorkoutCard from "../../../components/WorkoutCard";
 import { Dumbbell, Plus } from "lucide-react";
-import { toast } from "../../lib/toast";
-import { logger } from "../../lib/logger";
-import { ConfirmDialog } from "../../components/ConfirmDialog";
-import { WorkoutCardSkeleton } from "../../components/LoadingSkeleton";
+import { toast } from "../../../lib/toast";
+import { logger } from "../../../lib/logger";
+import { ConfirmDialog } from "../../../components/ConfirmDialog";
+import { WorkoutCardSkeleton } from "../../../components/LoadingSkeleton";
 
 export default function Workouts() {
   const router = useRouter();

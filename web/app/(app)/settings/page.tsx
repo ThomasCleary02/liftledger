@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { useAuth } from "../../providers/Auth";
-import { deleteUserAccount } from "../../lib/firestore/account";
-import { getPreferences, UnitSystem, DefaultChartView } from "../../lib/preferences";
-import { usePreferences } from "../../lib/hooks/usePreferences";
+import { useAuth } from "../../../providers/Auth";
+import { deleteUserAccount } from "../../../lib/firestore/account";
+import { UnitSystem, DefaultChartView } from "../../../lib/preferences";
+import { usePreferences } from "../../../lib/hooks/usePreferences";
 import {
   Scale,
   BarChart3,
@@ -13,10 +13,14 @@ import {
   Trash2,
   ChevronRight,
   X,
+  Star,
 } from "lucide-react";
-import { toast } from "../../lib/toast";
-import { logger } from "../../lib/logger";
-import { ConfirmDialog } from "../../components/ConfirmDialog";
+import { toast } from "../../../lib/toast";
+import { logger } from "../../../lib/logger";
+import { ConfirmDialog } from "../../../components/ConfirmDialog";
+import { getFavoriteExercises, toggleFavoriteExercise } from "../../../lib/firestore/account";
+import { getExercise, type ExerciseDoc } from "../../../lib/firestore/exercises";
+import { FavoritesModal } from "../../../components/FavoritesModal";
 
 export default function Settings() {
   const router = useRouter();
@@ -30,12 +34,20 @@ export default function Settings() {
   const [signOutConfirmOpen, setSignOutConfirmOpen] = useState(false);
   const [deleteAccountConfirmOpen, setDeleteAccountConfirmOpen] = useState(false);
 
+  // Add state in the component
+  const [favoritesOpen, setFavoritesOpen] = useState(false);
+  const [favoriteExercises, setFavoriteExercises] = useState<ExerciseDoc[]>([]);
+  const [loadingFavorites, setLoadingFavorites] = useState(false);
+
   useEffect(() => {
     // Wait for auth to finish loading
     if (authLoading) return;
     
     if (!user) {
       router.replace("/login");
+    } else {
+      // Load favorites when user is authenticated
+      loadFavorites();
     }
   }, [user, router, authLoading]);
 
@@ -66,6 +78,37 @@ export default function Settings() {
       });
   };
 
+  // Add function to load favorites
+  const loadFavorites = useCallback(async () => {
+    if (!user) return;
+    setLoadingFavorites(true);
+    try {
+      const favIds = await getFavoriteExercises();
+      const exercises = await Promise.all(
+        favIds.map(id => getExercise(id))
+      );
+      const validExercises = exercises.filter(Boolean) as ExerciseDoc[];
+      setFavoriteExercises(validExercises);
+    } catch (error) {
+      console.error("Failed to load favorites", error);
+      toast.error("Failed to load favorites");
+    } finally {
+      setLoadingFavorites(false);
+    }
+  }, [user]);
+
+  // Add function to remove favorite
+  const handleRemoveFavorite = async (exerciseId: string) => {
+    try {
+      await toggleFavoriteExercise(exerciseId);
+      await loadFavorites();
+      toast.success("Removed from favorites");
+    } catch (error) {
+      console.error("Failed to remove favorite", error);
+      toast.error("Failed to remove favorite");
+    }
+  };
+
   const getUnitLabel = (unit: UnitSystem) => {
     return unit === "imperial" ? "Imperial (lb, mi)" : "Metric (kg, km)";
   };
@@ -78,6 +121,13 @@ export default function Settings() {
     };
     return labels[view];
   };
+
+  useEffect(() => {
+    if (user && !authLoading) {
+      loadFavorites();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, authLoading]);
 
   if (authLoading || !user) return null;
 
@@ -126,8 +176,26 @@ export default function Settings() {
                 subtitle={getChartViewLabel(preferences.defaultChartView)}
                 onClick={() => setChartModalOpen(true)}
               />
+              <SettingItem
+                icon={Star}
+                title="Favorite Exercises"
+                subtitle={`${favoriteExercises.length} favorited`}
+                onClick={() => {
+                  setFavoritesOpen(true);
+                  loadFavorites();
+                }}
+              />
             </div>
           </section>
+
+          {/* Modals */}
+          <FavoritesModal
+            open={favoritesOpen}
+            favoriteExercises={favoriteExercises}
+            loading={loadingFavorites}
+            onClose={() => setFavoritesOpen(false)}
+            onRemoveFavorite={handleRemoveFavorite}
+          />
 
           {/* Account Section */}
           <section>

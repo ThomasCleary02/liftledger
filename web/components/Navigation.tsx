@@ -15,8 +15,8 @@ export function Navigation() {
   const router = useRouter();
   const { user } = useAuth();
 
-  // Don't show nav on login page
-  if (!user || pathname === "/login") {
+  // Only show nav for authenticated users
+  if (!user) {
     return null;
   }
 

@@ -2,16 +2,16 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createWorkout, Exercise, StrengthSetEntry, CalisthenicsSetEntry } from "../../../lib/firestore/workouts";
-import ExerciseSearch from "../../../components/ExerciseSearch";
-import StrengthSetInput, { StrengthSet } from "../../../components/StrengthSetInput";
-import CardioInput, { CardioData } from "../../../components/CardioInput";
-import CalisthenicsSetInput, { CalisthenicsSet } from "../../../components/CalisthenicsSetInput";
+import { createWorkout, Exercise, StrengthSetEntry, CalisthenicsSetEntry } from "../../../../lib/firestore/workouts";
+import ExerciseSearch from "../../../../components/ExerciseSearch";
+import StrengthSetInput, { StrengthSet } from "../../../../components/StrengthSetInput";
+import CardioInput, { CardioData } from "../../../../components/CardioInput";
+import CalisthenicsSetInput, { CalisthenicsSet } from "../../../../components/CalisthenicsSetInput";
 import { Calendar, Plus, Trash2, Dumbbell, Heart, Activity, ArrowLeft } from "lucide-react";
-import { usePreferences } from "../../../lib/hooks/usePreferences";
-import { formatWeight, formatDistance } from "../../../lib/utils/units";
-import { toast } from "../../../lib/toast";
-import { logger } from "../../../lib/logger";
+import { usePreferences } from "../../../../lib/hooks/usePreferences";
+import { formatWeight, formatDistance } from "../../../../lib/utils/units";
+import { toast } from "../../../../lib/toast";
+import { logger } from "../../../../lib/logger";
 
 type SelectedExercise = {
   id: string;

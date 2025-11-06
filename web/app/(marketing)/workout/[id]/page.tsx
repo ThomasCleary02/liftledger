@@ -2,18 +2,18 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useAuth } from "../../../providers/Auth";
-import { getWorkout, updateWorkout, deleteWorkout, Workout, Exercise, StrengthSetEntry, CalisthenicsSetEntry } from "../../../lib/firestore/workouts";
-import ExerciseSearch from "../../../components/ExerciseSearch";
-import StrengthSetInput from "../../../components/StrengthSetInput";
-import CalisthenicsSetInput from "../../../components/CalisthenicsSetInput";
+import { useAuth } from "../../../../providers/Auth";
+import { getWorkout, updateWorkout, deleteWorkout, Workout, Exercise, StrengthSetEntry, CalisthenicsSetEntry } from "../../../../lib/firestore/workouts";
+import ExerciseSearch from "../../../../components/ExerciseSearch";
+import StrengthSetInput from "../../../../components/StrengthSetInput";
+import CalisthenicsSetInput from "../../../../components/CalisthenicsSetInput";
 import { Trash2, Dumbbell, Heart, Activity, ArrowLeft } from "lucide-react";
-import { usePreferences } from "../../../lib/hooks/usePreferences";
-import { formatWeight, formatDistance } from "../../../lib/utils/units";
-import { toast } from "../../../lib/toast";
-import { logger } from "../../../lib/logger";
+import { usePreferences } from "../../../../lib/hooks/usePreferences";
+import { formatWeight, formatDistance } from "../../../../lib/utils/units";
+import { toast } from "../../../../lib/toast";
+import { logger } from "../../../../lib/logger";
 import { Timestamp } from "firebase/firestore";
-import { ConfirmDialog } from "../../../components/ConfirmDialog";
+import { ConfirmDialog } from "../../../../components/ConfirmDialog";
 
 type DraftSet = {
   mode: "reps" | "time";

@@ -1,3 +1,7 @@
 import { accountService } from "../firebase";
 
-export const { deleteUserAccount } = accountService;
+export const { 
+  deleteUserAccount,
+  getFavoriteExercises,
+  toggleFavoriteExercise 
+} = accountService;

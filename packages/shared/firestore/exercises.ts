@@ -80,6 +80,109 @@ function inferModality(group: MuscleGroup | undefined, name: string): ExerciseMo
   return "strength";
 }
 
+function calculateRelevanceScore(
+  exercise: ExerciseDoc,
+  query: string,
+  queryWords: string[]
+): number {
+  const nameFolded = exercise.nameFolded;
+  const queryFolded = foldName(query);
+  let score = 0;
+
+  // Exact match gets highest score
+  if (nameFolded === queryFolded) {
+    score += 1000;
+  }
+  // Starts with query (current behavior)
+  else if (nameFolded.startsWith(queryFolded)) {
+    score += 500;
+  }
+  // Contains query as substring
+  else if (nameFolded.includes(queryFolded)) {
+    score += 200;
+  }
+  // Fuzzy match - check if all query words appear somewhere
+  else {
+    const allWordsMatch = queryWords.every(word => 
+      nameFolded.includes(word) || 
+      exercise.muscleGroup?.toLowerCase().includes(word) ||
+      exercise.modality.toLowerCase().includes(word)
+    );
+    if (allWordsMatch) {
+      score += 100;
+    }
+  }
+
+  // Boost score for word boundary matches
+  queryWords.forEach(word => {
+    // Word starts at beginning or after space/hyphen
+    const wordBoundaryRegex = new RegExp(`(^|[-\\s])${word}`, 'i');
+    if (wordBoundaryRegex.test(exercise.name)) {
+      score += 50;
+    }
+    // Word appears in name
+    if (nameFolded.includes(word)) {
+      score += 20;
+    }
+    // Word matches muscle group
+    if (exercise.muscleGroup?.toLowerCase().includes(word)) {
+      score += 30;
+    }
+    // Word matches modality
+    if (exercise.modality.toLowerCase().includes(word)) {
+      score += 10;
+    }
+  });
+
+  // Equipment/keyword matching
+  const equipmentKeywords: Record<string, string[]> = {
+    'smith': ['smith machine', 'smith'],
+    'cable': ['cable', 'cables'],
+    'dumbbell': ['dumbbell', 'db', 'dumbbells'],
+    'barbell': ['barbell', 'bb', 'bar'],
+    'machine': ['machine'],
+    'bench': ['bench'],
+    'press': ['press'],
+    'curl': ['curl'],
+    'fly': ['fly', 'flye'],
+    'row': ['row', 'rowing'],
+    'pulldown': ['pulldown', 'pull down'],
+    'squat': ['squat'],
+    'deadlift': ['deadlift', 'dl'],
+    'lunge': ['lunge'],
+  };
+
+  Object.entries(equipmentKeywords).forEach(([equipment, keywords]) => {
+    if (keywords.some(kw => queryFolded.includes(kw))) {
+      if (nameFolded.includes(equipment)) {
+        score += 40;
+      }
+    }
+  });
+
+  // Abbreviation matching
+  const abbreviations: Record<string, string[]> = {
+    'bp': ['bench press'],
+    'db': ['dumbbell'],
+    'bb': ['barbell'],
+    'ohp': ['overhead press', 'shoulder press'],
+    'rdl': ['romanian deadlift'],
+    'dl': ['deadlift'],
+  };
+
+  Object.entries(abbreviations).forEach(([abbr, expansions]) => {
+    if (queryFolded === abbr || queryFolded.startsWith(abbr + ' ')) {
+      expansions.forEach(exp => {
+        if (nameFolded.includes(exp)) {
+          score += 60;
+        }
+      });
+    }
+  });
+
+  return score;
+}
+
 export function createExerciseService(db: Firestore) {
   const converter = {
     toFirestore(d: ExerciseDoc) {
@@ -146,9 +249,9 @@ export function createExerciseService(db: Firestore) {
       limitCount = 50
     ): Promise<ExerciseDoc[]> {
       const qFold = foldName(queryText).trim();
+      const queryWords = qFold.split(/\s+/).filter(w => w.length > 0);
 
       // Fetch all exercises (or filtered by muscle group if provided)
-      // For hundreds of exercises, in-memory filtering is fine and avoids index management
       let allDocs: ExerciseDoc[];
 
       if (filters?.muscleGroup) {
@@ -164,18 +267,36 @@ export function createExerciseService(db: Firestore) {
       // Filter in-memory
       let filtered = allDocs;
 
-      // Text prefix filter
-      if (qFold) {
-        filtered = filtered.filter(d => d.nameFolded.startsWith(qFold));
-      }
-
       // Modality filter
       if (filters?.modality) {
         filtered = filtered.filter(d => d.modality === filters.modality);
       }
 
-      // Sort and limit
-      filtered.sort((a, b) => a.nameFolded.localeCompare(b.nameFolded));
+      // Semantic search with scoring
+      if (qFold) {
+        // Calculate relevance scores
+        const scored = filtered.map(ex => ({
+          exercise: ex,
+          score: calculateRelevanceScore(ex, queryText, queryWords)
+        }));
+
+        // Filter out zero-score results and sort by score (descending)
+        filtered = scored
+          .filter(item => item.score > 0)
+          .sort((a, b) => {
+            // First by score
+            if (b.score !== a.score) {
+              return b.score - a.score;
+            }
+            // Then alphabetically for same score
+            return a.exercise.nameFolded.localeCompare(b.exercise.nameFolded);
+          })
+          .map(item => item.exercise);
+      } else {
+        // No query - just sort alphabetically
+        filtered.sort((a, b) => a.nameFolded.localeCompare(b.nameFolded));
+      }
+
       return filtered.slice(0, Math.max(1, Math.min(200, limitCount)));
     },
 

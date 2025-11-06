@@ -2,20 +2,20 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "../../providers/Auth";
-import { listWorkouts, Workout } from "../../lib/firestore/workouts";
-import { getAllExercises } from "../../lib/firestore/exercises";
+import { useAuth } from "../../../providers/Auth";
+import { listWorkouts, Workout } from "../../../lib/firestore/workouts";
+import { getAllExercises } from "../../../lib/firestore/exercises";
 import {
   getAnalyticsSummary,
   getStrengthAnalytics,
   getCardioAnalytics,
   filterWorkoutsByPeriod,
   findAllPRs,
-} from "../../lib/analytics/calculations";
-import { AnalyticsSummary, ExercisePR, TimePeriod } from "../../lib/analytics/types";
-import { ExerciseDoc } from "../../lib/firestore/exercises";
-import { usePreferences } from "../../lib/hooks/usePreferences";
-import { formatWeight, formatDistance } from "../../lib/utils/units";
+} from "../../../lib/analytics/calculations";
+import { AnalyticsSummary, ExercisePR, TimePeriod } from "../../../lib/analytics/types";
+import { ExerciseDoc } from "../../../lib/firestore/exercises";
+import { usePreferences } from "../../../lib/hooks/usePreferences";
+import { formatWeight, formatDistance } from "../../../lib/utils/units";
 import {
   Dumbbell,
   BarChart3,
@@ -28,8 +28,7 @@ import {
   Clock,
   Gauge,
 } from "lucide-react";
-import { toast } from "../../lib/toast";
-import { logger } from "../../lib/logger";
+import { logger } from "../../../lib/logger";
 
 type TabType = "overview" | "strength" | "cardio" | "prs";
 

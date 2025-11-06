@@ -199,21 +199,6 @@ export default function Settings() {
             </View>
           </View>
 
-          {/* Dev Section (remove in production) */}
-          {__DEV__ && (
-            <View className="mb-6">
-              <Text className="text-lg font-semibold text-gray-900 mb-3">Development</Text>
-              <View className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                <SettingItem
-                  icon="flask"
-                  title="Seed Exercises"
-                  subtitle="Populate exercise database"
-                  onPress={() => router.push("/(dev)/seed-exercises")}
-                />
-              </View>
-            </View>
-          )}
-
           {/* App Info */}
           <View className="items-center mt-6 mb-8">
             <Text className="text-gray-400 text-sm">LiftLedger v1.0.0</Text>

@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { searchExercisesRemote } from "../lib/firestore/exercises";
-import { Search, Dumbbell, Heart, Activity } from "lucide-react";
+import { searchExercisesRemote, getExercise, type ExerciseDoc } from "../lib/firestore/exercises";
+import { getFavoriteExercises, toggleFavoriteExercise } from "../lib/firestore/account";
+import { useAuth } from "../providers/Auth";
+import { Search, Dumbbell, Heart, Activity, Star, X } from "lucide-react";
 
 type Props = {
   onSelect: (
@@ -32,14 +34,44 @@ export default function ExerciseSearch({
   placeholder = "Search exercises...",
   maxResults = 8,
 }: Props) {
+  const { user } = useAuth();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<
-    Array<{ id: string; name: string; modality: string; muscleGroup?: string }>
+    Array<{ id: string; name: string; modality: string; muscleGroup?: string; isFavorite?: boolean }>
   >([]);
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [favoriteExercises, setFavoriteExercises] = useState<ExerciseDoc[]>([]);
+  const [showFavorites, setShowFavorites] = useState(false);
   const [loading, setLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const resultsRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Load favorites on mount
+  useEffect(() => {
+    if (user) {
+      loadFavorites();
+    }
+  }, [user]);
+
+  const loadFavorites = async () => {
+    if (!user) return;
+    try {
+      const favIds = await getFavoriteExercises();
+      setFavorites(new Set(favIds));
+      
+      // Load full exercise data for favorites
+      if (favIds.length > 0) {
+        const exercises = await Promise.all(
+          favIds.map(id => getExercise(id))
+        );
+        const validExercises = exercises.filter(Boolean) as ExerciseDoc[];
+        setFavoriteExercises(validExercises);
+      }
+    } catch (error) {
+      console.error("Failed to load favorites", error);
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -63,6 +95,7 @@ export default function ExerciseSearch({
               name: x.name,
               modality: x.modality,
               muscleGroup: x.muscleGroup,
+              isFavorite: favorites.has(x.id),
             }))
           );
           setSelectedIndex(-1);
@@ -79,7 +112,7 @@ export default function ExerciseSearch({
       active = false;
       clearTimeout(t);
     };
-  }, [query, maxResults]);
+  }, [query, maxResults, favorites]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (results.length === 0) return;
@@ -100,6 +133,7 @@ export default function ExerciseSearch({
       setQuery("");
       setResults([]);
       setSelectedIndex(-1);
+      setShowFavorites(false);
       inputRef.current?.blur();
     }
   };
@@ -111,24 +145,103 @@ export default function ExerciseSearch({
     }
   }, [selectedIndex]);
 
+  const handleToggleFavorite = async (e: React.MouseEvent, exerciseId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!user) {
+      console.log("No user, cannot favorite");
+      return;
+    }
+
+    console.log("Toggling favorite for:", exerciseId);
+    try {
+      const isNowFavorite = await toggleFavoriteExercise(exerciseId);
+      console.log("Toggle result:", isNowFavorite);
+      
+      // Update favorites set
+      setFavorites(prev => {
+        const newSet = new Set(prev);
+        if (isNowFavorite) {
+          newSet.add(exerciseId);
+        } else {
+          newSet.delete(exerciseId);
+        }
+        return newSet;
+      });
+      
+      // Update favorite exercises list
+      if (isNowFavorite) {
+        const exercise = await getExercise(exerciseId);
+        if (exercise) {
+          setFavoriteExercises(prev => [...prev, exercise]);
+        }
+      } else {
+        setFavoriteExercises(prev => prev.filter(ex => ex.id !== exerciseId));
+      }
+      
+      // Update the result's favorite status
+      setResults(prev => prev.map(r => 
+        r.id === exerciseId ? { ...r, isFavorite: isNowFavorite } : r
+      ));
+    } catch (error) {
+      console.error("Failed to toggle favorite", error);
+    }
+  };
+
+  const displayResults = showFavorites ? favoriteExercises : results;
+  const displayItems = showFavorites
+    ? favoriteExercises.map(ex => ({
+        id: ex.id,
+        name: ex.name,
+        modality: ex.modality,
+        muscleGroup: ex.muscleGroup,
+        isFavorite: true,
+      }))
+    : results;
+
   return (
     <div>
-      <div className="relative mb-3">
-        <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-        <input
-          ref={inputRef}
-          type="text"
-          className="w-full rounded-xl border border-gray-200 bg-white px-12 py-3.5 text-base outline-none transition-all placeholder:text-gray-400 focus:border-black focus:ring-2 focus:ring-black"
-          placeholder={placeholder}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={handleKeyDown}
-          autoCapitalize="none"
-          autoComplete="off"
-          aria-label="Search exercises"
-          aria-autocomplete="list"
-          aria-expanded={results.length > 0}
-        />
+      <div className="relative mb-3 flex gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+          <input
+            ref={inputRef}
+            type="text"
+            className="w-full rounded-xl border border-gray-200 bg-white px-12 py-3.5 text-base outline-none transition-all placeholder:text-gray-400 focus:border-black focus:ring-2 focus:ring-black"
+            placeholder={placeholder}
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setShowFavorites(false);
+            }}
+            onKeyDown={handleKeyDown}
+            autoCapitalize="none"
+            autoComplete="off"
+            aria-label="Search exercises"
+            aria-autocomplete="list"
+            aria-expanded={displayResults.length > 0}
+          />
+        </div>
+        {user && (
+          <button
+            onClick={() => {
+              setShowFavorites(!showFavorites);
+              setQuery("");
+              setSelectedIndex(-1);
+            }}
+            className={`flex items-center gap-2 rounded-xl border px-4 py-3.5 transition-all ${
+              showFavorites
+                ? "border-black bg-black text-white"
+                : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+            }`}
+            aria-label="Show favorites"
+          >
+            <Star className={`h-5 w-5 ${showFavorites ? "fill-current" : ""}`} />
+            <span className="text-sm font-semibold">
+              {favorites.size > 0 && `(${favorites.size})`}
+            </span>
+          </button>
+        )}
       </div>
       {loading ? (
         <div className="flex items-center justify-center py-8">
@@ -136,53 +249,97 @@ export default function ExerciseSearch({
         </div>
       ) : (
         <>
-          {query.trim() && results.length === 0 && !loading && (
+          {showFavorites && favoriteExercises.length === 0 && (
+            <div className="py-8 text-center">
+              <Star className="mx-auto mb-3 h-12 w-12 text-gray-300" />
+              <p className="text-sm text-gray-500">No favorite exercises yet</p>
+              <p className="mt-1 text-xs text-gray-400">Star exercises to add them to favorites</p>
+            </div>
+          )}
+          {!showFavorites && query.trim() && results.length === 0 && !loading && (
             <div className="py-8 text-center">
               <p className="text-sm text-gray-500">No exercises found</p>
               <p className="mt-1 text-xs text-gray-400">Try a different search term</p>
             </div>
           )}
-          {results.length > 0 && (
+          {displayItems.length > 0 && (
             <div ref={resultsRef} className="space-y-3">
-              {results.map((item, idx) => {
+              {displayItems.map((item, idx) => {
                 const config = getModalityConfig(item.modality);
                 const Icon = config.icon;
                 const isSelected = idx === selectedIndex;
                 return (
-                  <button
+                  <div
                     key={item.id}
-                    onClick={() => {
-                      onSelect(item.id, item.name, item.modality as any);
-                      setQuery("");
-                      setSelectedIndex(-1);
-                    }}
-                    className={`w-full rounded-xl border px-4 py-4 text-left transition-all ${
+                    className={`relative w-full rounded-xl border px-4 py-4 transition-all ${
                       isSelected
                         ? "border-black bg-gray-50 ring-2 ring-black"
                         : "border-gray-200 bg-white hover:bg-gray-50"
                     }`}
                   >
-                    <div className="flex items-start justify-between">
-                      <div className="flex flex-1 items-center">
-                        <div
-                          className={`mr-3 rounded-full border p-2 ${config.color}`}
-                        >
-                          <Icon className="h-4 w-4" />
+                    <button
+                      onClick={() => {
+                        onSelect(item.id, item.name, item.modality as any);
+                        setQuery("");
+                        setSelectedIndex(-1);
+                        setShowFavorites(false);
+                      }}
+                      className="w-full text-left"
+                    >
+                      <div className="flex items-start justify-between pr-12 md:pr-20">
+                        <div className="flex flex-1 items-center min-w-0">
+                          <div
+                            className={`mr-3 flex-shrink-0 rounded-full border p-2 ${config.color}`}
+                          >
+                            <Icon className="h-4 w-4" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-gray-900 break-words">{item.name}</p>
+                            {item.muscleGroup && (
+                              <p className="text-sm text-gray-500 capitalize mt-0.5">
+                                {item.muscleGroup.replace(/_/g, " ")}
+                              </p>
+                            )}
+                          </div>
                         </div>
-                        <div className="flex-1">
-                          <p className="font-semibold text-gray-900">{item.name}</p>
-                          {item.muscleGroup && (
-                            <p className="text-sm text-gray-500 capitalize">
-                              {item.muscleGroup.replace(/_/g, " ")}
-                            </p>
-                          )}
-                        </div>
+                        {/* Hide modality badge on mobile, show on desktop */}
+                        <span className="hidden md:inline-flex ml-2 flex-shrink-0 rounded-full bg-gray-100 px-2 py-1 text-xs font-semibold capitalize text-gray-700">
+                          {item.modality}
+                        </span>
                       </div>
-                      <span className="ml-2 rounded-full bg-gray-100 px-2 py-1 text-xs font-semibold capitalize text-gray-700">
-                        {item.modality}
-                      </span>
-                    </div>
-                  </button>
+                    </button>
+                    {!showFavorites ? (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleToggleFavorite(e, item.id);
+                        }}
+                        className={`absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-2 transition-colors md:right-4 ${
+                          item.isFavorite
+                            ? "text-yellow-500 hover:bg-yellow-50"
+                            : "text-gray-400 hover:bg-gray-100 hover:text-yellow-500"
+                        }`}
+                        aria-label={item.isFavorite ? "Remove from favorites" : "Add to favorites"}
+                      >
+                        <Star className={`h-5 w-5 ${item.isFavorite ? "fill-current" : ""}`} />
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleToggleFavorite(e, item.id);
+                        }}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-2 transition-colors text-gray-400 hover:bg-red-50 hover:text-red-600 md:right-4"
+                        aria-label="Remove from favorites"
+                      >
+                        <X className="h-5 w-5" />
+                      </button>
+                    )}
+                  </div>
                 );
               })}
             </div>
