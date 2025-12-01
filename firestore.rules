@@ -27,5 +27,11 @@ service cloud.firestore {
       allow read, write: if isAuthenticated() && resource.data.ownerId == request.auth.uid;
       allow create: if isAuthenticated() && request.resource.data.ownerId == request.auth.uid;
     }
+
+    // Workout Templates collection - users can read/write their own templates
+    match /workoutTemplates/{templateId} {
+      allow read, write: if isAuthenticated() && resource.data.ownerId == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.ownerId == request.auth.uid;
+    }
   }
 }

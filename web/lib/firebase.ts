@@ -4,6 +4,7 @@ import { getAuth, setPersistence, browserLocalPersistence } from "firebase/auth"
 import { createWorkoutService } from "@liftledger/shared/firestore/workouts";
 import { createExerciseService } from "@liftledger/shared/firestore/exercises";
 import { createAccountService } from "@liftledger/shared/firestore/account";
+import { createWorkoutTemplateService } from "@liftledger/shared/firestore/workoutTemplates";
 import { logger } from "./logger";
 
 const firebaseConfig = {
@@ -68,3 +69,4 @@ export { db, auth };
 export const workoutService = createWorkoutService(db, auth);
 export const exerciseService = createExerciseService(db);
 export const accountService = createAccountService(db, auth);
+export const workoutTemplateService = createWorkoutTemplateService(db, auth);

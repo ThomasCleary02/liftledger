@@ -84,5 +84,67 @@ export function createAccountService(db: Firestore, auth: Auth) {
         throw error;
       }
     },
+
+    async getTrackedExercises(): Promise<string[]> {
+      const user = auth.currentUser;
+      if (!user) return [];
+
+      try {
+        const accountDoc = await getDoc(doc(db, ACCOUNTS_COLLECTION, user.uid));
+        if (accountDoc.exists()) {
+          const data = accountDoc.data();
+          return data.trackedExercises || [];
+        }
+        return [];
+      } catch (error) {
+        console.error("Error getting tracked exercises:", error);
+        return [];
+      }
+    },
+
+    async setTrackedExercises(exerciseIds: string[]): Promise<void> {
+      const user = auth.currentUser;
+      if (!user) throw new Error("No user signed in");
+
+      try {
+        const accountRef = doc(db, ACCOUNTS_COLLECTION, user.uid);
+        await setDoc(accountRef, {
+          trackedExercises: exerciseIds,
+          updatedAt: new Date().toISOString(),
+        }, { merge: true });
+      } catch (error) {
+        console.error("Error setting tracked exercises:", error);
+        throw error;
+      }
+    },
+
+    async toggleTrackedExercise(exerciseId: string): Promise<boolean> {
+      const user = auth.currentUser;
+      if (!user) throw new Error("No user signed in");
+
+      try {
+        const accountRef = doc(db, ACCOUNTS_COLLECTION, user.uid);
+        const accountDoc = await getDoc(accountRef);
+        
+        const currentTracked = accountDoc.exists() 
+          ? (accountDoc.data().trackedExercises || [])
+          : [];
+        
+        const isTracked = currentTracked.includes(exerciseId);
+        const newTracked = isTracked
+          ? currentTracked.filter((id: string) => id !== exerciseId)
+          : [...currentTracked, exerciseId];
+
+        await setDoc(accountRef, {
+          trackedExercises: newTracked,
+          updatedAt: new Date().toISOString(),
+        }, { merge: true });
+
+        return !isTracked;
+      } catch (error) {
+        console.error("Error toggling tracked exercise:", error);
+        throw error;
+      }
+    },
   };
 }

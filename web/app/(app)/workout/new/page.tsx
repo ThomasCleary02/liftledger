@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   createWorkout,
   Exercise,
   StrengthSetEntry,
   CalisthenicsSetEntry,
+  Workout,
 } from "../../../../lib/firestore/workouts";
 import ExerciseSearch from "../../../../components/ExerciseSearch";
 import StrengthSetInput, { StrengthSet } from "../../../../components/StrengthSetInput";
@@ -21,11 +22,18 @@ import {
   Activity,
   ArrowLeft,
   Pencil,
+  FileText,
+  X,
+  ChevronRight,
 } from "lucide-react";
 import { usePreferences } from "../../../../lib/hooks/usePreferences";
 import { formatWeight, formatDistance } from "../../../../lib/utils/units";
 import { toast } from "../../../../lib/toast";
 import { logger } from "../../../../lib/logger";
+import { listTemplates, type WorkoutTemplate } from "../../../../lib/firestore/workoutTemplates";
+import { createTemplate } from "../../../../lib/firestore/workoutTemplates";
+import { listWorkouts } from "../../../../lib/firestore/workouts";
+import { getLastExerciseData } from "../../../../lib/analytics/calculations";
 
 type SelectedExercise = {
   id: string;
@@ -54,19 +62,62 @@ export default function NewWorkout() {
 
   const { preferences } = usePreferences();
 
-  const handleExerciseSelect = (
+  const [allWorkouts, setAllWorkouts] = useState<Workout[]>([]);
+
+  useEffect(() => {
+    const loadWorkouts = async () => {
+      try {
+        const workouts = await listWorkouts({ limit: 500, order: "desc" });
+        setAllWorkouts(workouts);
+      } catch (error) {
+        console.error("Failed to load workouts for exercise history", error);
+      }
+    };
+    loadWorkouts();
+  }, []);
+
+  const handleExerciseSelect = async (
     id: string,
     name: string,
     modality: "strength" | "cardio" | "calisthenics"
   ) => {
     setSelectedExercise({ id, name, modality });
 
+    // Get last exercise data
+    const lastExercise = getLastExerciseData(allWorkouts, id);
+
     if (modality === "cardio") {
-      setCardioData({ duration: "30", distance: "5" });
+      if (lastExercise?.modality === "cardio" && lastExercise.cardioData) {
+        setCardioData({
+          duration: String(Math.round(lastExercise.cardioData.duration / 60)),
+          distance: lastExercise.cardioData.distance ? String(lastExercise.cardioData.distance) : "5",
+        });
+      } else {
+        setCardioData({ duration: "30", distance: "5" });
+      }
     } else if (modality === "calisthenics") {
-      setCalisthenicsSets([{ reps: "10" }]);
+      if (lastExercise?.modality === "calisthenics" && lastExercise.calisthenicsSets && lastExercise.calisthenicsSets.length > 0) {
+        setCalisthenicsSets(
+          lastExercise.calisthenicsSets.map((s) => ({
+            reps: String(s.reps),
+            duration: s.duration ? String(s.duration) : "",
+          }))
+        );
+      } else {
+        setCalisthenicsSets([{ reps: "10" }]);
+      }
     } else {
-      setStrengthSets([{ reps: "10", weight: "135" }]);
+      // Strength
+      if (lastExercise?.modality === "strength" && lastExercise.strengthSets && lastExercise.strengthSets.length > 0) {
+        setStrengthSets(
+          lastExercise.strengthSets.map((s) => ({
+            reps: String(s.reps),
+            weight: String(s.weight),
+          }))
+        );
+      } else {
+        setStrengthSets([{ reps: "10", weight: "135" }]);
+      }
     }
   };
 
@@ -240,6 +291,59 @@ export default function NewWorkout() {
     return Activity;
   };
 
+  const [templates, setTemplates] = useState<WorkoutTemplate[]>([]);
+  const [showTemplateSelector, setShowTemplateSelector] = useState(false);
+  const [showTemplateCreator, setShowTemplateCreator] = useState(false);
+  const [showSaveTemplate, setShowSaveTemplate] = useState(false);
+  const [templateName, setTemplateName] = useState("");
+
+  const loadTemplates = async () => {
+    try {
+      const templates = await listTemplates();
+      setTemplates(templates);
+    } catch (error) {
+      console.error("Failed to load templates", error);
+      toast.error("Failed to load templates");
+    }
+  };
+
+  const loadTemplate = (template: WorkoutTemplate) => {
+    setExercises(template.exercises.map(ex => ({ ...ex }))); // Deep copy
+    setShowTemplateSelector(false);
+    toast.success(`Loaded template: ${template.name}`);
+  };
+
+  const saveAsTemplate = async () => {
+    if (!templateName.trim()) {
+      toast.error("Please enter a template name");
+      return;
+    }
+    if (exercises.length === 0) {
+      toast.error("Add exercises to the workout first");
+      return;
+    }
+
+    try {
+      await createTemplate({
+        name: templateName.trim(),
+        exercises: exercises.map(ex => ({ ...ex })), // Deep copy
+      });
+      toast.success(`Template "${templateName}" created successfully`);
+      setShowSaveTemplate(false);
+      setTemplateName("");
+      loadTemplates(); // Refresh templates list
+    } catch (error) {
+      console.error("Failed to create template", error);
+      toast.error("Failed to create template");
+    }
+  };
+
+  useEffect(() => {
+    if (showTemplateSelector) {
+      loadTemplates();
+    }
+  }, [showTemplateSelector]);
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto max-w-4xl px-4 py-6 md:px-8">
@@ -272,6 +376,34 @@ export default function NewWorkout() {
               />
             </div>
           </div>
+        </div>
+
+        <div className="mb-4 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-xl font-bold text-gray-900">Workout Templates</h2>
+            <div className="flex gap-2">
+              {exercises.length > 0 && (
+                <button
+                  onClick={() => setShowSaveTemplate(true)}
+                  className="flex items-center gap-2 rounded-xl bg-blue-100 px-4 py-2 font-semibold text-blue-700 transition-colors hover:bg-blue-200"
+                >
+                  <Plus className="h-4 w-4" />
+                  Save as Template
+                </button>
+              )}
+              <button
+                onClick={() => {
+                  setShowTemplateSelector(true);
+                  loadTemplates();
+                }}
+                className="flex items-center gap-2 rounded-xl bg-gray-100 px-4 py-2 font-semibold text-gray-700 transition-colors hover:bg-gray-200"
+              >
+                <FileText className="h-4 w-4" />
+                Use Template
+              </button>
+            </div>
+          </div>
+          {/* Template selector modal */}
         </div>
 
         {exercises.length > 0 && (
@@ -432,6 +564,116 @@ export default function NewWorkout() {
           {loading ? "Saving..." : "Save Workout"}
         </button>
       </div>
+
+      {/* Template Selector Modal */}
+      {showTemplateSelector && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-2xl rounded-2xl bg-white p-6 m-4 max-h-[80vh] flex flex-col">
+            <div className="mb-6 flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-gray-900">Select Template</h2>
+              <button
+                onClick={() => setShowTemplateSelector(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto">
+              {templates.length === 0 ? (
+                <div className="text-center py-8">
+                  <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                  <p className="text-gray-500">No templates found</p>
+                  <p className="text-sm text-gray-400 mt-2">
+                    Create templates in Settings to get started
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {templates.map((template) => (
+                    <button
+                      key={template.id}
+                      onClick={() => loadTemplate(template)}
+                      className="w-full text-left rounded-xl border-2 border-gray-200 bg-gray-50 p-4 hover:border-blue-500 hover:bg-blue-50 transition-colors"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="font-semibold text-gray-900">{template.name}</h3>
+                          <p className="text-sm text-gray-500 mt-1">
+                            {template.exercises.length} exercise{template.exercises.length !== 1 ? 's' : ''}
+                          </p>
+                        </div>
+                        <ChevronRight className="h-5 w-5 text-gray-400" />
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showSaveTemplate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 m-4">
+            <div className="mb-6 flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-gray-900">Save as Template</h2>
+              <button
+                onClick={() => {
+                  setShowSaveTemplate(false);
+                  setTemplateName("");
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            <div className="mb-4">
+              <label className="mb-2 block text-sm font-semibold text-gray-700">
+                Template Name
+              </label>
+              <input
+                type="text"
+                value={templateName}
+                onChange={(e) => setTemplateName(e.target.value)}
+                placeholder="e.g., Leg Day, Chest Day"
+                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-base outline-none focus:border-blue-500 focus:bg-white"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    saveAsTemplate();
+                  }
+                }}
+              />
+            </div>
+
+            <div className="mb-4 rounded-xl border border-gray-200 bg-gray-50 p-3">
+              <p className="text-sm text-gray-600">
+                This will save {exercises.length} exercise{exercises.length !== 1 ? 's' : ''} as a template
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowSaveTemplate(false);
+                  setTemplateName("");
+                }}
+                className="flex-1 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 font-semibold text-gray-700 transition-colors hover:bg-gray-100"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveAsTemplate}
+                className="flex-1 rounded-xl bg-black px-4 py-3 font-bold text-white transition-opacity hover:opacity-90"
+              >
+                Save Template
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -29,6 +29,7 @@ import {
   Gauge,
 } from "lucide-react";
 import { logger } from "../../../lib/logger";
+import { getTrackedExercises } from "../../../lib/firestore/account";
 
 type TabType = "overview" | "strength" | "cardio" | "prs";
 
@@ -43,6 +44,7 @@ export default function Analytics() {
   const [summary, setSummary] = useState<AnalyticsSummary | null>(null);
   const [prs, setPRs] = useState<ExercisePR[]>([]);
   const { preferences } = usePreferences();
+  const [trackedExerciseIds, setTrackedExerciseIds] = useState<string[]>([]);
 
   useEffect(() => {
     // Wait for auth to finish loading
@@ -69,6 +71,19 @@ export default function Analytics() {
     }
   }, [timePeriod, workouts, exercises]);
 
+  useEffect(() => {
+    if (user) {
+      getTrackedExercises().then(setTrackedExerciseIds);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (workouts.length > 0) {
+      const allPRs = findAllPRs(workouts, trackedExerciseIds.length > 0 ? trackedExerciseIds : undefined);
+      setPRs(allPRs);
+    }
+  }, [workouts, trackedExerciseIds]);
+
   const loadData = async () => {
     try {
       const [workoutData, exerciseData] = await Promise.all([
@@ -83,10 +98,9 @@ export default function Analytics() {
       setExercises(exerciseMap);
 
       const analyticsSummary = getAnalyticsSummary(workoutData, exerciseMap);
-      const allPRs = findAllPRs(workoutData);
-
       setSummary(analyticsSummary);
-      setPRs(allPRs);
+      
+      // PRs will be calculated in the useEffect above
     } catch (error) {
       logger.error("Error loading analytics", error);
     } finally {
@@ -201,7 +215,7 @@ export default function Analytics() {
           {activeTab === "cardio" && (
             <CardioView workouts={filteredWorkouts} timePeriod={timePeriod} />
           )}
-          {activeTab === "prs" && <PRsView prs={prs} workouts={workouts} />}
+          {activeTab === "prs" && <PRsView prs={prs} workouts={workouts} trackedExerciseIds={trackedExerciseIds} />}
         </div>
       </main>
     </div>
@@ -295,7 +309,7 @@ function StrengthView({
   exercises: Map<string, ExerciseDoc>;
   timePeriod: TimePeriod;
 }) {
-  const strengthAnalytics = getStrengthAnalytics(workouts, exercises);
+  const strengthAnalytics = getStrengthAnalytics(workouts, exercises, timePeriod); // Pass timePeriod
   const { preferences } = usePreferences();
 
   return (
@@ -324,34 +338,6 @@ function StrengthView({
           />
         </div>
       </div>
-
-      {/* Volume Trend */}
-      {strengthAnalytics.volumeTrend.length > 0 && (
-        <div>
-          <h2 className="mb-4 text-xl font-bold text-gray-900">Volume Trend</h2>
-          <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-            <div className="flex h-40 items-end justify-between">
-              {strengthAnalytics.volumeTrend.slice(-8).map((point, idx) => {
-                const maxVolume = Math.max(
-                  ...strengthAnalytics.volumeTrend.map((p) => p.volume)
-                );
-                const height = maxVolume > 0 ? (point.volume / maxVolume) * 100 : 0;
-                return (
-                  <div key={idx} className="flex-1 items-center mx-0.5 flex flex-col">
-                    <div
-                      className="w-full rounded-t bg-blue-500"
-                      style={{ height: `${height}%`, minHeight: 4 }}
-                    />
-                    <p className="mt-2 text-center text-xs text-gray-400 line-clamp-1">
-                      {point.date.toLocaleDateString("en-US", { month: "short" })}
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Top Exercises */}
       {strengthAnalytics.exercisesByFrequency.length > 0 && (
@@ -433,7 +419,7 @@ function CardioView({
   workouts: Workout[];
   timePeriod: TimePeriod;
 }) {
-  const cardioAnalytics = getCardioAnalytics(workouts);
+  const cardioAnalytics = getCardioAnalytics(workouts, timePeriod); // Pass timePeriod
   const { preferences } = usePreferences();
 
   const formatPace = (secondsPerMile: number): string => {
@@ -502,39 +488,6 @@ function CardioView({
         </div>
       </div>
 
-      {/* Distance Trend */}
-      {cardioAnalytics.distanceTrend.length > 0 && (
-        <div>
-          <h2 className="mb-4 text-xl font-bold text-gray-900">Distance Trend</h2>
-          <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-            <div className="flex h-40 items-end justify-between">
-              {cardioAnalytics.distanceTrend.slice(-8).map((point, idx) => {
-                const maxDistance = Math.max(
-                  ...cardioAnalytics.distanceTrend.map((p) => p.distance)
-                );
-                const height = maxDistance > 0 ? (point.distance / maxDistance) * 100 : 0;
-                return (
-                  <div key={idx} className="flex-1 items-center mx-0.5 flex flex-col">
-                    <div
-                      className="w-full rounded-t bg-red-500"
-                      style={{ height: `${height}%`, minHeight: 4 }}
-                    />
-                    <p className="mt-2 text-center text-xs text-gray-400 line-clamp-1">
-                      {point.date.toLocaleDateString("en-US", { month: "short" })}
-                    </p>
-                    {point.distance > 0 && (
-                      <p className="mt-1 text-xs font-semibold text-gray-600">
-                        {formatDistance(point.distance, preferences.units)}
-                      </p>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Top Exercises */}
       {cardioAnalytics.exercisesByFrequency.length > 0 && (
         <div>
@@ -571,16 +524,21 @@ function CardioView({
 }
 
 // PRs View Component
-function PRsView({ prs, workouts }: { prs: ExercisePR[]; workouts: Workout[] }) {
+function PRsView({ prs, workouts, trackedExerciseIds }: { prs: ExercisePR[]; workouts: Workout[]; trackedExerciseIds: string[] }) {
   const router = useRouter();
   const { preferences } = usePreferences();
 
+  const filteredPRs = useMemo(() => {
+    if (trackedExerciseIds.length === 0) return prs; // Show all if none tracked
+    return prs.filter(pr => trackedExerciseIds.includes(pr.exerciseId));
+  }, [prs, trackedExerciseIds]);
+
   const groupedPRs = useMemo(() => {
-    const strength = prs.filter((p) => p.modality === "strength");
-    const cardio = prs.filter((p) => p.modality === "cardio");
-    const calisthenics = prs.filter((p) => p.modality === "calisthenics");
+    const strength = filteredPRs.filter((p) => p.modality === "strength");
+    const cardio = filteredPRs.filter((p) => p.modality === "cardio");
+    const calisthenics = filteredPRs.filter((p) => p.modality === "calisthenics");
     return { strength, cardio, calisthenics };
-  }, [prs]);
+  }, [filteredPRs]);
 
   const formatPRValue = (pr: ExercisePR): string => {
     if (pr.prType === "maxWeight") {
@@ -664,7 +622,7 @@ function PRsView({ prs, workouts }: { prs: ExercisePR[]; workouts: Workout[] }) 
     );
   };
 
-  if (prs.length === 0) {
+  if (filteredPRs.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
         <Trophy className="h-12 w-12 text-gray-300" />

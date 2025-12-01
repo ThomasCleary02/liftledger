@@ -23,6 +23,7 @@ import { toast } from "../../../../lib/toast";
 import { logger } from "../../../../lib/logger";
 import { Timestamp } from "firebase/firestore";
 import { ConfirmDialog } from "../../../../components/ConfirmDialog";
+import { listWorkouts } from "../../../../lib/firestore/workouts";
 
 type SelectedExercise = {
   id: string;
@@ -50,6 +51,8 @@ export default function WorkoutDetail() {
 
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
+  const [allWorkouts, setAllWorkouts] = useState<Workout[]>([]);
+
   useEffect(() => {
     if (authLoading) return;
 
@@ -72,24 +75,68 @@ export default function WorkoutDetail() {
         if (mounted) setLoading(false);
       }
     })();
+
+    const loadWorkouts = async () => {
+      try {
+        const workouts = await listWorkouts({ limit: 500, order: "desc" });
+        // Exclude current workout from history lookup
+        const otherWorkouts = workouts.filter(w => w.id !== id);
+        setAllWorkouts(otherWorkouts);
+      } catch (error) {
+        console.error("Failed to load workouts for exercise history", error);
+      }
+    };
+    if (id) {
+      loadWorkouts();
+    }
+
     return () => {
       mounted = false;
     };
   }, [id, user, router, authLoading]);
 
-  const handleExerciseSelect = (
+  const handleExerciseSelect = async (
     exerciseId: string,
     name: string,
     modality: "strength" | "cardio" | "calisthenics"
   ) => {
     setSelectedExercise({ id: exerciseId, name, modality });
 
+    // Get last exercise data
+    const lastExercise = getLastExerciseData(allWorkouts, exerciseId);
+
     if (modality === "cardio") {
-      setCardioData({ duration: "30", distance: "5" });
+      if (lastExercise?.modality === "cardio" && lastExercise.cardioData) {
+        setCardioData({
+          duration: String(Math.round(lastExercise.cardioData.duration / 60)),
+          distance: lastExercise.cardioData.distance ? String(lastExercise.cardioData.distance) : "5",
+        });
+      } else {
+        setCardioData({ duration: "30", distance: "5" });
+      }
     } else if (modality === "calisthenics") {
-      setCalisthenicsSets([{ reps: "10" }]);
+      if (lastExercise?.modality === "calisthenics" && lastExercise.calisthenicsSets && lastExercise.calisthenicsSets.length > 0) {
+        setCalisthenicsSets(
+          lastExercise.calisthenicsSets.map((s) => ({
+            reps: String(s.reps),
+            duration: s.duration ? String(s.duration) : "",
+          }))
+        );
+      } else {
+        setCalisthenicsSets([{ reps: "10" }]);
+      }
     } else {
-      setStrengthSets([{ reps: "10", weight: "135" }]);
+      // Strength
+      if (lastExercise?.modality === "strength" && lastExercise.strengthSets && lastExercise.strengthSets.length > 0) {
+        setStrengthSets(
+          lastExercise.strengthSets.map((s) => ({
+            reps: String(s.reps),
+            weight: String(s.weight),
+          }))
+        );
+      } else {
+        setStrengthSets([{ reps: "10", weight: "135" }]);
+      }
     }
   };
 
@@ -524,4 +571,28 @@ export default function WorkoutDetail() {
       />
     </div>
   );
+}
+
+/**
+ * Get the last workout data for a specific exercise
+ */
+function getLastExerciseData(workouts: Workout[], exerciseId: string): Exercise | null {
+  // Sort workouts by date (most recent first)
+  const sortedWorkouts = [...workouts].sort((a, b) => {
+    const dateA = (a.date as any)?.toDate ? (a.date as any).toDate() : new Date(a.date as any);
+    const dateB = (b.date as any)?.toDate ? (b.date as any).toDate() : new Date(b.date as any);
+    return dateB.getTime() - dateA.getTime(); // Descending order
+  });
+
+  // Find the first occurrence of this exercise
+  for (const workout of sortedWorkouts) {
+    const exercise = workout.exercises.find(
+      (ex) => (ex.exerciseId || ex.name) === exerciseId
+    );
+    if (exercise) {
+      return exercise;
+    }
+  }
+
+  return null;
 }

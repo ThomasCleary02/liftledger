@@ -216,16 +216,27 @@ export function getVolumeDataPoints(workouts: Workout[], period: TimePeriod = "m
       : new Date(workout.date as any);
     
     let key: string;
+    let dateForReturn: Date;
+    
     if (period === "week") {
       const weekStart = new Date(date);
       weekStart.setDate(date.getDate() - date.getDay());
+      weekStart.setHours(0, 0, 0, 0);
       key = weekStart.toISOString().split('T')[0];
+      dateForReturn = weekStart;
     } else if (period === "month") {
+      const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
       key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      dateForReturn = monthStart;
     } else if (period === "year") {
+      const yearStart = new Date(date.getFullYear(), 0, 1);
       key = String(date.getFullYear());
+      dateForReturn = yearStart;
     } else {
-      key = date.toISOString().split('T')[0];
+      const dayStart = new Date(date);
+      dayStart.setHours(0, 0, 0, 0);
+      key = dayStart.toISOString().split('T')[0];
+      dateForReturn = dayStart;
     }
 
     const existing = grouped.get(key) || { volume: 0, count: 0 };
@@ -235,17 +246,30 @@ export function getVolumeDataPoints(workouts: Workout[], period: TimePeriod = "m
     });
   });
 
-  return Array.from(grouped.entries()).map(([dateStr, data]) => ({
-    date: new Date(dateStr),
-    volume: data.volume,
-    workoutCount: data.count,
-  })).sort((a, b) => a.date.getTime() - b.date.getTime());
+  return Array.from(grouped.entries()).map(([dateStr, data]) => {
+    // Parse the date key properly
+    let parsedDate: Date;
+    if (period === "month") {
+      const [year, month] = dateStr.split('-').map(Number);
+      parsedDate = new Date(year, month - 1, 1);
+    } else if (period === "year") {
+      parsedDate = new Date(Number(dateStr), 0, 1);
+    } else {
+      parsedDate = new Date(dateStr);
+    }
+    
+    return {
+      date: parsedDate,
+      volume: data.volume,
+      workoutCount: data.count,
+    };
+  }).sort((a, b) => a.date.getTime() - b.date.getTime());
 }
 
 /**
- * Find all Personal Records
+ * Find all Personal Records, filtered by tracked exercises if provided
  */
-export function findAllPRs(workouts: Workout[]): ExercisePR[] {
+export function findAllPRs(workouts: Workout[], trackedExerciseIds?: string[]): ExercisePR[] {
   const prs: ExercisePR[] = [];
   const strengthPRs = new Map<string, { weight: number; reps: number; volume: number; date: Date; workoutId: string; name: string }>();
   const cardioPRs = new Map<string, { distance: number; duration: number; pace: number; date: Date; workoutId: string; name: string }>();
@@ -461,6 +485,11 @@ export function findAllPRs(workouts: Workout[]): ExercisePR[] {
     }
   });
 
+  // At the end, filter by tracked exercises if provided
+  if (trackedExerciseIds && trackedExerciseIds.length > 0) {
+    return prs.filter(pr => trackedExerciseIds.includes(pr.exerciseId));
+  }
+
   return prs;
 }
 
@@ -476,7 +505,7 @@ export interface StrengthAnalytics {
   volumeTrend: VolumeDataPoint[];
 }
 
-export function getStrengthAnalytics(workouts: Workout[], exercises: Map<string, ExerciseDoc>): StrengthAnalytics {
+export function getStrengthAnalytics(workouts: Workout[], exercises: Map<string, ExerciseDoc>, timePeriod: TimePeriod = "month"): StrengthAnalytics {
   const strengthWorkouts = workouts.filter(w => 
     w.exercises.some(ex => ex.modality === "strength")
   );
@@ -553,7 +582,7 @@ export function getStrengthAnalytics(workouts: Workout[], exercises: Map<string,
     }))
     .sort((a, b) => b.volume - a.volume);
 
-  const volumeTrend = getVolumeDataPoints(workouts, "month");
+  const volumeTrend = getVolumeDataPoints(workouts, timePeriod); // Use timePeriod parameter
 
   return {
     totalVolume,
@@ -579,7 +608,7 @@ export interface CardioAnalytics {
   exercisesByFrequency: Array<{ exerciseId: string; name: string; count: number; totalDistance: number }>;
 }
 
-export function getCardioAnalytics(workouts: Workout[]): CardioAnalytics {
+export function getCardioAnalytics(workouts: Workout[], timePeriod: TimePeriod = "month"): CardioAnalytics {
   const cardioExercises = workouts
     .flatMap(w => w.exercises.filter(ex => ex.modality === "cardio" && ex.cardioData))
     .map(ex => ex.cardioData!);
@@ -592,7 +621,7 @@ export function getCardioAnalytics(workouts: Workout[]): CardioAnalytics {
   const longestDuration = Math.max(...cardioExercises.map(d => d.duration), 0);
   const bestPace = Math.min(...cardioExercises.filter(d => d.distance && d.distance > 0).map(d => d.pace || Infinity), Infinity);
 
-  // Distance trend (grouped by month)
+  // Distance trend (grouped by period)
   const trendMap = new Map<string, { distance: number; duration: number }>();
   
   workouts.forEach(workout => {
@@ -600,7 +629,18 @@ export function getCardioAnalytics(workouts: Workout[]): CardioAnalytics {
       ? (workout.date as any).toDate() 
       : new Date(workout.date as any);
     
-    const key = `${workoutDate.getFullYear()}-${String(workoutDate.getMonth() + 1).padStart(2, '0')}`;
+    let key: string;
+    if (timePeriod === "week") {
+      const weekStart = new Date(workoutDate);
+      weekStart.setDate(workoutDate.getDate() - workoutDate.getDay());
+      key = weekStart.toISOString().split('T')[0];
+    } else if (timePeriod === "month") {
+      key = `${workoutDate.getFullYear()}-${String(workoutDate.getMonth() + 1).padStart(2, '0')}`;
+    } else if (timePeriod === "year") {
+      key = String(workoutDate.getFullYear());
+    } else {
+      key = workoutDate.toISOString().split('T')[0];
+    }
     
     const cardioInWorkout = workout.exercises
       .filter(ex => ex.modality === "cardio" && ex.cardioData)
@@ -617,10 +657,21 @@ export function getCardioAnalytics(workouts: Workout[]): CardioAnalytics {
   });
 
   const distanceTrend = Array.from(trendMap.entries())
-    .map(([dateStr, data]) => ({
-      date: new Date(dateStr + "-01"),
-      ...data,
-    }))
+    .map(([dateStr, data]) => {
+      let parsedDate: Date;
+      if (timePeriod === "month") {
+        const [year, month] = dateStr.split('-').map(Number);
+        parsedDate = new Date(year, month - 1, 1);
+      } else if (timePeriod === "year") {
+        parsedDate = new Date(Number(dateStr), 0, 1);
+      } else {
+        parsedDate = new Date(dateStr);
+      }
+      return {
+        date: parsedDate,
+        ...data,
+      };
+    })
     .sort((a, b) => a.date.getTime() - b.date.getTime());
 
   // Exercise frequency
@@ -684,4 +735,28 @@ export function filterWorkoutsByPeriod(workouts: Workout[], period: TimePeriod):
       : new Date(workout.date as any);
     return workoutDate >= cutoffDate;
   });
+}
+
+/**
+ * Get the last workout data for a specific exercise
+ */
+export function getLastExerciseData(workouts: Workout[], exerciseId: string): Exercise | null {
+  // Sort workouts by date (most recent first)
+  const sortedWorkouts = [...workouts].sort((a, b) => {
+    const dateA = (a.date as any)?.toDate ? (a.date as any).toDate() : new Date(a.date as any);
+    const dateB = (b.date as any)?.toDate ? (b.date as any).toDate() : new Date(b.date as any);
+    return dateB.getTime() - dateA.getTime(); // Descending order
+  });
+
+  // Find the first occurrence of this exercise
+  for (const workout of sortedWorkouts) {
+    const exercise = workout.exercises.find(
+      (ex) => (ex.exerciseId || ex.name) === exerciseId
+    );
+    if (exercise) {
+      return exercise;
+    }
+  }
+
+  return null;
 }
