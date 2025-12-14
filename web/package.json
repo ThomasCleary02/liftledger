@@ -13,7 +13,7 @@
     "@liftledger/shared": "*",
     "date-fns": "^3.0.0",
     "firebase": "^12.5.0",
-    "next": "^15.1.0",
+    "next": "^15.5.7",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "lucide-react": "^0.468.0",
