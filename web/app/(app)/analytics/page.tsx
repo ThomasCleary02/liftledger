@@ -568,10 +568,11 @@ function PRsView({ prs, trackedExerciseIds }: { prs: ExercisePR[]; trackedExerci
   };
 
   // Extract date from dayId (format: ${userId}_${YYYY-MM-DD})
+  // Split only on the first underscore to preserve date format (YYYY-MM-DD)
   const getDateFromDayId = (dayId: string): string => {
-    const parts = dayId.split('_');
-    if (parts.length >= 2) {
-      return parts.slice(1).join('_'); // Handle dates with underscores if needed
+    const firstUnderscoreIndex = dayId.indexOf('_');
+    if (firstUnderscoreIndex >= 0) {
+      return dayId.substring(firstUnderscoreIndex + 1);
     }
     return dayId;
   };
