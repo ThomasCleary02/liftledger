@@ -1,12 +1,13 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { Dumbbell, BarChart3, Settings } from "lucide-react";
+import { Dumbbell, BarChart3, Users, Settings } from "lucide-react";
 import { useAuth } from "../providers/Auth";
 
 const navItems = [
   { path: "/workouts", label: "Workouts", icon: Dumbbell },
   { path: "/analytics", label: "Analytics", icon: BarChart3 },
+  { path: "/friends", label: "Friends", icon: Users },
   { path: "/settings", label: "Settings", icon: Settings },
 ];
 

@@ -70,7 +70,7 @@ type DayDoc = {
  * Normalize a date to YYYY-MM-DD format using local timezone
  * CRITICAL: Use local timezone, NOT UTC, to avoid off-by-one streak bugs
  */
-function normalizeDateToYYYYMMDD(input: Date | string | Timestamp): string {
+export function normalizeDateToYYYYMMDD(input: Date | string | Timestamp): string {
   let date: Date;
   
   if (typeof input === "string") {

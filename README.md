@@ -39,8 +39,9 @@ npm run lint
      - `web/.env.local`: `NEXT_PUBLIC_FIREBASE_API_KEY`, `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`, `NEXT_PUBLIC_BASE_URL`
 
 2. **Firestore Setup**
-   - Deploy security rules: `npx firebase deploy --only firestore:rules --project lift-ledger-8f627`
-   - Indexes are auto-created or can be deployed via Firebase Console
+   - Deploy security rules: `npm run deploy:firestore:rules`
+   - Deploy indexes: `npm run deploy:firestore:indexes`
+   - See `DEPLOY_FIRESTORE.md` for detailed instructions
 
 3. **Data Migration** (if migrating existing data)
    - See `MIGRATION.md` for instructions
@@ -59,6 +60,12 @@ npm run lint
 - **PRs:** Personal records for tracked exercises
 - **Volume Analytics:** Strength volume, cardio distance, calisthenics reps
 - **Time Periods:** Filter by week/month/year/all
+
+### Social Features (v2)
+- **Friends System:** Send/accept friend requests by email
+- **Leaderboards:** Compete with friends on volume, cardio distance, and consistency
+- **Usernames:** Set and display usernames instead of emails
+- **Account Settings:** Manage username and profile
 
 ### Workout Templates
 - Create templates from existing workouts

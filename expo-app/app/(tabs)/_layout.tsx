@@ -34,6 +34,9 @@ export default function TabsLayout() {
             case "analytics":
               iconName = focused ? "stats-chart" : "stats-chart-outline";
               break;
+            case "friends":
+              iconName = focused ? "people" : "people-outline";
+              break;
             case "settings":
               iconName = focused ? "settings" : "settings-outline";
               break;
@@ -46,6 +49,7 @@ export default function TabsLayout() {
     >
       <Tabs.Screen name="workouts" />
       <Tabs.Screen name="analytics" />
+      <Tabs.Screen name="friends" />
       <Tabs.Screen name="settings" />
     </Tabs>
   );

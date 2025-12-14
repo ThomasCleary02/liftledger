@@ -23,10 +23,11 @@ These items are **intentionally deferred** and should **not** be worked on until
   - Defer until core stability is proven
 
 ### Social Features
-- ❌ **Friends / leaderboards**
-  - Social features explicitly out of scope
-  - Will require significant architecture changes
-  - Defer until core platform is stable
+- ✅ **Friends / leaderboards** - COMPLETE in v2
+  - Friends system with friend requests
+  - Friends-only leaderboards
+  - Username support
+  - Still TODO: 1-on-1 challenges (Phase 3)
 
 ### Advanced Features
 - ❌ **Coach mode**

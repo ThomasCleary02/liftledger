@@ -6,6 +6,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
 import { onAuthStateChanged, User, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "firebase/auth";
 import { auth } from "../lib/firebase";
+import { accountService } from "../lib/firebase";
 import React from "react";
 import { logger } from "../lib/logger";
 
@@ -13,7 +14,7 @@ type AuthCtx = {
   user: User | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string, username?: string) => Promise<void>;
   signOutUser: () => Promise<void>;
 };
 
@@ -58,9 +59,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
   
-  const signUp = useCallback(async (email: string, password: string) => {
+  const signUp = useCallback(async (email: string, password: string, username?: string) => {
     try {
-      await createUserWithEmailAndPassword(auth, email.trim(), password);
+      const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
+      // Create account document with username if provided
+      if (username && userCredential.user) {
+        try {
+          await accountService.setUsername(username);
+        } catch (error) {
+          logger.error("Failed to set username during signup", error);
+          // Don't throw - account creation succeeded, username can be set later
+        }
+      }
       // Auth state will be updated automatically by onAuthStateChanged
       logger.info("Sign up successful");
     } catch (error) {

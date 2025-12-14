@@ -533,11 +533,11 @@ export default function DayView() {
       <SyncStatusIndicator />
       {/* Fixed Header */}
       <header className="flex-shrink-0">
-        <DayNavigation
-          currentDate={currentDate}
-          onDateChange={handleDateChange}
-          onTodayClick={handleTodayClick}
-        />
+      <DayNavigation
+        currentDate={currentDate}
+        onDateChange={handleDateChange}
+        onTodayClick={handleTodayClick}
+      />
       </header>
 
       {/* Scrollable Content */}

@@ -6,6 +6,7 @@ import { useAuth } from "../../../providers/Auth";
 import { deleteUserAccount } from "../../../lib/firestore/account";
 import { UnitSystem, DefaultChartView } from "@liftledger/shared/preferences";
 import { usePreferences } from "../../../lib/hooks/usePreferences";
+import { accountService } from "../../../lib/firebase";
 import {
   Scale,
   BarChart3,
@@ -294,9 +295,9 @@ export default function Settings() {
       {/* Fixed Header */}
       <header className="flex-shrink-0 border-b border-gray-200 bg-white">
         <div className="px-4 py-4 md:px-8 md:py-6">
-          <div className="mx-auto max-w-4xl">
-            <h1 className="mb-2 text-2xl font-bold text-gray-900 md:text-3xl">Settings</h1>
-            <p className="text-sm text-gray-500">Manage your account and preferences</p>
+        <div className="mx-auto max-w-4xl">
+          <h1 className="mb-2 text-2xl font-bold text-gray-900 md:text-3xl">Settings</h1>
+          <p className="text-sm text-gray-500">Manage your account and preferences</p>
           </div>
         </div>
       </header>
@@ -305,19 +306,25 @@ export default function Settings() {
       <main className="flex-1 overflow-y-auto">
         <div className="container mx-auto px-4 py-6 md:px-8 md:max-w-4xl">
         <div className="space-y-6">
-          {/* Profile Section */}
+          {/* Account Section */}
           <section>
-            <h2 className="mb-3 text-lg font-semibold text-gray-900">Profile</h2>
-            <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+            <h2 className="mb-3 text-lg font-semibold text-gray-900">Account</h2>
+            <div className="rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden">
+              <button
+                onClick={() => router.push("/settings/account")}
+                className="w-full px-5 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+              >
               <div className="flex items-center">
                 <div className="mr-4 rounded-full bg-gray-100 p-3">
                   <div className="h-6 w-6 rounded-full bg-gray-300"></div>
                 </div>
-                <div className="flex-1">
-                  <p className="font-semibold text-gray-900">{user?.email || "User"}</p>
-                  <p className="text-sm text-gray-500">Email</p>
+                  <div className="text-left">
+                    <p className="font-semibold text-gray-900">Account Settings</p>
+                    <p className="text-sm text-gray-500">Username, profile picture, and more</p>
                 </div>
               </div>
+                <ChevronRight className="h-5 w-5 text-gray-400" />
+              </button>
             </div>
           </section>
 
@@ -423,7 +430,7 @@ export default function Settings() {
           <div className="py-6 text-center">
             <p className="text-sm text-gray-400">LiftLedger v1.0.0</p>
           </div>
-        </div>
+          </div>
         </div>
       </main>
 

@@ -2,9 +2,9 @@
 
 ## 🎯 Project Status
 
-**Current State:** Production-ready day-based fitness tracking application
+**Current State:** Production-ready day-based fitness tracking application with social features (v2)
 
-LiftLedger has been successfully migrated from a workout-centric MVP to a production-ready day-based fitness platform with rest day support, improved analytics, and a complete marketing presence.
+LiftLedger has been successfully migrated from a workout-centric MVP to a production-ready day-based fitness platform with rest day support, improved analytics, friends system, leaderboards, and a complete marketing presence.
 
 ---
 
@@ -109,6 +109,67 @@ interface WorkoutTemplate {
 - Exercises from templates are appended to existing day exercises
 - Templates are user-specific (filtered by `ownerId`)
 
+### Accounts Collection
+
+**Collection:** `accounts/{userId}`
+
+```typescript
+interface Account {
+  userId: string;
+  email: string;              // Normalized to lowercase (for friend requests)
+  username?: string;          // User-selected username (3-20 chars, alphanumeric + _-)
+  favoriteExercises?: string[];
+  trackedExercises?: string[];
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
+}
+```
+
+**Key Features:**
+- Username required during signup
+- Username used for display in friends lists and leaderboards
+- Email stored for friend request lookups
+
+### Friends Collection
+
+**Collection:** `friends/{friendId}`  
+**Friend ID Format:** `${userId}_${friendUserId}` (sorted alphabetically)
+
+```typescript
+interface Friend {
+  id: string;                 // friendId: sorted userIds joined by underscore
+  userId: string;             // First user (alphabetically)
+  friendUserId: string;       // Second user (alphabetically)
+  createdAt: Timestamp;
+}
+```
+
+**Key Features:**
+- Bidirectional relationship (sorted IDs ensure uniqueness)
+- Friend relationships created via friend request acceptance
+- Used for leaderboard access control
+
+### Friend Requests Collection
+
+**Collection:** `friendRequests/{requestId}`  
+**Request ID Format:** `${fromUserId}_${toUserId}`
+
+```typescript
+interface FriendRequest {
+  id: string;
+  fromUserId: string;         // Requester
+  toUserId: string;           // Recipient
+  status: "pending" | "accepted" | "rejected";
+  createdAt: Timestamp;
+  respondedAt?: Timestamp;
+}
+```
+
+**Key Features:**
+- Email-based friend discovery
+- One pending request per direction
+- Automatic friend creation on acceptance
+
 ### Legacy: Workouts Collection
 
 **Status:** Still exists for backward compatibility  
@@ -148,6 +209,33 @@ interface WorkoutTemplate {
 - **Strength:** Volume analytics, muscle group distribution, top exercises
 - **Cardio:** Distance, duration, pace analytics
 - **PRs:** Personal records for tracked exercises
+
+### Friends & Leaderboards (v2)
+
+**Routes:**
+- Web: `/friends`, `/friends/leaderboards`
+- Expo: `/(tabs)/friends`, `/friends/leaderboards`
+
+**Features:**
+- **Friend Requests:** Send/accept/reject friend requests by email
+- **Friends List:** View all friends with usernames
+- **Leaderboards:** Compete with friends on:
+  - Total volume (strength)
+  - Cardio distance
+  - Consistency (active days)
+- **Time Filters:** 7 days, 30 days, all time
+- **Username Display:** Shows usernames instead of emails/user IDs
+
+### Account Settings
+
+**Routes:**
+- Web: `/settings/account`
+- Expo: `/settings/account`
+
+**Features:**
+- **Username Management:** Set/update username (required at signup)
+- **Email Display:** View email (read-only)
+- **Profile Picture:** Placeholder for future feature
 
 **Data Source:** Uses `days` collection exclusively (workouts collection is legacy/read-only)
 
@@ -195,13 +283,27 @@ interface WorkoutTemplate {
    - Public read, admin write only
 
 5. **`accounts`** - User account data
+   - Stores email, username, favorite exercises, tracked exercises
+   - Email stored for friend request lookups
+
+6. **`friends`** - Friend relationships (v2)
+   - Indexed on: `userId` + `createdAt`, `friendUserId` + `createdAt`, `userId` + `friendUserId`
+   - Bidirectional relationships (sorted IDs for uniqueness)
+   - Security: Users can read/create/delete their own friend relationships
+
+7. **`friendRequests`** - Friend request system (v2)
+   - Indexed on: `toUserId` + `status`, `fromUserId` + `status`, `fromUserId` + `toUserId` + `status`
+   - Security: Users can read requests they sent/received, create as sender, update as recipient
 
 ### Security Rules
 
-- **Days:** Users can read/write their own days (validated by `dayId` pattern)
+- **Days:** Users can read/write their own days (validated by `dayId` pattern). Friends can read each other's days for leaderboards.
 - **Workouts:** Users can read/write their own workouts
 - **Templates:** Users can read/write their own templates
 - **Exercises:** Public read, admin write only
+- **Accounts:** Authenticated users can read (for email lookups), users can write their own account
+- **Friends:** Users can read/create/delete their own friend relationships (bidirectional)
+- **Friend Requests:** Users can read requests they sent/received, create as sender, update status as recipient
 
 ### Services
 
@@ -210,7 +312,10 @@ All Firestore services are created via factory functions in `packages/shared`:
 - `createWorkoutService(db, auth)` - **Legacy** (read-only, deprecated)
 - `createWorkoutTemplateService(db, auth)`
 - `createExerciseService(db)`
-- `createAccountService(db, auth)`
+- `createAccountService(db, auth)` - Username management, favorites, tracked exercises
+- `createFriendsService(db, auth)` - Friend relationships management (v2)
+- `createFriendRequestsService(db, auth)` - Friend request system (v2)
+- `fetchDaysForLeaderboard(db, auth)` - Fetch days for current user and friends (v2)
 
 ---
 
@@ -285,6 +390,13 @@ All analytics functions accept plain `Day[]` arrays (not Firestore snapshots):
    - Privacy policy
    - Terms of service
    - Contact page
+
+8. **Social Features (v2)**
+   - Friend request system (email-based)
+   - Friends list with username display
+   - Friends-only leaderboards (volume, cardio, consistency)
+   - Username management (required at signup, editable in account settings)
+   - Password reset functionality
 
 ### 🔄 Migration Status
 

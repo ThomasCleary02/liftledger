@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../../providers/Auth";
-import { Mail, Lock, Eye, EyeOff, Dumbbell } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, Dumbbell, User } from "lucide-react";
+import { sendPasswordResetEmail } from "firebase/auth";
+import { auth } from "../../../lib/firebase";
 
 export default function Login() {
   const router = useRouter();
@@ -12,10 +14,13 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [username, setUsername] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
 
   // Redirect if already authenticated (wait for auth to finish loading)
   useEffect(() => {
@@ -53,11 +58,49 @@ export default function Login() {
       setError("Password must be at least 6 characters");
       return false;
     }
-    if (mode === "signup" && password !== confirmPassword) {
+    if (mode === "signup") {
+      if (password !== confirmPassword) {
       setError("Passwords do not match");
       return false;
+      }
+      if (!username.trim()) {
+        setError("Please enter a username");
+        return false;
+      }
+      const usernameRegex = /^[a-zA-Z0-9_-]{3,20}$/;
+      if (!usernameRegex.test(username.trim())) {
+        setError("Username must be 3-20 characters and contain only letters, numbers, underscores, and hyphens");
+        return false;
+      }
     }
     return true;
+  };
+  
+  const handleResetPassword = async () => {
+    if (!email.trim()) {
+      setError("Please enter your email address");
+      return;
+    }
+    if (!email.includes("@")) {
+      setError("Please enter a valid email address");
+      return;
+    }
+    
+    try {
+      setResetLoading(true);
+      setError(null);
+      await sendPasswordResetEmail(auth, email.trim());
+      setError(null);
+      alert("Password reset email sent! Check your inbox.");
+      setShowResetPassword(false);
+    } catch (e: any) {
+      const errorMessage = e?.message || "Failed to send reset email";
+      setError(errorMessage.includes("user-not-found") 
+        ? "No account found with this email address"
+        : errorMessage);
+    } finally {
+      setResetLoading(false);
+    }
   };
 
   const submit = async (e?: React.FormEvent) => {
@@ -90,7 +133,7 @@ export default function Login() {
     }
   };
 
-  const isFormValid = email && password && (mode === "login" || confirmPassword);
+  const isFormValid = email && password && (mode === "login" || (confirmPassword && username));
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12 md:px-6">
@@ -174,6 +217,31 @@ export default function Login() {
               </div>
             </div>
 
+            {/* Username (Sign Up Only) */}
+            {mode === "signup" && (
+              <div className="mb-4">
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  Username
+                </label>
+                <div className="flex items-center rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+                  <User className="h-5 w-5 text-gray-500" />
+                  <input
+                    type="text"
+                    className="ml-3 flex-1 bg-transparent text-base outline-none placeholder:text-gray-400"
+                    placeholder="Choose a username"
+                    autoCapitalize="none"
+                    autoComplete="username"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    maxLength={20}
+                  />
+                </div>
+                <p className="mt-1 text-xs text-gray-500">
+                  3-20 characters, letters, numbers, underscores, and hyphens only
+                </p>
+              </div>
+            )}
+
             {/* Confirm Password (Sign Up Only) */}
             {mode === "signup" && (
               <div className="mb-6">
@@ -203,6 +271,50 @@ export default function Login() {
                     )}
                   </button>
                 </div>
+              </div>
+            )}
+
+            {/* Reset Password Link (Login Only) */}
+            {mode === "login" && !showResetPassword && (
+              <div className="mb-4">
+                <button
+                  type="button"
+                  onClick={() => setShowResetPassword(true)}
+                  className="text-sm text-gray-600 hover:text-black hover:underline"
+                >
+                  Forgot password?
+                </button>
+              </div>
+            )}
+
+            {/* Reset Password Form (Login Only) */}
+            {mode === "login" && showResetPassword && (
+              <div className="mb-4 rounded-xl bg-blue-50 border border-blue-200 p-4">
+                <p className="text-sm text-blue-900 mb-3">
+                  Enter your email address and we'll send you a link to reset your password.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleResetPassword}
+                  disabled={resetLoading || !email.trim()}
+                  className={`w-full rounded-lg py-2 px-4 text-sm font-semibold ${
+                    resetLoading || !email.trim()
+                      ? "bg-gray-300 text-gray-600 cursor-not-allowed"
+                      : "bg-blue-600 text-white hover:bg-blue-700"
+                  }`}
+                >
+                  {resetLoading ? "Sending..." : "Send Reset Email"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowResetPassword(false);
+                    setError(null);
+                  }}
+                  className="mt-2 w-full text-sm text-blue-700 hover:underline"
+                >
+                  Cancel
+                </button>
               </div>
             )}
 
@@ -243,6 +355,8 @@ export default function Login() {
             onClick={() => {
               setMode(mode === "login" ? "signup" : "login");
               setConfirmPassword("");
+              setUsername("");
+              setShowResetPassword(false);
               setError(null);
             }}
             className="font-semibold text-black hover:underline"

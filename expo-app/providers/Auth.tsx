@@ -1,12 +1,12 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { onAuthStateChanged, User, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "firebase/auth";
-import { auth } from "../lib/firebase";
+import { auth, accountService } from "../lib/firebase";
 
 type AuthCtx = {
   user: User | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string, username?: string) => Promise<void>;
   signOutUser: () => Promise<void>;
 };
 
@@ -27,8 +27,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signIn = async (email: string, password: string) => {
     await signInWithEmailAndPassword(auth, email.trim(), password);
   };
-  const signUp = async (email: string, password: string) => {
-    await createUserWithEmailAndPassword(auth, email.trim(), password);
+  const signUp = async (email: string, password: string, username?: string) => {
+    const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
+    // Create account document with username if provided
+    if (username && userCredential.user) {
+      try {
+        await accountService.setUsername(username);
+      } catch (error) {
+        console.error("Failed to set username during signup", error);
+        // Don't throw - account creation succeeded, username can be set later
+      }
+    }
   };
   const signOutUser = async () => {
     await signOut(auth);

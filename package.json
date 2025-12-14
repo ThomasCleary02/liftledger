@@ -14,7 +14,10 @@
     "typecheck": "pnpm --filter '*' type-check",
     "type-check": "npm run type-check --workspaces",
     "android": "expo run:android",
-    "ios": "expo run:ios"
+    "ios": "expo run:ios",
+    "deploy:firestore:rules": "firebase deploy --only firestore:rules --project lift-ledger-8f627",
+    "deploy:firestore:indexes": "firebase deploy --only firestore:indexes --project lift-ledger-8f627",
+    "deploy:firestore": "firebase deploy --only firestore --project lift-ledger-8f627"
   },
   "overrides": {
     "react": "19.1.0",

@@ -32,6 +32,8 @@ import { createExerciseService } from "@liftledger/shared/firestore/exercises";
 import { createAccountService } from "@liftledger/shared/firestore/account";
 import { createDayService } from "@liftledger/shared/firestore/days";
 import { createWorkoutTemplateService } from "@liftledger/shared/firestore/workoutTemplates";
+import { createFriendsService } from "@liftledger/shared/firestore/friends";
+import { createFriendRequestsService } from "@liftledger/shared/firestore/friendRequests";
 import { createPreferencesService } from "@liftledger/shared/preferences";
 import { expoPreferencesStorage } from "./preferences/storage";
 
@@ -40,4 +42,6 @@ export const exerciseService = createExerciseService(db);
 export const accountService = createAccountService(db, auth);
 export const dayService = createDayService(db, auth);
 export const workoutTemplateService = createWorkoutTemplateService(db, auth);
+export const friendsService = createFriendsService(db, auth);
+export const friendRequestsService = createFriendRequestsService(db, auth);
 export const preferencesService = createPreferencesService(expoPreferencesStorage);

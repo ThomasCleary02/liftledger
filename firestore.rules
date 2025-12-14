@@ -12,8 +12,10 @@ service cloud.firestore {
     }
 
     // Accounts collection - users can read/write their own account
+    // Also allow authenticated users to read accounts (needed for friend requests by email lookup)
     match /accounts/{userId} {
-      allow read, write: if isOwner(userId);
+      allow read: if isAuthenticated(); // Allow authenticated users to read (for email lookups)
+      allow write: if isOwner(userId);
     }
 
     // Exercises collection - public read, admin write only
@@ -42,18 +44,83 @@ service cloud.firestore {
         return dayId.matches(request.auth.uid + '_.*');
       }
       
+      // Helper: check if the day belongs to a friend
+      // This allows reading friends' days for leaderboards
+      // Friend document IDs use sorted user IDs: ${minId}_${maxId}
+      function isFriendDay() {
+        return isAuthenticated() 
+          && resource.data.userId != request.auth.uid
+          && exists(/databases/$(database)/documents/friends/$(
+            request.auth.uid < resource.data.userId 
+              ? request.auth.uid + '_' + resource.data.userId
+              : resource.data.userId + '_' + request.auth.uid
+          ));
+      }
+      
       // Allow read if:
       // 1. dayId pattern matches (for direct document access, including non-existent docs)
       // 2. OR document exists and userId field matches (for collection queries)
+      // 3. OR document belongs to a friend (for leaderboards)
       // Note: For queries, Firestore validates each returned document against resource.data
       allow read: if isAuthenticated() && (
         isOwnDay() || 
-        resource.data.userId == request.auth.uid
+        resource.data.userId == request.auth.uid ||
+        isFriendDay()
       );
       // Allow write if user owns the document
       allow write: if isAuthenticated() && isOwnDay() && resource.data.userId == request.auth.uid;
       // Allow create if user is creating their own day
       allow create: if isAuthenticated() && isOwnDay() && request.resource.data.userId == request.auth.uid;
+    }
+
+    // Friends collection - users can read/write their own friend relationships
+    match /friends/{friendId} {
+      // Allow read if user is either userId or friendUserId
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.friendUserId == request.auth.uid
+      );
+      
+      // Allow create if user is either userId or friendUserId (for accepting friend requests)
+      allow create: if isAuthenticated() && (
+        (request.resource.data.userId == request.auth.uid ||
+         request.resource.data.friendUserId == request.auth.uid) &&
+        request.resource.data.userId is string &&
+        request.resource.data.friendUserId is string &&
+        request.resource.data.createdAt is timestamp
+      );
+      
+      // Allow delete if user is the owner (userId)
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      
+      // Prevent updates (friend relationships should be immutable)
+      allow update: if false;
+    }
+
+    // Friend Requests collection - users can send/accept/reject friend requests
+    match /friendRequests/{requestId} {
+      // Allow create if user is the sender
+      allow create: if isAuthenticated() &&
+        request.resource.data.fromUserId == request.auth.uid &&
+        request.resource.data.toUserId is string &&
+        request.resource.data.status == "pending" &&
+        request.resource.data.createdAt is timestamp;
+      
+      // Allow read if user is the sender or recipient
+      allow read: if isAuthenticated() && (
+        resource.data.fromUserId == request.auth.uid ||
+        resource.data.toUserId == request.auth.uid
+      );
+      
+      // Allow update if user is recipient and updating status to accepted/rejected
+      allow update: if isAuthenticated() &&
+        resource.data.toUserId == request.auth.uid &&
+        request.resource.data.status in ["accepted", "rejected"];
+      
+      // Allow delete if user is sender and request is pending (for canceling)
+      allow delete: if isAuthenticated() &&
+        resource.data.fromUserId == request.auth.uid &&
+        resource.data.status == "pending";
     }
   }
 }

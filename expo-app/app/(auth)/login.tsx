@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import { View, Text, TextInput, Pressable, Alert, KeyboardAvoidingView, Platform, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "../../providers/Auth";
+import { sendPasswordResetEmail } from "firebase/auth";
+import { auth } from "../../lib/firebase";
 import Ionicons from "@expo/vector-icons/Ionicons";
 
 export default function Login() {
@@ -11,9 +13,12 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [username, setUsername] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
 
   useEffect(() => {
     if (user) router.replace("/(tabs)/workouts");
@@ -32,11 +37,50 @@ export default function Login() {
       Alert.alert("Error", "Password must be at least 6 characters");
       return false;
     }
-    if (mode === "signup" && password !== confirmPassword) {
+    if (mode === "signup") {
+      if (password !== confirmPassword) {
       Alert.alert("Error", "Passwords do not match");
       return false;
+      }
+      if (!username.trim()) {
+        Alert.alert("Error", "Please enter a username");
+        return false;
+      }
+      const usernameRegex = /^[a-zA-Z0-9_-]{3,20}$/;
+      if (!usernameRegex.test(username.trim())) {
+        Alert.alert("Error", "Username must be 3-20 characters and contain only letters, numbers, underscores, and hyphens");
+        return false;
+      }
     }
     return true;
+  };
+  
+  const handleResetPassword = async () => {
+    if (!email.trim()) {
+      Alert.alert("Error", "Please enter your email address");
+      return;
+    }
+    if (!email.includes("@")) {
+      Alert.alert("Error", "Please enter a valid email address");
+      return;
+    }
+    
+    try {
+      setResetLoading(true);
+      await sendPasswordResetEmail(auth, email.trim());
+      Alert.alert("Success", "Password reset email sent! Check your inbox.");
+      setShowResetPassword(false);
+    } catch (e: any) {
+      const errorMessage = e?.message || "Failed to send reset email";
+      Alert.alert(
+        "Error",
+        errorMessage.includes("user-not-found")
+          ? "No account found with this email address"
+          : errorMessage
+      );
+    } finally {
+      setResetLoading(false);
+    }
   };
 
   const submit = async () => {
@@ -47,7 +91,7 @@ export default function Login() {
       if (mode === "login") {
         await signIn(email, password);
       } else {
-        await signUp(email, password);
+        await signUp(email, password, username);
       }
       router.replace("/(tabs)/workouts");
     } catch (e: any) {
@@ -142,6 +186,29 @@ export default function Login() {
               </View>
             </View>
 
+            {/* Username (Sign Up Only) */}
+            {mode === "signup" && (
+              <View className="mb-4">
+                <Text className="text-gray-700 font-medium mb-2">Username</Text>
+                <View className="flex-row items-center bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">
+                  <Ionicons name="person-outline" size={20} color="#6b7280" />
+                  <TextInput
+                    className="flex-1 ml-3 text-base"
+                    placeholder="Choose a username"
+                    placeholderTextColor="#9ca3af"
+                    autoCapitalize="none"
+                    autoComplete="username"
+                    value={username}
+                    onChangeText={setUsername}
+                    maxLength={20}
+                  />
+                </View>
+                <Text className="text-xs text-gray-500 mt-1">
+                  3-20 characters, letters, numbers, underscores, and hyphens only
+                </Text>
+              </View>
+            )}
+
             {/* Confirm Password (Sign Up Only) */}
             {mode === "signup" && (
               <View className="mb-6">
@@ -169,10 +236,45 @@ export default function Login() {
               </View>
             )}
 
+            {/* Reset Password Link (Login Only) */}
+            {mode === "login" && !showResetPassword && (
+              <View className="mb-4">
+                <Pressable onPress={() => setShowResetPassword(true)}>
+                  <Text className="text-sm text-gray-600">Forgot password?</Text>
+                </Pressable>
+              </View>
+            )}
+
+            {/* Reset Password Form (Login Only) */}
+            {mode === "login" && showResetPassword && (
+              <View className="mb-4 bg-blue-50 border border-blue-200 rounded-xl p-4">
+                <Text className="text-sm text-blue-900 mb-3">
+                  Enter your email address and we'll send you a link to reset your password.
+                </Text>
+                <Pressable
+                  onPress={handleResetPassword}
+                  disabled={resetLoading || !email.trim()}
+                  className={`rounded-lg py-2 px-4 ${resetLoading || !email.trim() ? 'bg-gray-300' : 'bg-blue-600'}`}
+                >
+                  <Text className={`text-sm font-semibold text-center ${resetLoading || !email.trim() ? 'text-gray-600' : 'text-white'}`}>
+                    {resetLoading ? "Sending..." : "Send Reset Email"}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => {
+                    setShowResetPassword(false);
+                  }}
+                  className="mt-2"
+                >
+                  <Text className="text-sm text-blue-700 text-center">Cancel</Text>
+                </Pressable>
+              </View>
+            )}
+
             {/* Submit Button */}
             <Pressable
               onPress={submit}
-              disabled={loading || !email || !password || (mode === "signup" && !confirmPassword)}
+              disabled={loading || !email || !password || (mode === "signup" && (!confirmPassword || !username))}
               className={`rounded-xl py-4 shadow-lg ${
                 loading || !email || !password || (mode === "signup" && !confirmPassword)
                   ? "bg-gray-300"

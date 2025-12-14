@@ -271,15 +271,24 @@ export function calculateTotalCalisthenicsReps(workouts: Workout[]): number {
  * CRITICAL: Analytics functions must accept plain arrays (Day[]), not Firestore snapshots.
  */
 export function calculateTotalVolumeFromDays(days: Day[]): number {
-  return days.reduce((sum, day) => {
-    return day.exercises.reduce((daySum, ex) => {
-      if (ex.modality === "strength" && Array.isArray(ex.strengthSets)) {
-        const exVol = ex.strengthSets.reduce((s, st) => s + (st.reps || 0) * (st.weight || 0), 0);
-        return daySum + exVol;
+  const total = days.reduce((sum, day) => {
+    if (!day || !Array.isArray(day.exercises)) return sum;
+    
+    const dayVolume = day.exercises.reduce((daySum, ex) => {
+      // Use EXACT same logic as volumeByMuscleGroup calculation (line 835) which works
+      // It uses: ex.strengthSets?.reduce((sum, s) => sum + (s.reps * s.weight), 0) || 0
+      if (ex.modality === "strength" && ex.strengthSets) {
+        // Use EXACT same pattern as line 835 (volumeByMuscleGroup) which works
+        const volume = ex.strengthSets.reduce((s, set) => s + (set.reps * set.weight), 0) || 0;
+        return daySum + volume;
       }
       return daySum;
     }, 0);
+    
+    return sum + dayVolume;
   }, 0);
+  
+  return total;
 }
 
 /**
@@ -288,12 +297,16 @@ export function calculateTotalVolumeFromDays(days: Day[]): number {
  */
 export function calculateTotalCardioDistanceFromDays(days: Day[]): number {
   return days.reduce((sum, day) => {
-    return day.exercises.reduce((daySum, ex) => {
+    if (!day || !Array.isArray(day.exercises)) return sum;
+    
+    const dayDistance = day.exercises.reduce((daySum, ex) => {
       if (ex.modality === "cardio" && ex.cardioData?.distance) {
         return daySum + ex.cardioData.distance;
       }
       return daySum;
     }, 0);
+    
+    return sum + dayDistance;
   }, 0);
 }
 
@@ -303,12 +316,16 @@ export function calculateTotalCardioDistanceFromDays(days: Day[]): number {
  */
 export function calculateTotalCardioDurationFromDays(days: Day[]): number {
   return days.reduce((sum, day) => {
-    return day.exercises.reduce((daySum, ex) => {
+    if (!day || !Array.isArray(day.exercises)) return sum;
+    
+    const dayDuration = day.exercises.reduce((daySum, ex) => {
       if (ex.modality === "cardio" && ex.cardioData?.duration) {
         return daySum + ex.cardioData.duration;
       }
       return daySum;
     }, 0);
+    
+    return sum + dayDuration;
   }, 0);
 }
 
@@ -318,13 +335,17 @@ export function calculateTotalCardioDurationFromDays(days: Day[]): number {
  */
 export function calculateTotalCalisthenicsRepsFromDays(days: Day[]): number {
   return days.reduce((sum, day) => {
-    return day.exercises.reduce((daySum, ex) => {
+    if (!day || !Array.isArray(day.exercises)) return sum;
+    
+    const dayReps = day.exercises.reduce((daySum, ex) => {
       if (ex.modality === "calisthenics" && Array.isArray(ex.calisthenicsSets)) {
         const exReps = ex.calisthenicsSets.reduce((s, st) => s + (st.reps || 0), 0);
         return daySum + exReps;
       }
       return daySum;
     }, 0);
+    
+    return sum + dayReps;
   }, 0);
 }
 
@@ -751,7 +772,11 @@ export function getStrengthAnalytics(days: Day[], exercises: Map<string, Exercis
   const maxVolumeWorkout = Math.max(...days.map(day => {
     return day.exercises.reduce((sum, ex) => {
       if (ex.modality === "strength" && Array.isArray(ex.strengthSets)) {
-        return sum + ex.strengthSets.reduce((s, st) => s + (st.reps || 0) * (st.weight || 0), 0);
+        return sum + ex.strengthSets.reduce((s, st) => {
+          // Use same logic as calculateTotalVolumeFromDays
+          if (!st) return s;
+          return s + ((st.reps || 0) * (st.weight || 0));
+        }, 0);
       }
       return sum;
     }, 0);
@@ -994,8 +1019,9 @@ export function filterDaysByPeriod(days: Day[], period: TimePeriod): Day[] {
     cutoffDate = new Date(now);
     cutoffDate.setDate(now.getDate() - 7);
   } else if (period === "month") {
+    // Use 30 days instead of calendar month for consistency with leaderboard
     cutoffDate = new Date(now);
-    cutoffDate.setMonth(now.getMonth() - 1);
+    cutoffDate.setDate(now.getDate() - 30);
   } else if (period === "year") {
     cutoffDate = new Date(now);
     cutoffDate.setFullYear(now.getFullYear() - 1);
@@ -1003,9 +1029,19 @@ export function filterDaysByPeriod(days: Day[], period: TimePeriod): Day[] {
     return days;
   }
   
+  // Normalize cutoffDate to start of day for proper comparison
+  cutoffDate.setHours(0, 0, 0, 0);
+  
   return days.filter(day => {
     const dayDate = parseISO(day.date);
-    return dayDate >= cutoffDate;
+    // Check if date is valid
+    if (isNaN(dayDate.getTime())) {
+      return false;
+    }
+    // Normalize dayDate to start of day (create new Date to avoid mutation)
+    const normalizedDayDate = new Date(dayDate);
+    normalizedDayDate.setHours(0, 0, 0, 0);
+    return normalizedDayDate >= cutoffDate;
   });
 }
 

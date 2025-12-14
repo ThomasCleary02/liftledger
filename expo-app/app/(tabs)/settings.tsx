@@ -92,27 +92,33 @@ export default function Settings() {
       {/* Custom Header */}
       <View className="bg-white border-b border-gray-200">
         <View className="px-6 pb-4" style={{ paddingTop: insets.top + 16 }}>
-          <Text className="text-3xl font-bold text-gray-900 mb-2">Settings</Text>
-          <Text className="text-gray-500 text-sm">Manage your account and preferences</Text>
+        <Text className="text-3xl font-bold text-gray-900 mb-2">Settings</Text>
+        <Text className="text-gray-500 text-sm">Manage your account and preferences</Text>
         </View>
       </View>
 
       <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 32 }}>
         <View className="p-6">
 
-          {/* Profile Section */}
+          {/* Account Section */}
           <View className="mb-6">
-            <Text className="text-lg font-semibold text-gray-900 mb-3">Profile</Text>
-            <View className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-              <View className="flex-row items-center">
+            <Text className="text-lg font-semibold text-gray-900 mb-3">Account</Text>
+            <View className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+              <Pressable
+                onPress={() => router.push("/settings/account")}
+                className="w-full px-5 py-4 flex-row items-center justify-between active:bg-gray-50"
+              >
+                <View className="flex-row items-center flex-1">
                 <View className="bg-gray-100 rounded-full p-3 mr-4">
                   <Ionicons name="person" size={24} color="#374151" />
                 </View>
                 <View className="flex-1">
-                  <Text className="font-semibold text-gray-900">{user?.email || "User"}</Text>
-                  <Text className="text-gray-500 text-sm">Email</Text>
+                    <Text className="font-semibold text-gray-900">Account Settings</Text>
+                    <Text className="text-gray-500 text-sm">Username, profile picture, and more</Text>
                 </View>
               </View>
+                <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
+              </Pressable>
             </View>
           </View>
 
