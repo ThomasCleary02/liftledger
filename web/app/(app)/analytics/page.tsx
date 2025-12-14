@@ -45,6 +45,7 @@ export default function Analytics() {
   const [prs, setPRs] = useState<ExercisePR[]>([]);
   const { defaultChartView } = usePreferences();
   const [trackedExerciseIds, setTrackedExerciseIds] = useState<string[]>([]);
+  const [hasInitializedPeriod, setHasInitializedPeriod] = useState(false);
 
   useEffect(() => {
     // Wait for auth to finish loading
@@ -58,10 +59,12 @@ export default function Analytics() {
   }, [user, router, authLoading]);
 
   useEffect(() => {
-    if (defaultChartView !== timePeriod) {
+    // Only set initial time period from preferences, don't override user selections
+    if (!hasInitializedPeriod && defaultChartView) {
       setTimePeriod(defaultChartView);
+      setHasInitializedPeriod(true);
     }
-  }, [defaultChartView, timePeriod]);
+  }, [defaultChartView, hasInitializedPeriod]);
 
   useEffect(() => {
     if (days.length > 0) {
