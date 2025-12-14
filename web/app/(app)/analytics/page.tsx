@@ -43,7 +43,7 @@ export default function Analytics() {
   const [timePeriod, setTimePeriod] = useState<TimePeriod>("all");
   const [summary, setSummary] = useState<AnalyticsSummary | null>(null);
   const [prs, setPRs] = useState<ExercisePR[]>([]);
-  const { preferences } = usePreferences();
+  const { defaultChartView } = usePreferences();
   const [trackedExerciseIds, setTrackedExerciseIds] = useState<string[]>([]);
 
   useEffect(() => {
@@ -58,10 +58,10 @@ export default function Analytics() {
   }, [user, router, authLoading]);
 
   useEffect(() => {
-    if (preferences.defaultChartView && preferences.defaultChartView !== timePeriod) {
-      setTimePeriod(preferences.defaultChartView);
+    if (defaultChartView !== timePeriod) {
+      setTimePeriod(defaultChartView);
     }
-  }, [preferences.defaultChartView]);
+  }, [defaultChartView, timePeriod]);
 
   useEffect(() => {
     if (days.length > 0) {
@@ -231,7 +231,7 @@ function OverviewView({
   days: Day[];
   timePeriod: TimePeriod;
 }) {
-  const { preferences } = usePreferences();
+  const { units } = usePreferences();
 
   return (
     <div className="space-y-6">
@@ -258,7 +258,7 @@ function OverviewView({
         <StatCard
           icon={TrendingUp}
           label="Total Volume"
-          value={formatWeight(summary.totalVolume, preferences.units)}
+          value={formatWeight(summary.totalVolume, units)}
           color="bg-purple-100 text-purple-700"
         />
       </div>
@@ -280,10 +280,10 @@ function OverviewView({
 
       {/* Quick Stats */}
       <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-        <StatRow label="Total Volume" value={formatWeight(summary.totalVolume, preferences.units)} />
+        <StatRow label="Total Volume" value={formatWeight(summary.totalVolume, units)} />
         <StatRow
           label="Cardio Distance"
-          value={formatDistance(summary.totalCardioDistance, preferences.units)}
+          value={formatDistance(summary.totalCardioDistance, units)}
         />
         <StatRow
           label="Cardio Duration"
@@ -309,7 +309,7 @@ function StrengthView({
   timePeriod: TimePeriod;
 }) {
   const strengthAnalytics = getStrengthAnalytics(days, exercises, timePeriod);
-  const { preferences } = usePreferences();
+  const { units } = usePreferences();
 
   return (
     <div className="space-y-6">
@@ -320,19 +320,19 @@ function StrengthView({
           <StatCard
             icon={Dumbbell}
             label="Total Volume"
-            value={formatWeight(strengthAnalytics.totalVolume, preferences.units)}
+            value={formatWeight(strengthAnalytics.totalVolume, units)}
             color="bg-blue-100 text-blue-700"
           />
           <StatCard
             icon={TrendingUp}
             label="Avg/Workout"
-            value={formatWeight(strengthAnalytics.averageVolumePerWorkout, preferences.units)}
+            value={formatWeight(strengthAnalytics.averageVolumePerWorkout, units)}
             color="bg-purple-100 text-purple-700"
           />
           <StatCard
             icon={Trophy}
             label="Max Workout"
-            value={formatWeight(strengthAnalytics.maxVolumeWorkout, preferences.units)}
+            value={formatWeight(strengthAnalytics.maxVolumeWorkout, units)}
             color="bg-yellow-100 text-yellow-700"
           />
         </div>
@@ -359,7 +359,7 @@ function StrengthView({
                   </div>
                   <div className="text-right">
                     <p className="text-lg font-bold text-gray-900">
-                      {formatWeight(exercise.maxWeight, preferences.units)}
+                      {formatWeight(exercise.maxWeight, units)}
                     </p>
                     <p className="text-xs text-gray-400">Max Weight</p>
                   </div>
@@ -388,7 +388,7 @@ function StrengthView({
                       {group.muscleGroup.replace(/_/g, " ")}
                     </p>
                     <p className="font-semibold text-gray-600">
-                      {Math.round(percentage)}% • {formatWeight(group.volume, preferences.units)}
+                      {Math.round(percentage)}% • {formatWeight(group.volume, units)}
                     </p>
                   </div>
                   <div className="h-3 overflow-hidden rounded-full bg-gray-100">
@@ -419,13 +419,13 @@ function CardioView({
   timePeriod: TimePeriod;
 }) {
   const cardioAnalytics = getCardioAnalytics(days, timePeriod);
-  const { preferences } = usePreferences();
+  const { units } = usePreferences();
 
   const formatPace = (secondsPerMile: number): string => {
     if (!isFinite(secondsPerMile) || secondsPerMile === 0) return "N/A";
     const mins = Math.floor(secondsPerMile / 60);
     const secs = Math.round(secondsPerMile % 60);
-    const unit = preferences.units === "metric" ? "km" : "mi";
+    const unit = units === "metric" ? "km" : "mi";
     return `${mins}:${secs.toString().padStart(2, "0")} /${unit}`;
   };
 
@@ -447,7 +447,7 @@ function CardioView({
           <StatCard
             icon={MapIcon}
             label="Total Distance"
-            value={formatDistance(cardioAnalytics.totalDistance, preferences.units)}
+            value={formatDistance(cardioAnalytics.totalDistance, units)}
             color="bg-red-100 text-red-700"
           />
           <StatCard
@@ -477,7 +477,7 @@ function CardioView({
         <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
           <StatRow
             label="Longest Distance"
-            value={formatDistance(cardioAnalytics.longestDistance, preferences.units)}
+            value={formatDistance(cardioAnalytics.longestDistance, units)}
           />
           <StatRow
             label="Longest Duration"
@@ -508,7 +508,7 @@ function CardioView({
                   </div>
                   <div className="text-right">
                     <p className="text-lg font-bold text-gray-900">
-                      {formatDistance(exercise.totalDistance, preferences.units)}
+                      {formatDistance(exercise.totalDistance, units)}
                     </p>
                     <p className="text-xs text-gray-400">Total Distance</p>
                   </div>
@@ -525,7 +525,7 @@ function CardioView({
 // PRs View Component
 function PRsView({ prs, trackedExerciseIds }: { prs: ExercisePR[]; trackedExerciseIds: string[] }) {
   const router = useRouter();
-  const { preferences } = usePreferences();
+  const { units } = usePreferences();
 
   const filteredPRs = useMemo(() => {
     if (trackedExerciseIds.length === 0) return prs; // Show all if none tracked
@@ -541,9 +541,9 @@ function PRsView({ prs, trackedExerciseIds }: { prs: ExercisePR[]; trackedExerci
 
   const formatPRValue = (pr: ExercisePR): string => {
     if (pr.prType === "maxWeight") {
-      return formatWeight(pr.value, preferences.units);
+      return formatWeight(pr.value, units);
     } else if (pr.prType === "maxDistance") {
-      return formatDistance(pr.value, preferences.units);
+      return formatDistance(pr.value, units);
     } else if (pr.prType === "maxDuration") {
       const hours = Math.floor(pr.value / 3600);
       const mins = Math.floor((pr.value % 3600) / 60);
@@ -554,7 +554,7 @@ function PRsView({ prs, trackedExerciseIds }: { prs: ExercisePR[]; trackedExerci
     } else if (pr.prType === "bestPace") {
       const mins = Math.floor(pr.value / 60);
       const secs = Math.round(pr.value % 60);
-      const unit = preferences.units === "metric" ? "km" : "mi";
+      const unit = units === "metric" ? "km" : "mi";
       return `${mins}:${secs.toString().padStart(2, "0")} /${unit}`;
     } else {
       return `${pr.value.toFixed(0)}${pr.prType === "maxReps" ? " reps" : ""}`;
