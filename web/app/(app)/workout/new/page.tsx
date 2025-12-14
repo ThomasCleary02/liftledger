@@ -60,7 +60,7 @@ export default function NewWorkout() {
   const [cardioData, setCardioData] = useState<CardioData>({ duration: "30", distance: "5" });
   const [calisthenicsSets, setCalisthenicsSets] = useState<CalisthenicsSet[]>([{ reps: "10" }]);
 
-  const { preferences } = usePreferences();
+  const { units } = usePreferences();
 
   const [allWorkouts, setAllWorkouts] = useState<Workout[]>([]);
 
@@ -452,7 +452,7 @@ export default function NewWorkout() {
                       ex.strengthSets?.map((st: StrengthSetEntry, i: number) => (
                         <div key={i} className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-2">
                           <p className="font-semibold text-blue-900">
-                            {st.reps} × {formatWeight(st.weight, preferences.units)}
+                            {st.reps} × {formatWeight(st.weight, units)}
                           </p>
                         </div>
                       ))}
@@ -461,7 +461,7 @@ export default function NewWorkout() {
                         <p className="font-semibold text-red-900">
                           {formatDuration(ex.cardioData.duration)}
                           {ex.cardioData.distance
-                            ? ` • ${formatDistance(ex.cardioData.distance, preferences.units)}`
+                            ? ` • ${formatDistance(ex.cardioData.distance, units)}`
                             : null}
                         </p>
                       </div>

@@ -44,7 +44,7 @@ export default function WorkoutCard({
   onPress, 
   onLongPress 
 }: Props) {
-  const { preferences } = usePreferences();
+  const { units } = usePreferences();
   const d = (date as any)?.toDate ? (date as Timestamp).toDate() : (date as Date);
   const exerciseCount = exercises?.length ?? 0;
   
@@ -177,7 +177,7 @@ export default function WorkoutCard({
               <div>
                 <p className="text-xs text-gray-500">Volume</p>
                 <p className="text-sm font-semibold text-gray-900">
-                  {formatWeight(totalVolume, preferences.units)}
+                  {formatWeight(totalVolume, units)}
                 </p>
               </div>
             </div>

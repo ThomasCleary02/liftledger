@@ -47,7 +47,7 @@ export default function WorkoutDetail() {
   const [cardioData, setCardioData] = useState<CardioData>({ duration: "30", distance: "5" });
   const [calisthenicsSets, setCalisthenicsSets] = useState<CalisthenicsSet[]>([{ reps: "10" }]);
 
-  const { preferences } = usePreferences();
+  const { units } = usePreferences();
 
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
@@ -387,7 +387,7 @@ export default function WorkoutDetail() {
               </h1>
               <div className="flex flex-wrap gap-2 text-xs text-gray-600 md:gap-3 md:text-sm">
                 {workout.totalVolume && workout.totalVolume > 0 && (
-                  <span>Volume: {formatWeight(workout.totalVolume, preferences.units)}</span>
+                  <span>Volume: {formatWeight(workout.totalVolume, units)}</span>
                 )}
                 {workout.totalCardioDuration && workout.totalCardioDuration > 0 && (
                   <span>Cardio: {formatDuration(workout.totalCardioDuration)}</span>
@@ -452,7 +452,7 @@ export default function WorkoutDetail() {
                         ex.strengthSets?.map((st: StrengthSetEntry, i: number) => (
                           <div key={i} className="rounded bg-gray-100 px-3 py-1">
                             <span className="text-sm text-gray-700">
-                              {st.reps}×{formatWeight(st.weight, preferences.units)}
+                              {st.reps}×{formatWeight(st.weight, units)}
                             </span>
                           </div>
                         ))}
@@ -461,11 +461,11 @@ export default function WorkoutDetail() {
                           <span className="text-sm text-gray-700">
                             {formatDuration(ex.cardioData.duration)}
                             {ex.cardioData.distance
-                              ? ` • ${formatDistance(ex.cardioData.distance, preferences.units)}`
+                              ? ` • ${formatDistance(ex.cardioData.distance, units)}`
                               : null}
                             {ex.cardioData.pace
                               ? ` • ${ex.cardioData.pace.toFixed(1)}s/${
-                                  preferences.units === "metric" ? "km" : "mi"
+                                  units === "metric" ? "km" : "mi"
                                 } pace`
                               : null}
                           </span>

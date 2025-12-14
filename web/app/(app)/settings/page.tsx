@@ -43,7 +43,7 @@ export default function Settings() {
   const { signOutUser, user, loading: authLoading } = useAuth();
   const [unitsModalOpen, setUnitsModalOpen] = useState(false);
   const [chartModalOpen, setChartModalOpen] = useState(false);
-  const { preferences, updateUnits, updateChartView } = usePreferences();
+  const { units, defaultChartView, updateUnits, updateChartView } = usePreferences();
 
   // Add state for confirmations
   const [signOutConfirmOpen, setSignOutConfirmOpen] = useState(false);
@@ -325,13 +325,13 @@ export default function Settings() {
               <SettingItem
                 icon={Scale}
                 title="Units"
-                subtitle={getUnitLabel(preferences.units)}
+                subtitle={getUnitLabel(units)}
                 onClick={() => setUnitsModalOpen(true)}
               />
               <SettingItem
                 icon={BarChart3}
                 title="Default Chart View"
-                subtitle={getChartViewLabel(preferences.defaultChartView)}
+                subtitle={getChartViewLabel(defaultChartView)}
                 onClick={() => setChartModalOpen(true)}
               />
               <SettingItem
@@ -427,13 +427,13 @@ export default function Settings() {
       <UnitsModal
         open={unitsModalOpen}
         onClose={() => setUnitsModalOpen(false)}
-        currentUnit={preferences.units}
+        currentUnit={units}
         onSave={updateUnits}
       />
       <ChartViewModal
         open={chartModalOpen}
         onClose={() => setChartModalOpen(false)}
-        currentView={preferences.defaultChartView}
+        currentView={defaultChartView}
         onSave={updateChartView}
       />
 

@@ -9,8 +9,8 @@ import {
   createDay,
   updateDay,
   Day,
-  Exercise,
 } from "../../../../lib/firestore/days";
+import type { Exercise } from "../../../../lib/firestore/workouts";
 import ExerciseSearch from "../../../../components/ExerciseSearch";
 import StrengthSetInput, { StrengthSet } from "../../../../components/StrengthSetInput";
 import CalisthenicsSetInput, { CalisthenicsSet } from "../../../../components/CalisthenicsSetInput";
@@ -48,7 +48,7 @@ export default function DayView() {
   const [cardioData, setCardioData] = useState<CardioData>({ duration: "30", distance: "5" });
   const [calisthenicsSets, setCalisthenicsSets] = useState<CalisthenicsSet[]>([{ reps: "10" }]);
 
-  const { preferences } = usePreferences();
+  const { units } = usePreferences();
   const { showSyncing } = useSyncStatus();
 
   const [allDays, setAllDays] = useState<Day[]>([]);
@@ -103,8 +103,6 @@ export default function DayView() {
         return cleanSet;
       });
     }
-    
-    if (ex.notes !== undefined && ex.notes !== null) cleaned.notes = ex.notes;
     
     return cleaned as Exercise;
   };
@@ -685,7 +683,7 @@ export default function DayView() {
                           ex.strengthSets?.map((st: any, i: number) => (
                             <div key={i} className="rounded bg-gray-100 px-3 py-1">
                               <span className="text-sm text-gray-700">
-                                {st.reps}×{formatWeight(st.weight, preferences.units)}
+                                {st.reps}×{formatWeight(st.weight, units)}
                               </span>
                             </div>
                           ))}
@@ -694,7 +692,7 @@ export default function DayView() {
                             <span className="text-sm text-gray-700">
                               {formatDuration(ex.cardioData.duration)}
                               {ex.cardioData.distance
-                                ? ` • ${formatDistance(ex.cardioData.distance, preferences.units)}`
+                                ? ` • ${formatDistance(ex.cardioData.distance, units)}`
                                 : null}
                             </span>
                           </div>

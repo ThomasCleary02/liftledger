@@ -28,13 +28,7 @@ export function ServiceWorkerUpdate() {
           if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
             // New service worker available
             setUpdateAvailable(true);
-            toast.info("Update available! Click to refresh.", {
-              duration: 10000,
-              action: {
-                label: "Refresh",
-                onClick: () => handleUpdate(),
-              },
-            });
+            toast.info("Update available! Click to refresh.");
           }
         });
       });

@@ -27,8 +27,8 @@ const sanitizeValue = (value: string, allowDecimal: boolean) => {
 };
 
 export default function CardioInput({ data, onDataChange }: CardioInputProps) {
-  const { preferences } = usePreferences();
-  const distanceUnit = preferences.units === "metric" ? "km" : "mi";
+  const { units } = usePreferences();
+  const distanceUnit = units === "metric" ? "km" : "mi";
 
   return (
     <div>

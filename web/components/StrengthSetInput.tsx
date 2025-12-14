@@ -34,8 +34,8 @@ const sanitizeValue = (field: keyof StrengthSet, value: string) => {
 };
 
 export default function StrengthSetInput({ sets, onSetsChange }: StrengthSetInputProps) {
-  const { preferences } = usePreferences();
-  const weightUnit = preferences.units === "metric" ? "kg" : "lb";
+  const { units } = usePreferences();
+  const weightUnit = units === "metric" ? "kg" : "lb";
 
   const addSet = () => {
     const lastSet = sets[sets.length - 1];
