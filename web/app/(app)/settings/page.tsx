@@ -290,17 +290,20 @@ export default function Settings() {
   if (authLoading || !user) return null;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="border-b border-gray-200 bg-white px-4 py-4 md:px-8 md:py-6">
-        <div className="mx-auto max-w-4xl">
-          <h1 className="mb-2 text-2xl font-bold text-gray-900 md:text-3xl">Settings</h1>
-          <p className="text-sm text-gray-500">Manage your account and preferences</p>
+    <div className="flex h-screen flex-col overflow-hidden bg-gray-50">
+      {/* Fixed Header */}
+      <header className="flex-shrink-0 border-b border-gray-200 bg-white">
+        <div className="px-4 py-4 md:px-8 md:py-6">
+          <div className="mx-auto max-w-4xl">
+            <h1 className="mb-2 text-2xl font-bold text-gray-900 md:text-3xl">Settings</h1>
+            <p className="text-sm text-gray-500">Manage your account and preferences</p>
+          </div>
         </div>
       </header>
 
-      {/* Content */}
-      <main className="container mx-auto px-4 py-6 md:px-8 md:max-w-4xl">
+      {/* Scrollable Content */}
+      <main className="flex-1 overflow-y-auto">
+        <div className="container mx-auto px-4 py-6 md:px-8 md:max-w-4xl">
         <div className="space-y-6">
           {/* Profile Section */}
           <section>
@@ -420,6 +423,7 @@ export default function Settings() {
           <div className="py-6 text-center">
             <p className="text-sm text-gray-400">LiftLedger v1.0.0</p>
           </div>
+        </div>
         </div>
       </main>
 

@@ -90,9 +90,11 @@ export default function Settings() {
   return (
     <View className="flex-1 bg-gray-50">
       {/* Custom Header */}
-      <View className="bg-white border-b border-gray-200 px-6 pb-4" style={{ paddingTop: insets.top + 16 }}>
-        <Text className="text-3xl font-bold text-gray-900 mb-2">Settings</Text>
-        <Text className="text-gray-500 text-sm">Manage your account and preferences</Text>
+      <View className="bg-white border-b border-gray-200">
+        <View className="px-6 pb-4" style={{ paddingTop: insets.top + 16 }}>
+          <Text className="text-3xl font-bold text-gray-900 mb-2">Settings</Text>
+          <Text className="text-gray-500 text-sm">Manage your account and preferences</Text>
+        </View>
       </View>
 
       <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 32 }}>

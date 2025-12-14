@@ -468,13 +468,15 @@ export default function DayView() {
 
   return (
     <KeyboardAvoidingView className="flex-1" behavior={Platform.OS === "ios" ? "padding" : undefined}>
-      <DayNavigation
-        currentDate={currentDate}
-        onDateChange={handleDateChange}
-        onTodayClick={handleTodayClick}
-      />
+      <View className="flex-1 bg-gray-50">
+        {/* Custom Header */}
+        <DayNavigation
+          currentDate={currentDate}
+          onDateChange={handleDateChange}
+          onTodayClick={handleTodayClick}
+        />
 
-      <ScrollView className="flex-1 bg-gray-50" contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
+        <ScrollView className="flex-1 bg-gray-50" contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
         {/* Header with Rest Day Toggle and Template Button */}
         <View className="mb-4 flex-row items-center justify-between gap-3">
           <Pressable
@@ -690,7 +692,8 @@ export default function DayView() {
             </View>
           </View>
         )}
-      </ScrollView>
+        </ScrollView>
+      </View>
     </KeyboardAvoidingView>
   );
 }

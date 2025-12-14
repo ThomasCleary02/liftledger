@@ -529,16 +529,20 @@ export default function DayView() {
   const isRestDay = day?.isRestDay ?? false;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="flex h-screen flex-col overflow-hidden bg-gray-50">
       <SyncStatusIndicator />
-      <DayNavigation
-        currentDate={currentDate}
-        onDateChange={handleDateChange}
-        onTodayClick={handleTodayClick}
-      />
+      {/* Fixed Header */}
+      <header className="flex-shrink-0">
+        <DayNavigation
+          currentDate={currentDate}
+          onDateChange={handleDateChange}
+          onTodayClick={handleTodayClick}
+        />
+      </header>
 
-      {/* Content */}
-      <main className="container mx-auto max-w-4xl px-4 py-6 md:px-8">
+      {/* Scrollable Content */}
+      <main className="flex-1 overflow-y-auto">
+        <div className="container mx-auto max-w-4xl px-4 py-6 md:px-8">
         {/* Header with Rest Day Toggle and Template Button */}
         <div className="mb-4 flex items-center justify-between gap-3">
           <button
@@ -773,6 +777,7 @@ export default function DayView() {
             </div>
           </div>
         )}
+        </div>
       </main>
     </div>
   );
