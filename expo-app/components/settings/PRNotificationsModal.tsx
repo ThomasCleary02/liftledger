@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, Modal, Pressable, Alert, Switch } from "react-native";
-import { getPreferences, updatePRNotifications } from "../../lib/preferences";
+import { preferencesService } from "../../lib/firebase";
 import Ionicons from "@expo/vector-icons/Ionicons";
 
 interface Props {
@@ -21,7 +21,7 @@ export default function PRNotificationsModal({ visible, onClose, onSave }: Props
 
   const loadPreferences = async () => {
     try {
-      const prefs = await getPreferences();
+      const prefs = await preferencesService.getPreferences();
       setEnabled(prefs.prNotifications);
     } catch (error) {
       console.error("Error loading preferences:", error);
@@ -31,7 +31,7 @@ export default function PRNotificationsModal({ visible, onClose, onSave }: Props
   const handleSave = async () => {
     setLoading(true);
     try {
-      await updatePRNotifications(enabled);
+      await preferencesService.updatePRNotifications(enabled);
       Alert.alert("Success", "PR notifications " + (enabled ? "enabled" : "disabled"));
       onSave?.(); // Call refresh callback
       onClose();

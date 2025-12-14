@@ -73,6 +73,7 @@ Desktop.ini
 .idea/
 *.sublime-project
 *.sublime-workspace
+.cursor/
 
 # Testing
 coverage/
@@ -90,6 +91,10 @@ logs/
 *.temp
 *.bak
 *.cache
+
+# Firebase service account keys (NEVER commit these!)
+service-account-key.json
+*-service-account*.json
 
 # Build artifacts
 *.apk

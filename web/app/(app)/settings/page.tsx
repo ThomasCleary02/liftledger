@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "../../../providers/Auth";
 import { deleteUserAccount } from "../../../lib/firestore/account";
-import { UnitSystem, DefaultChartView } from "../../../lib/preferences";
+import { UnitSystem, DefaultChartView } from "@liftledger/shared/preferences";
 import { usePreferences } from "../../../lib/hooks/usePreferences";
 import {
   Scale,

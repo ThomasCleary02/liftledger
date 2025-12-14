@@ -5,19 +5,26 @@ import React, { useMemo } from "react";
 import { View, Text, ScrollView, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import { ExercisePR } from "../../lib/analytics/types";
-import { Workout } from "../../lib/firestore/workouts";
 import { usePreferences } from "../../lib/hooks/usePreferences";
 import { formatWeight, formatDistance, getDistanceUnit } from "../../lib/utils/units";
 import Ionicons from "@expo/vector-icons/Ionicons";
 
 interface Props {
   prs: ExercisePR[];
-  workouts: Workout[];
 }
 
-export default function PRsAnalyticsView({ prs, workouts }: Props) {
+export default function PRsAnalyticsView({ prs }: Props) {
   const router = useRouter();
   const { units } = usePreferences();
+
+  // Extract date from dayId (format: ${userId}_${YYYY-MM-DD})
+  const getDateFromDayId = (dayId: string): string => {
+    const parts = dayId.split('_');
+    if (parts.length >= 2) {
+      return parts.slice(1).join('_'); // Handle dates with underscores if needed
+    }
+    return dayId;
+  };
 
   const groupedPRs = useMemo(() => {
     const strength = prs.filter(p => p.modality === "strength");
@@ -57,8 +64,9 @@ export default function PRsAnalyticsView({ prs, workouts }: Props) {
     return "bg-green-100 text-green-700";
   };
 
-  const handlePRPress = (workoutId: string) => {
-    router.push(`/workout/${workoutId}`);
+  const handlePRPress = (dayId: string) => {
+    const dateStr = getDateFromDayId(dayId);
+    router.push(`/day/${dateStr}`);
   };
 
   return (
@@ -76,7 +84,7 @@ export default function PRsAnalyticsView({ prs, workouts }: Props) {
             {groupedPRs.strength.slice(0, 15).map((pr, idx) => (
               <Pressable
                 key={idx}
-                onPress={() => handlePRPress(pr.workoutId)}
+                onPress={() => handlePRPress(pr.dayId)}
                 className={`px-5 py-4 ${idx < groupedPRs.strength.length - 1 ? 'border-b border-gray-100' : ''} active:bg-gray-50`}
               >
                 <View className="flex-row items-center justify-between">
@@ -115,7 +123,7 @@ export default function PRsAnalyticsView({ prs, workouts }: Props) {
             {groupedPRs.cardio.slice(0, 15).map((pr, idx) => (
               <Pressable
                 key={idx}
-                onPress={() => handlePRPress(pr.workoutId)}
+                onPress={() => handlePRPress(pr.dayId)}
                 className={`px-5 py-4 ${idx < groupedPRs.cardio.length - 1 ? 'border-b border-gray-100' : ''} active:bg-gray-50`}
               >
                 <View className="flex-row items-center justify-between">
@@ -154,7 +162,7 @@ export default function PRsAnalyticsView({ prs, workouts }: Props) {
             {groupedPRs.calisthenics.slice(0, 15).map((pr, idx) => (
               <Pressable
                 key={idx}
-                onPress={() => handlePRPress(pr.workoutId)}
+                onPress={() => handlePRPress(pr.dayId)}
                 className={`px-5 py-4 ${idx < groupedPRs.calisthenics.length - 1 ? 'border-b border-gray-100' : ''} active:bg-gray-50`}
               >
                 <View className="flex-row items-center justify-between">

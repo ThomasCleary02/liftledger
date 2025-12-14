@@ -3,13 +3,13 @@
 import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../../providers/Auth";
-import { listWorkouts, Workout } from "../../../lib/firestore/workouts";
+import { listDays, Day } from "../../../lib/firestore/days";
 import { getAllExercises } from "../../../lib/firestore/exercises";
 import {
-  getAnalyticsSummary,
+  getAnalyticsSummaryFromDays,
   getStrengthAnalytics,
   getCardioAnalytics,
-  filterWorkoutsByPeriod,
+  filterDaysByPeriod,
   findAllPRs,
 } from "../../../lib/analytics/calculations";
 import { AnalyticsSummary, ExercisePR, TimePeriod } from "../../../lib/analytics/types";
@@ -37,7 +37,7 @@ export default function Analytics() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>("overview");
-  const [workouts, setWorkouts] = useState<Workout[]>([]);
+  const [days, setDays] = useState<Day[]>([]);
   const [exercises, setExercises] = useState<Map<string, ExerciseDoc>>(() => new Map<string, ExerciseDoc>());
   const [loading, setLoading] = useState(true);
   const [timePeriod, setTimePeriod] = useState<TimePeriod>("all");
@@ -64,12 +64,12 @@ export default function Analytics() {
   }, [preferences.defaultChartView]);
 
   useEffect(() => {
-    if (workouts.length > 0) {
-      const filtered = filterWorkoutsByPeriod(workouts, timePeriod);
-      const analyticsSummary = getAnalyticsSummary(filtered, exercises);
+    if (days.length > 0) {
+      const filtered = filterDaysByPeriod(days, timePeriod);
+      const analyticsSummary = getAnalyticsSummaryFromDays(filtered, exercises);
       setSummary(analyticsSummary);
     }
-  }, [timePeriod, workouts, exercises]);
+  }, [timePeriod, days, exercises]);
 
   useEffect(() => {
     if (user) {
@@ -78,29 +78,28 @@ export default function Analytics() {
   }, [user]);
 
   useEffect(() => {
-    if (workouts.length > 0) {
-      const allPRs = findAllPRs(workouts, trackedExerciseIds.length > 0 ? trackedExerciseIds : undefined);
+    if (days.length > 0) {
+      const filtered = filterDaysByPeriod(days, timePeriod);
+      const allPRs = findAllPRs(filtered, trackedExerciseIds.length > 0 ? trackedExerciseIds : undefined);
       setPRs(allPRs);
     }
-  }, [workouts, trackedExerciseIds]);
+  }, [days, timePeriod, trackedExerciseIds]);
 
   const loadData = async () => {
     try {
-      const [workoutData, exerciseData] = await Promise.all([
-        listWorkouts({ limit: 1000 }),
+      const [dayData, exerciseData] = await Promise.all([
+        listDays({ limit: 1000, order: "desc" }),
         getAllExercises(),
       ]);
 
-      setWorkouts(workoutData);
+      setDays(dayData);
 
       const exerciseMap = new Map<string, ExerciseDoc>();
       exerciseData.forEach((ex: ExerciseDoc) => exerciseMap.set(ex.id, ex));
       setExercises(exerciseMap);
 
-      const analyticsSummary = getAnalyticsSummary(workoutData, exerciseMap);
+      const analyticsSummary = getAnalyticsSummaryFromDays(dayData, exerciseMap);
       setSummary(analyticsSummary);
-      
-      // PRs will be calculated in the useEffect above
     } catch (error) {
       logger.error("Error loading analytics", error);
     } finally {
@@ -108,7 +107,7 @@ export default function Analytics() {
     }
   };
 
-  const filteredWorkouts = filterWorkoutsByPeriod(workouts, timePeriod);
+  const filteredDays = filterDaysByPeriod(days, timePeriod);
 
   if (authLoading || loading) {
     return (
@@ -207,15 +206,15 @@ export default function Analytics() {
       <main className="flex-1 overflow-y-auto">
         <div className="container mx-auto px-4 py-6 md:px-8 md:max-w-4xl">
           {activeTab === "overview" && (
-            <OverviewView summary={summary} workouts={filteredWorkouts} timePeriod={timePeriod} />
+            <OverviewView summary={summary} days={filteredDays} timePeriod={timePeriod} />
           )}
           {activeTab === "strength" && (
-            <StrengthView workouts={filteredWorkouts} exercises={exercises} timePeriod={timePeriod} />
+            <StrengthView days={filteredDays} exercises={exercises} timePeriod={timePeriod} />
           )}
           {activeTab === "cardio" && (
-            <CardioView workouts={filteredWorkouts} timePeriod={timePeriod} />
+            <CardioView days={filteredDays} timePeriod={timePeriod} />
           )}
-          {activeTab === "prs" && <PRsView prs={prs} workouts={workouts} trackedExerciseIds={trackedExerciseIds} />}
+          {activeTab === "prs" && <PRsView prs={prs} trackedExerciseIds={trackedExerciseIds} />}
         </div>
       </main>
     </div>
@@ -225,11 +224,11 @@ export default function Analytics() {
 // Overview Component
 function OverviewView({
   summary,
-  workouts,
+  days,
   timePeriod,
 }: {
   summary: AnalyticsSummary;
-  workouts: Workout[];
+  days: Day[];
   timePeriod: TimePeriod;
 }) {
   const { preferences } = usePreferences();
@@ -301,15 +300,15 @@ function OverviewView({
 
 // Strength View Component
 function StrengthView({
-  workouts,
+  days,
   exercises,
   timePeriod,
 }: {
-  workouts: Workout[];
+  days: Day[];
   exercises: Map<string, ExerciseDoc>;
   timePeriod: TimePeriod;
 }) {
-  const strengthAnalytics = getStrengthAnalytics(workouts, exercises, timePeriod); // Pass timePeriod
+  const strengthAnalytics = getStrengthAnalytics(days, exercises, timePeriod);
   const { preferences } = usePreferences();
 
   return (
@@ -413,13 +412,13 @@ function StrengthView({
 
 // Cardio View Component
 function CardioView({
-  workouts,
+  days,
   timePeriod,
 }: {
-  workouts: Workout[];
+  days: Day[];
   timePeriod: TimePeriod;
 }) {
-  const cardioAnalytics = getCardioAnalytics(workouts, timePeriod); // Pass timePeriod
+  const cardioAnalytics = getCardioAnalytics(days, timePeriod);
   const { preferences } = usePreferences();
 
   const formatPace = (secondsPerMile: number): string => {
@@ -524,7 +523,7 @@ function CardioView({
 }
 
 // PRs View Component
-function PRsView({ prs, workouts, trackedExerciseIds }: { prs: ExercisePR[]; workouts: Workout[]; trackedExerciseIds: string[] }) {
+function PRsView({ prs, trackedExerciseIds }: { prs: ExercisePR[]; trackedExerciseIds: string[] }) {
   const router = useRouter();
   const { preferences } = usePreferences();
 
@@ -568,6 +567,15 @@ function PRsView({ prs, workouts, trackedExerciseIds }: { prs: ExercisePR[]; wor
     return "bg-green-100 text-green-700";
   };
 
+  // Extract date from dayId (format: ${userId}_${YYYY-MM-DD})
+  const getDateFromDayId = (dayId: string): string => {
+    const parts = dayId.split('_');
+    if (parts.length >= 2) {
+      return parts.slice(1).join('_'); // Handle dates with underscores if needed
+    }
+    return dayId;
+  };
+
   const PRSection = ({
     title,
     prs: sectionPRs,
@@ -590,10 +598,12 @@ function PRsView({ prs, workouts, trackedExerciseIds }: { prs: ExercisePR[]; wor
           <h2 className="text-xl font-bold text-gray-900">{title}</h2>
         </div>
         <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
-          {sectionPRs.slice(0, 15).map((pr, idx) => (
+          {sectionPRs.slice(0, 15).map((pr, idx) => {
+            const dateStr = getDateFromDayId(pr.dayId);
+            return (
             <button
               key={idx}
-              onClick={() => router.push(`/workout/${pr.workoutId}`)}
+              onClick={() => router.push(`/day/${dateStr}`)}
               className={`w-full px-5 py-4 text-left transition-colors hover:bg-gray-50 ${
                 idx < sectionPRs.length - 1 ? "border-b border-gray-100" : ""
               }`}
@@ -616,7 +626,8 @@ function PRsView({ prs, workouts, trackedExerciseIds }: { prs: ExercisePR[]; wor
                 </div>
               </div>
             </button>
-          ))}
+            );
+          })}
         </div>
       </div>
     );

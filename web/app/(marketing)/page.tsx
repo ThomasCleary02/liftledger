@@ -49,15 +49,15 @@ export default function Home() {
               LiftLedger
             </h1>
             <p className="mb-4 text-2xl font-semibold text-gray-700 md:text-3xl">
-              Track Your Strength, Anywhere
+              Train Smarter. Track Better.
             </p>
             <p className="mx-auto mb-10 max-w-2xl text-lg text-gray-600 md:text-xl">
-              Your web and mobile app for tracking strength, analytics, and personal progress.
+              Simple workout logging, cross-platform access, and offline-ready tracking for your fitness journey.
             </p>
             
             <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
               <button
-                onClick={() => router.push("/workouts")}
+                onClick={() => router.push("/day/today")}
                 className="group flex w-full items-center justify-center gap-2 rounded-xl bg-black px-8 py-4 text-base font-bold text-white shadow-lg transition-all hover:opacity-90 active:scale-95 sm:w-auto"
               >
                 Open App
@@ -92,7 +92,7 @@ export default function Home() {
               <div className="mb-4 inline-flex rounded-xl bg-blue-100 p-3">
                 <Dumbbell className="h-6 w-6 text-blue-700" />
               </div>
-              <h3 className="mb-2 text-xl font-bold text-gray-900">Track Workouts</h3>
+              <h3 className="mb-2 text-xl font-bold text-gray-900">Simple Workout Logging</h3>
               <p className="text-gray-600">
                 Log exercises, sets, and reps with ease. Support for strength training, cardio, and calisthenics.
               </p>
@@ -114,7 +114,7 @@ export default function Home() {
               <div className="mb-4 inline-flex rounded-xl bg-green-100 p-3">
                 <Smartphone className="h-6 w-6 text-green-700" />
               </div>
-              <h3 className="mb-2 text-xl font-bold text-gray-900">Multi-platform Access</h3>
+              <h3 className="mb-2 text-xl font-bold text-gray-900">Cross-Platform</h3>
               <p className="text-gray-600">
                 Use on web or mobile, share data seamlessly. Your workouts sync across all your devices.
               </p>
@@ -125,9 +125,9 @@ export default function Home() {
               <div className="mb-4 inline-flex rounded-xl bg-orange-100 p-3">
                 <Settings className="h-6 w-6 text-orange-700" />
               </div>
-              <h3 className="mb-2 text-xl font-bold text-gray-900">Unit Preferences</h3>
+              <h3 className="mb-2 text-xl font-bold text-gray-900">Offline-Ready</h3>
               <p className="text-gray-600">
-                Switch between lbs/kg, km/miles, and more. Customize the app to match your preferences.
+                Track workouts even without internet. Your data syncs automatically when you're back online.
               </p>
             </div>
           </div>
@@ -162,7 +162,7 @@ export default function Home() {
                 Access your workouts from any browser. Full-featured experience on desktop and tablet with real-time sync.
               </p>
               <button
-                onClick={() => router.push("/workouts")}
+                onClick={() => router.push("/day/today")}
                 className="w-full rounded-xl bg-black px-6 py-3 text-base font-semibold text-white transition-all hover:opacity-90 active:scale-95"
               >
                 Try Web App
@@ -210,7 +210,7 @@ export default function Home() {
               Join thousands of users tracking their fitness journey with LiftLedger
             </p>
             <button
-              onClick={() => router.push("/workouts")}
+              onClick={() => router.push("/day/today")}
               className="group inline-flex items-center gap-2 rounded-xl bg-white px-8 py-4 text-base font-bold text-black shadow-lg transition-all hover:bg-gray-100 active:scale-95"
             >
               Get Started
@@ -234,11 +234,11 @@ export default function Home() {
               Have questions? We'd love to hear from you.
             </p>
             <a
-              href="mailto:contact@liftledger.fit"
+              href="/contact"
               className="inline-flex items-center gap-2 rounded-xl bg-black px-8 py-4 text-base font-bold text-white shadow-lg transition-all hover:opacity-90 active:scale-95"
             >
               <Mail className="h-5 w-5" />
-              contact@liftledger.fit
+              Contact Us
             </a>
           </div>
         </div>
@@ -267,7 +267,7 @@ export default function Home() {
                 Terms of Service
               </a>
               <a
-                href="mailto:contact@liftledger.fit"
+                href="/contact"
                 className="text-gray-600 hover:text-black hover:underline"
               >
                 Contact

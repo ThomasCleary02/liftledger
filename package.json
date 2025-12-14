@@ -10,6 +10,8 @@
     "install:all": "npm install",
     "build:shared": "cd packages/shared && npm run build",
     "build:web": "cd web && npm run build",
+    "lint": "pnpm --filter '*' lint",
+    "typecheck": "pnpm --filter '*' type-check",
     "type-check": "npm run type-check --workspaces",
     "android": "expo run:android",
     "ios": "expo run:ios"
@@ -20,7 +22,11 @@
   },
   "version": "1.0.0",
   "dependencies": {
+    "@opentelemetry/api": "^1.9.0",
+    "date-fns": "^4.1.0",
     "expo": "~54.0.22",
+    "firebase-admin": "^13.6.0",
+    "firebase-tools": "^15.0.0",
     "react": "19.1.0",
     "react-native": "0.81.5"
   }

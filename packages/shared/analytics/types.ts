@@ -19,7 +19,8 @@ export interface ExercisePR {
   prType: "maxWeight" | "maxReps" | "maxVolume" | "maxDistance" | "maxDuration" | "bestPace";
   value: number;
   date: Date;
-  workoutId: string;
+  dayId: string; // Primary: day ID (${userId}_${YYYY-MM-DD})
+  workoutId?: string; // Legacy: kept for backward compatibility
 }
 
 export interface VolumeDataPoint {

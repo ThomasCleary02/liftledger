@@ -6,6 +6,8 @@ import { PreferencesProvider } from "../lib/hooks/usePreferences";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { ToastContainer } from "../components/ToastContainer";
 import { KeyboardShortcuts } from "../components/KeyboardShortcuts";
+import { PWAInstallPrompt } from "../components/PWAInstallPrompt";
+import { ServiceWorkerUpdate } from "../components/ServiceWorkerUpdate";
 import React from "react";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -67,6 +69,8 @@ export default function RootLayout({
               <KeyboardShortcuts />
               {children}
               <ToastContainer />
+              <PWAInstallPrompt />
+              <ServiceWorkerUpdate />
             </PreferencesProvider>
           </AuthProvider>
         </ErrorBoundary>

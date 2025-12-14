@@ -2,13 +2,13 @@ import React, { useEffect, useState } from "react";
 import { View, Text, ScrollView, ActivityIndicator, RefreshControl, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { listWorkouts, Workout } from "../../lib/firestore/workouts";
+import { listDays, Day } from "../../lib/firestore/days";
 import { getAllExercises } from "../../lib/firestore/exercises";
 import { 
-  getAnalyticsSummary, 
+  getAnalyticsSummaryFromDays,
   getStrengthAnalytics, 
   getCardioAnalytics,
-  filterWorkoutsByPeriod,
+  filterDaysByPeriod,
   findAllPRs 
 } from "../../lib/analytics/calculations";
 import { AnalyticsSummary, ExercisePR, TimePeriod } from "../../lib/analytics/types";
@@ -26,7 +26,7 @@ export default function Analytics() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<TabType>("overview");
-  const [workouts, setWorkouts] = useState<Workout[]>([]);
+  const [days, setDays] = useState<Day[]>([]);
   const [exercises, setExercises] = useState<Map<string, ExerciseDoc>>(new Map());
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -46,33 +46,38 @@ export default function Analytics() {
   }, [defaultChartView]);
 
   useEffect(() => {
-    if (workouts.length > 0) {
-      const filtered = filterWorkoutsByPeriod(workouts, timePeriod);
-      const analyticsSummary = getAnalyticsSummary(filtered, exercises);
+    if (days.length > 0) {
+      const filtered = filterDaysByPeriod(days, timePeriod);
+      const analyticsSummary = getAnalyticsSummaryFromDays(filtered, exercises);
       setSummary(analyticsSummary);
     }
-  }, [timePeriod, workouts, exercises]);
+  }, [timePeriod, days, exercises]);
+
+  useEffect(() => {
+    if (days.length > 0) {
+      const filtered = filterDaysByPeriod(days, timePeriod);
+      const allPRs = findAllPRs(filtered);
+      setPRs(allPRs);
+    }
+  }, [days, timePeriod]);
 
   const loadData = async () => {
     try {
-      const [workoutData, exerciseData] = await Promise.all([
-        listWorkouts({ limit: 1000 }),
+      const [dayData, exerciseData] = await Promise.all([
+        listDays({ limit: 1000, order: "desc" }),
         getAllExercises(),
       ]);
       
-      setWorkouts(workoutData);
+      setDays(dayData);
       
       // Create exercise map for quick lookup
       const exerciseMap = new Map<string, ExerciseDoc>();
       exerciseData.forEach((ex: ExerciseDoc) => exerciseMap.set(ex.id, ex));
       setExercises(exerciseMap);
       
-      // Calculate analytics - now pass exercises map
-      const analyticsSummary = getAnalyticsSummary(workoutData, exerciseMap);
-      const allPRs = findAllPRs(workoutData);
-      
+      // Calculate analytics using days
+      const analyticsSummary = getAnalyticsSummaryFromDays(dayData, exerciseMap);
       setSummary(analyticsSummary);
-      setPRs(allPRs);
     } catch (error) {
       console.error("Error loading analytics:", error);
     } finally {
@@ -86,7 +91,7 @@ export default function Analytics() {
     setRefreshing(false);
   };
 
-  const filteredWorkouts = filterWorkoutsByPeriod(workouts, timePeriod);
+  const filteredDays = filterDaysByPeriod(days, timePeriod);
 
   if (loading) {
     return (
@@ -171,27 +176,26 @@ export default function Analytics() {
         {activeTab === "overview" && (
           <OverviewAnalyticsView 
             summary={summary} 
-            workouts={filteredWorkouts}
+            days={filteredDays}
             timePeriod={timePeriod}
           />
         )}
         {activeTab === "strength" && (
           <StrengthAnalyticsView 
-            workouts={filteredWorkouts}
+            days={filteredDays}
             exercises={exercises}
             timePeriod={timePeriod}
           />
         )}
         {activeTab === "cardio" && (
           <CardioAnalyticsView 
-            workouts={filteredWorkouts}
+            days={filteredDays}
             timePeriod={timePeriod}
           />
         )}
         {activeTab === "prs" && (
           <PRsAnalyticsView 
             prs={prs}
-            workouts={workouts}
           />
         )}
       </ScrollView>

@@ -65,8 +65,14 @@ try {
 }
 
 // Create service instances
+import { createDayService } from "@liftledger/shared/firestore/days";
+import { createPreferencesService } from "@liftledger/shared/preferences";
+import { webPreferencesStorage } from "./preferences/storage";
+
 export { db, auth };
 export const workoutService = createWorkoutService(db, auth);
 export const exerciseService = createExerciseService(db);
 export const accountService = createAccountService(db, auth);
 export const workoutTemplateService = createWorkoutTemplateService(db, auth);
+export const dayService = createDayService(db, auth);
+export const preferencesService = createPreferencesService(webPreferencesStorage);

@@ -3,7 +3,6 @@
 
 import React from "react";
 import { View, Text, ScrollView } from "react-native";
-import { Workout } from "../../lib/firestore/workouts";
 import { ExerciseDoc } from "../../lib/firestore/exercises";
 import { getStrengthAnalytics } from "../../lib/analytics/calculations";
 import { TimePeriod } from "../../lib/analytics/types";
@@ -11,14 +10,16 @@ import { usePreferences } from "../../lib/hooks/usePreferences";
 import { formatWeight } from "../../lib/utils/units";
 import Ionicons from "@expo/vector-icons/Ionicons";
 
+import { Day } from "../../lib/firestore/days";
+
 interface Props {
-  workouts: Workout[];
+  days: Day[];
   exercises: Map<string, ExerciseDoc>;
   timePeriod: TimePeriod;
 }
 
-export default function StrengthAnalyticsView({ workouts, exercises, timePeriod }: Props) {
-  const strengthAnalytics = getStrengthAnalytics(workouts, exercises);
+export default function StrengthAnalyticsView({ days, exercises, timePeriod }: Props) {
+  const strengthAnalytics = getStrengthAnalytics(days, exercises, timePeriod);
   const { units } = usePreferences();
 
   return (

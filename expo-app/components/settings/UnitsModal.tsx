@@ -3,7 +3,8 @@
 
 import React, { useState, useEffect } from "react";
 import { View, Text, Modal, Pressable, Alert } from "react-native";
-import { UnitSystem, getPreferences, updateUnitSystem } from "../../lib/preferences";
+import { UnitSystem } from "@liftledger/shared/preferences";
+import { preferencesService } from "../../lib/firebase";
 import Ionicons from "@expo/vector-icons/Ionicons";
 
 interface Props {
@@ -24,7 +25,7 @@ export default function UnitsModal({ visible, onClose, onSave }: Props) {
 
   const loadPreferences = async () => {
     try {
-      const prefs = await getPreferences();
+      const prefs = await preferencesService.getPreferences();
       setSelectedUnit(prefs.units);
     } catch (error) {
       console.error("Error loading preferences:", error);
@@ -34,7 +35,7 @@ export default function UnitsModal({ visible, onClose, onSave }: Props) {
   const handleSave = async () => {
     setLoading(true);
     try {
-      await updateUnitSystem(selectedUnit);
+      await preferencesService.updateUnitSystem(selectedUnit);
       Alert.alert("Success", "Unit preference saved");
       onSave?.(); // Call refresh callback
       onClose();

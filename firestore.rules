@@ -33,5 +33,27 @@ service cloud.firestore {
       allow read, write: if isAuthenticated() && resource.data.ownerId == request.auth.uid;
       allow create: if isAuthenticated() && request.resource.data.ownerId == request.auth.uid;
     }
+
+    // Days collection - users can read/write their own days
+    // dayId format: ${userId}_${YYYY-MM-DD}
+    match /days/{dayId} {
+      // Helper: check if dayId belongs to current user
+      function isOwnDay() {
+        return dayId.matches(request.auth.uid + '_.*');
+      }
+      
+      // Allow read if:
+      // 1. dayId pattern matches (for direct document access, including non-existent docs)
+      // 2. OR document exists and userId field matches (for collection queries)
+      // Note: For queries, Firestore validates each returned document against resource.data
+      allow read: if isAuthenticated() && (
+        isOwnDay() || 
+        resource.data.userId == request.auth.uid
+      );
+      // Allow write if user owns the document
+      allow write: if isAuthenticated() && isOwnDay() && resource.data.userId == request.auth.uid;
+      // Allow create if user is creating their own day
+      allow create: if isAuthenticated() && isOwnDay() && request.resource.data.userId == request.auth.uid;
+    }
   }
 }

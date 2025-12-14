@@ -1,3 +1,3 @@
-// Re-export from shared, but import UnitSystem from local preferences
+// Re-export from shared
 export * from "@liftledger/shared/utils/units";
-// Note: UnitSystem type should come from expo-app/lib/preferences.ts
+// Note: UnitSystem type comes from @liftledger/shared/preferences

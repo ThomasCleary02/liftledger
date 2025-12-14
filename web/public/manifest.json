@@ -2,7 +2,7 @@
   "name": "LiftLedger",
   "short_name": "LiftLedger",
   "description": "Track your workouts, achieve your goals",
-  "start_url": "/workouts",
+  "start_url": "/day/today",
   "display": "standalone",
   "background_color": "#000000",
   "theme_color": "#000000",

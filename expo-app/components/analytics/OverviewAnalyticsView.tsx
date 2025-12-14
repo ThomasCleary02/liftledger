@@ -4,20 +4,18 @@
 import React from "react";
 import { View, Text } from "react-native";
 import { AnalyticsSummary, TimePeriod } from "../../lib/analytics/types";
-import { Workout } from "../../lib/firestore/workouts";
-import { getVolumeDataPoints } from "../../lib/analytics/calculations";
+import { Day } from "../../lib/firestore/days";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { usePreferences } from "../../lib/hooks/usePreferences";
 import { formatWeight, formatDistance } from "../../lib/utils/units";
 
 interface Props {
   summary: AnalyticsSummary;
-  workouts: Workout[];
+  days: Day[];
   timePeriod: TimePeriod;
 }
 
-export default function OverviewAnalyticsView({ summary, workouts, timePeriod }: Props) {
-  const volumeData = getVolumeDataPoints(workouts, timePeriod === "all" ? "month" : timePeriod);
+export default function OverviewAnalyticsView({ summary, days, timePeriod }: Props) {
   const { units } = usePreferences();
 
   return (
@@ -77,38 +75,7 @@ export default function OverviewAnalyticsView({ summary, workouts, timePeriod }:
         </View>
       </View>
 
-      {/* Volume Trend */}
-      {volumeData.length > 0 && (
-        <View className="mb-6">
-          <View className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-            <Text className="text-gray-500 text-sm mb-4">Last {volumeData.length} periods</Text>
-            <View className="flex-row items-end justify-between h-40">
-              {volumeData.slice(-8).map((point, idx) => {
-                const maxVolume = Math.max(...volumeData.map(p => p.volume));
-                const height = maxVolume > 0 ? (point.volume / maxVolume) * 100 : 0;
-                return (
-                  <View key={idx} className="flex-1 items-center mx-0.5">
-                    <View className="relative w-full items-center">
-                      <View 
-                        className="bg-blue-500 rounded-t w-full"
-                        style={{ height: `${height}%`, minHeight: 4 }}
-                      />
-                      <Text className="text-gray-400 text-xs mt-2 text-center" numberOfLines={1}>
-                        {point.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                      </Text>
-                      {point.volume > 0 && (
-                        <Text className="text-gray-600 text-xs font-semibold mt-1">
-                          {Math.round(point.volume / 1000)}k
-                        </Text>
-                      )}
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
-          </View>
-        </View>
-      )}
+      {/* Volume Trend - TODO: Add day-based volume chart */}
     </View>
   );
 }

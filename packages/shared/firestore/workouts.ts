@@ -1,3 +1,19 @@
+/**
+ * @deprecated LEGACY: Workouts collection is deprecated in favor of the days collection.
+ * 
+ * This service is now READ-ONLY. New writes should use the days collection via createDayService.
+ * 
+ * Migration status:
+ * - Analytics now use days collection exclusively
+ * - PR calculations use days collection
+ * - All new workout logging should use days
+ * 
+ * This service is kept for:
+ * - Reading historical workout data
+ * - Backward compatibility with old workout routes
+ * 
+ * DO NOT create new workouts. Use days instead.
+ */
 import type { Firestore } from "firebase/firestore";
 import type { Auth } from "firebase/auth";
 import {
@@ -173,8 +189,19 @@ function normalizeExercise(ex: any): Exercise {
   return { exerciseId: idIn, name: nameIn, modality: "strength", strengthSets: [] };
 }
 
-// Export a factory function that creates service functions
+/**
+ * @deprecated LEGACY: Use createDayService instead.
+ * 
+ * This service is READ-ONLY. Do not create or update workouts.
+ * All new data should be written to the days collection.
+ */
 export function createWorkoutService(db: Firestore, auth: Auth) {
+  if (process.env.NODE_ENV !== "production") {
+    console.warn(
+      "[DEPRECATED] createWorkoutService is deprecated. Use createDayService instead. " +
+      "Workouts collection is read-only. All new writes should use days collection."
+    );
+  }
   // --------- Converter ---------
   const converter = {
     toFirestore(data: WorkoutDoc) {
@@ -260,7 +287,17 @@ export function createWorkoutService(db: Firestore, auth: Auth) {
 
   // --------- CRUD + Subscribe ---------
   return {
+    /**
+     * @deprecated LEGACY: Do not create new workouts. Use createDayService().createDay() instead.
+     * This function is kept for backward compatibility only.
+     */
     async createWorkout(input: NewWorkoutInput): Promise<Workout> {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn(
+          "[DEPRECATED] createWorkout is deprecated. Use createDayService().createDay() instead. " +
+          "Workouts collection is read-only for new data."
+        );
+      }
       const uid = auth.currentUser?.uid;
       if (!uid) throw new Error("Not signed in");
 
@@ -292,7 +329,17 @@ export function createWorkoutService(db: Firestore, auth: Auth) {
       };
     },
 
+    /**
+     * @deprecated LEGACY: Do not update workouts. Use createDayService().updateDay() instead.
+     * This function is kept for backward compatibility only.
+     */
     async updateWorkout(id: string, updates: Partial<Omit<Workout, "id">>): Promise<void> {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn(
+          "[DEPRECATED] updateWorkout is deprecated. Use createDayService().updateDay() instead. " +
+          "Workouts collection is read-only for new data."
+        );
+      }
       const payload: Partial<WorkoutDoc> = {};
       if (updates.date) payload.date = toTimestamp(updates.date as any);
       if (updates.exercises) {

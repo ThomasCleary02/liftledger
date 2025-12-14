@@ -3,7 +3,7 @@
 
 import React from "react";
 import { View, Text, ScrollView } from "react-native";
-import { Workout } from "../../lib/firestore/workouts";
+import { Day } from "../../lib/firestore/days";
 import { getCardioAnalytics } from "../../lib/analytics/calculations";
 import { TimePeriod } from "../../lib/analytics/types";
 import { usePreferences } from "../../lib/hooks/usePreferences";
@@ -11,12 +11,12 @@ import { formatDistance, getDistanceUnit } from "../../lib/utils/units";
 import Ionicons from "@expo/vector-icons/Ionicons";
 
 interface Props {
-  workouts: Workout[];
+  days: Day[];
   timePeriod: TimePeriod;
 }
 
-export default function CardioAnalyticsView({ workouts, timePeriod }: Props) {
-  const cardioAnalytics = getCardioAnalytics(workouts);
+export default function CardioAnalyticsView({ days, timePeriod }: Props) {
+  const cardioAnalytics = getCardioAnalytics(days, timePeriod);
   const { units } = usePreferences();
 
   const formatPace = (secondsPerMile: number): string => {

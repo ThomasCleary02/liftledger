@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, Modal, Pressable, Alert } from "react-native";
-import { DefaultChartView, getPreferences, updateDefaultChartView } from "../../lib/preferences";
+import { DefaultChartView } from "@liftledger/shared/preferences";
+import { preferencesService } from "../../lib/firebase";
 import Ionicons from "@expo/vector-icons/Ionicons";
 
 interface Props {
@@ -21,7 +22,7 @@ export default function ChartViewModal({ visible, onClose, onSave }: Props) {
 
   const loadPreferences = async () => {
     try {
-      const prefs = await getPreferences();
+      const prefs = await preferencesService.getPreferences();
       setSelectedView(prefs.defaultChartView);
     } catch (error) {
       console.error("Error loading preferences:", error);
@@ -31,7 +32,7 @@ export default function ChartViewModal({ visible, onClose, onSave }: Props) {
   const handleSave = async () => {
     setLoading(true);
     try {
-      await updateDefaultChartView(selectedView);
+      await preferencesService.updateDefaultChartView(selectedView);
       Alert.alert("Success", "Default chart view saved");
       onSave?.(); // Call refresh callback
       onClose();

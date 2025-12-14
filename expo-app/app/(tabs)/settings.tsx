@@ -3,7 +3,8 @@ import { View, Text, Pressable, ScrollView, Alert, ActivityIndicator } from "rea
 import { useAuth } from "../../providers/Auth";
 import { router } from "expo-router";
 import { deleteUserAccount } from "../../lib/firestore/account";
-import { getPreferences, UnitSystem, DefaultChartView } from "../../lib/preferences";
+import { UnitSystem, DefaultChartView } from "@liftledger/shared/preferences";
+import { preferencesService } from "../../lib/firebase";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import UnitsModal from "../../components/settings/UnitsModal";
 import ChartViewModal from "../../components/settings/ChartViewModal";
@@ -29,7 +30,7 @@ export default function Settings() {
 
   const loadPreferences = async () => {
     try {
-      const prefs = await getPreferences();
+      const prefs = await preferencesService.getPreferences();
       setUnits(prefs.units);
       setChartView(prefs.defaultChartView);
     } catch (error) {

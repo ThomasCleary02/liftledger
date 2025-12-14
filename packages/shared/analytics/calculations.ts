@@ -1,6 +1,8 @@
 import { Workout, Exercise } from "../firestore/workouts";
+import { Day } from "../firestore/days";
 import { ExerciseDoc } from "../firestore/exercises";
 import { AnalyticsSummary, ExercisePR, VolumeDataPoint, MuscleGroupStats, TimePeriod } from "./types";
+import { parseISO } from "date-fns";
 
 /**
  * Calculate total volume from workouts
@@ -32,7 +34,91 @@ function getUniqueWorkoutDates(workouts: Workout[]): Date[] {
 }
 
 /**
+ * Calculate current streak from days (consecutive days with exercises or rest days)
+ * Streak continues if: day.exercises.length > 0 || day.isRestDay === true
+ * 
+ * CRITICAL: Analytics functions must accept plain arrays (Day[]), not Firestore snapshots.
+ * This keeps packages/shared/analytics pure and testable.
+ */
+export function calculateCurrentStreakFromDays(days: Day[]): number {
+  if (days.length === 0) return 0;
+  
+  // Filter to only active days (has exercises or is rest day)
+  const activeDays = days.filter(day => day.exercises.length > 0 || day.isRestDay);
+  if (activeDays.length === 0) return 0;
+  
+  // Parse dates and sort (most recent first)
+  const dates = activeDays
+    .map(day => parseISO(day.date))
+    .sort((a, b) => b.getTime() - a.getTime());
+  
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  let streak = 0;
+  let expectedDate = new Date(today);
+  
+  for (const dayDate of dates) {
+    const daysDiff = Math.floor((expectedDate.getTime() - dayDate.getTime()) / (1000 * 60 * 60 * 24));
+    
+    // If the day date matches the expected date (today, yesterday, etc.)
+    if (daysDiff === 0) {
+      streak++;
+      expectedDate.setDate(expectedDate.getDate() - 1);
+    } else if (daysDiff > 0) {
+      // If there's a gap, the streak is broken
+      break;
+    }
+    // If daysDiff < 0, it's a future date, skip it
+  }
+  
+  return streak;
+}
+
+/**
+ * Calculate longest streak from days (any period in history)
+ * Streak continues if: day.exercises.length > 0 || day.isRestDay === true
+ * 
+ * CRITICAL: Analytics functions must accept plain arrays (Day[]), not Firestore snapshots.
+ */
+export function calculateLongestStreakFromDays(days: Day[]): number {
+  if (days.length === 0) return 0;
+  
+  // Filter to only active days (has exercises or is rest day)
+  const activeDays = days.filter(day => day.exercises.length > 0 || day.isRestDay);
+  if (activeDays.length === 0) return 0;
+  
+  // Parse dates and sort (oldest to newest)
+  const dates = activeDays
+    .map(day => parseISO(day.date))
+    .sort((a, b) => a.getTime() - b.getTime());
+  
+  let longestStreak = 1;
+  let currentStreak = 1;
+  
+  for (let i = 1; i < dates.length; i++) {
+    const prevDate = dates[i - 1];
+    const currDate = dates[i];
+    
+    // Calculate days difference
+    const daysDiff = Math.floor((currDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (daysDiff === 1) {
+      // Consecutive day - increment streak
+      currentStreak++;
+      longestStreak = Math.max(longestStreak, currentStreak);
+    } else {
+      // Gap in dates - reset current streak
+      currentStreak = 1;
+    }
+  }
+  
+  return longestStreak;
+}
+
+/**
  * Calculate current streak (consecutive days with workouts ending today or yesterday)
+ * @deprecated Use calculateCurrentStreakFromDays instead for day-based data model
  */
 export function calculateCurrentStreak(workouts: Workout[]): number {
   if (workouts.length === 0) return 0;
@@ -65,6 +151,7 @@ export function calculateCurrentStreak(workouts: Workout[]): number {
 
 /**
  * Calculate longest streak (any period in history)
+ * @deprecated Use calculateLongestStreakFromDays instead for day-based data model
  */
 export function calculateLongestStreak(workouts: Workout[]): number {
   if (workouts.length === 0) return 0;
@@ -180,7 +267,139 @@ export function calculateTotalCalisthenicsReps(workouts: Workout[]): number {
 }
 
 /**
+ * Calculate total volume from days
+ * CRITICAL: Analytics functions must accept plain arrays (Day[]), not Firestore snapshots.
+ */
+export function calculateTotalVolumeFromDays(days: Day[]): number {
+  return days.reduce((sum, day) => {
+    return day.exercises.reduce((daySum, ex) => {
+      if (ex.modality === "strength" && Array.isArray(ex.strengthSets)) {
+        const exVol = ex.strengthSets.reduce((s, st) => s + (st.reps || 0) * (st.weight || 0), 0);
+        return daySum + exVol;
+      }
+      return daySum;
+    }, 0);
+  }, 0);
+}
+
+/**
+ * Calculate total cardio distance from days
+ * CRITICAL: Analytics functions must accept plain arrays (Day[]), not Firestore snapshots.
+ */
+export function calculateTotalCardioDistanceFromDays(days: Day[]): number {
+  return days.reduce((sum, day) => {
+    return day.exercises.reduce((daySum, ex) => {
+      if (ex.modality === "cardio" && ex.cardioData?.distance) {
+        return daySum + ex.cardioData.distance;
+      }
+      return daySum;
+    }, 0);
+  }, 0);
+}
+
+/**
+ * Calculate total cardio duration from days (in seconds)
+ * CRITICAL: Analytics functions must accept plain arrays (Day[]), not Firestore snapshots.
+ */
+export function calculateTotalCardioDurationFromDays(days: Day[]): number {
+  return days.reduce((sum, day) => {
+    return day.exercises.reduce((daySum, ex) => {
+      if (ex.modality === "cardio" && ex.cardioData?.duration) {
+        return daySum + ex.cardioData.duration;
+      }
+      return daySum;
+    }, 0);
+  }, 0);
+}
+
+/**
+ * Calculate total calisthenics reps from days
+ * CRITICAL: Analytics functions must accept plain arrays (Day[]), not Firestore snapshots.
+ */
+export function calculateTotalCalisthenicsRepsFromDays(days: Day[]): number {
+  return days.reduce((sum, day) => {
+    return day.exercises.reduce((daySum, ex) => {
+      if (ex.modality === "calisthenics" && Array.isArray(ex.calisthenicsSets)) {
+        const exReps = ex.calisthenicsSets.reduce((s, st) => s + (st.reps || 0), 0);
+        return daySum + exReps;
+      }
+      return daySum;
+    }, 0);
+  }, 0);
+}
+
+/**
+ * Find favorite exercise from days
+ * CRITICAL: Analytics functions must accept plain arrays (Day[]), not Firestore snapshots.
+ */
+export function findFavoriteExerciseFromDays(
+  days: Day[],
+  exercises?: Map<string, ExerciseDoc>
+): string | undefined {
+  const exerciseCounts = new Map<string, number>();
+  
+  days.forEach(day => {
+    day.exercises.forEach(ex => {
+      const key = ex.exerciseId || ex.name;
+      exerciseCounts.set(key, (exerciseCounts.get(key) || 0) + 1);
+    });
+  });
+
+  let maxCount = 0;
+  let favoriteId: string | undefined;
+  
+  exerciseCounts.forEach((count, exerciseId) => {
+    if (count > maxCount) {
+      maxCount = count;
+      favoriteId = exerciseId;
+    }
+  });
+
+  if (!favoriteId) return undefined;
+
+  // If exercises map is provided, look up the name
+  if (exercises && exercises.has(favoriteId)) {
+    return exercises.get(favoriteId)!.name;
+  }
+
+  // Fallback: try to find the name from days
+  for (const day of days) {
+    for (const ex of day.exercises) {
+      if ((ex.exerciseId || ex.name) === favoriteId) {
+        return ex.name;
+      }
+    }
+  }
+
+  return favoriteId;
+}
+
+/**
+ * Get comprehensive analytics summary from days
+ * CRITICAL: Analytics functions must accept plain arrays (Day[]), not Firestore snapshots.
+ */
+export function getAnalyticsSummaryFromDays(
+  days: Day[],
+  exercises?: Map<string, ExerciseDoc>
+): AnalyticsSummary {
+  // Count days with exercises (not rest days)
+  const workoutDays = days.filter(day => day.exercises.length > 0);
+  
+  return {
+    totalWorkouts: workoutDays.length,
+    currentStreak: calculateCurrentStreakFromDays(days),
+    longestStreak: calculateLongestStreakFromDays(days),
+    favoriteExercise: findFavoriteExerciseFromDays(days, exercises),
+    totalVolume: calculateTotalVolumeFromDays(days),
+    totalCardioDistance: calculateTotalCardioDistanceFromDays(days),
+    totalCardioDuration: calculateTotalCardioDurationFromDays(days),
+    totalCalisthenicsReps: calculateTotalCalisthenicsRepsFromDays(days),
+  };
+}
+
+/**
  * Get comprehensive analytics summary
+ * @deprecated Use getAnalyticsSummaryFromDays instead for day-based data model
  */
 export function getAnalyticsSummary(
   workouts: Workout[],
@@ -199,21 +418,29 @@ export function getAnalyticsSummary(
 }
 
 /**
- * Get volume data points for chart (grouped by date)
+ * Get volume data points for chart (grouped by date) from days
+ * CRITICAL: Analytics functions must accept plain arrays (Day[]), not Firestore snapshots.
  */
-export function getVolumeDataPoints(workouts: Workout[], period: TimePeriod = "month"): VolumeDataPoint[] {
-  const sorted = [...workouts].sort((a, b) => {
-    const dateA = (a.date as any)?.toDate ? (a.date as any).toDate() : new Date(a.date as any);
-    const dateB = (b.date as any)?.toDate ? (b.date as any).toDate() : new Date(b.date as any);
+export function getVolumeDataPoints(days: Day[], period: TimePeriod = "month"): VolumeDataPoint[] {
+  const sorted = [...days].sort((a, b) => {
+    const dateA = parseISO(a.date);
+    const dateB = parseISO(b.date);
     return dateA.getTime() - dateB.getTime();
   });
 
   const grouped = new Map<string, { volume: number; count: number }>();
 
-  sorted.forEach(workout => {
-    const date = (workout.date as any)?.toDate 
-      ? (workout.date as any).toDate() 
-      : new Date(workout.date as any);
+  sorted.forEach(day => {
+    const date = parseISO(day.date);
+    if (isNaN(date.getTime())) return; // Skip invalid dates
+    
+    // Calculate volume from day's exercises
+    const dayVolume = day.exercises.reduce((sum, ex) => {
+      if (ex.modality === "strength" && Array.isArray(ex.strengthSets)) {
+        return sum + ex.strengthSets.reduce((s, st) => s + (st.reps || 0) * (st.weight || 0), 0);
+      }
+      return sum;
+    }, 0);
     
     let key: string;
     let dateForReturn: Date;
@@ -241,7 +468,7 @@ export function getVolumeDataPoints(workouts: Workout[], period: TimePeriod = "m
 
     const existing = grouped.get(key) || { volume: 0, count: 0 };
     grouped.set(key, {
-      volume: existing.volume + (workout.totalVolume || 0),
+      volume: existing.volume + dayVolume,
       count: existing.count + 1,
     });
   });
@@ -261,26 +488,27 @@ export function getVolumeDataPoints(workouts: Workout[], period: TimePeriod = "m
     return {
       date: parsedDate,
       volume: data.volume,
-      workoutCount: data.count,
+      workoutCount: data.count, // Keep name for backward compatibility, but represents day count
     };
   }).sort((a, b) => a.date.getTime() - b.date.getTime());
 }
 
 /**
- * Find all Personal Records, filtered by tracked exercises if provided
+ * Find all Personal Records from days, filtered by tracked exercises if provided
+ * CRITICAL: Analytics functions must accept plain arrays (Day[]), not Firestore snapshots.
  */
-export function findAllPRs(workouts: Workout[], trackedExerciseIds?: string[]): ExercisePR[] {
+export function findAllPRs(days: Day[], trackedExerciseIds?: string[]): ExercisePR[] {
   const prs: ExercisePR[] = [];
-  const strengthPRs = new Map<string, { weight: number; reps: number; volume: number; date: Date; workoutId: string; name: string }>();
-  const cardioPRs = new Map<string, { distance: number; duration: number; pace: number; date: Date; workoutId: string; name: string }>();
-  const calisthenicsPRs = new Map<string, { reps: number; duration?: number; date: Date; workoutId: string; name: string }>();
+  const strengthPRs = new Map<string, { weight: number; reps: number; volume: number; date: Date; dayId: string; name: string }>();
+  const cardioPRs = new Map<string, { distance: number; duration: number; pace: number; date: Date; dayId: string; name: string }>();
+  const calisthenicsPRs = new Map<string, { reps: number; duration?: number; date: Date; dayId: string; name: string }>();
 
-  workouts.forEach(workout => {
-    const workoutDate = (workout.date as any)?.toDate 
-      ? (workout.date as any).toDate() 
-      : new Date(workout.date as any);
+  days.forEach(day => {
+    // Parse date from day.date (YYYY-MM-DD format)
+    const dayDate = parseISO(day.date);
+    if (isNaN(dayDate.getTime())) return; // Skip invalid dates
 
-    workout.exercises.forEach(ex => {
+    day.exercises.forEach(ex => {
       const exerciseId = ex.exerciseId || ex.name;
 
       if (ex.modality === "strength" && ex.strengthSets) {
@@ -293,8 +521,8 @@ export function findAllPRs(workouts: Workout[], trackedExerciseIds?: string[]): 
               weight: set.weight,
               reps: set.reps,
               volume: set.reps * set.weight,
-              date: workoutDate,
-              workoutId: workout.id,
+              date: dayDate,
+              dayId: day.id,
               name: ex.name,
             });
           } else {
@@ -319,10 +547,10 @@ export function findAllPRs(workouts: Workout[], trackedExerciseIds?: string[]): 
               updatedAny = true;
             }
             
-            // Only update date/workoutId if we found a new PR
+            // Only update date/dayId if we found a new PR
             if (updatedAny) {
-              updated.date = workoutDate;
-              updated.workoutId = workout.id;
+              updated.date = dayDate;
+              updated.dayId = day.id;
             }
             
             strengthPRs.set(exerciseId, updated);
@@ -340,8 +568,8 @@ export function findAllPRs(workouts: Workout[], trackedExerciseIds?: string[]): 
             distance: data.distance || 0,
             duration: current?.duration || data.duration || 0,
             pace: current?.pace || (data.pace || Infinity),
-            date: workoutDate,
-            workoutId: workout.id,
+            date: dayDate,
+            dayId: day.id,
             name: ex.name,
           });
         }
@@ -352,8 +580,8 @@ export function findAllPRs(workouts: Workout[], trackedExerciseIds?: string[]): 
             distance: current?.distance || (data.distance || 0),
             duration: data.duration,
             pace: current?.pace || (data.pace || Infinity),
-            date: workoutDate,
-            workoutId: workout.id,
+            date: dayDate,
+            dayId: day.id,
             name: ex.name,
           });
         }
@@ -364,8 +592,8 @@ export function findAllPRs(workouts: Workout[], trackedExerciseIds?: string[]): 
             distance: current?.distance || (data.distance || 0),
             duration: current?.duration || data.duration || 0,
             pace: data.pace,
-            date: workoutDate,
-            workoutId: workout.id,
+            date: dayDate,
+            dayId: day.id,
             name: ex.name,
           });
         }
@@ -377,19 +605,19 @@ export function findAllPRs(workouts: Workout[], trackedExerciseIds?: string[]): 
           
           if (!current || set.reps > current.reps) {
             calisthenicsPRs.set(exerciseId, {
-              ...current || { duration: undefined, date: workoutDate, workoutId: workout.id, name: ex.name },
+              ...current || { duration: undefined, date: dayDate, dayId: day.id, name: ex.name },
               reps: set.reps,
-              date: workoutDate,
-              workoutId: workout.id,
+              date: dayDate,
+              dayId: day.id,
             });
           }
           
           if (set.duration && (!current || set.duration > (current.duration || 0))) {
             calisthenicsPRs.set(exerciseId, {
-              ...current || { reps: 0, date: workoutDate, workoutId: workout.id, name: ex.name },
+              ...current || { reps: 0, date: dayDate, dayId: day.id, name: ex.name },
               duration: set.duration,
-              date: workoutDate,
-              workoutId: workout.id,
+              date: dayDate,
+              dayId: day.id,
             });
           }
         });
@@ -408,7 +636,7 @@ export function findAllPRs(workouts: Workout[], trackedExerciseIds?: string[]): 
         prType: "maxWeight",
         value: pr.weight,
         date: pr.date,
-        workoutId: pr.workoutId,
+        dayId: pr.dayId,
       });
     }
     
@@ -423,7 +651,7 @@ export function findAllPRs(workouts: Workout[], trackedExerciseIds?: string[]): 
         prType: "maxVolume",
         value: pr.volume,
         date: pr.date,
-        workoutId: pr.workoutId,
+        dayId: pr.dayId,
       });
     }
   });
@@ -439,7 +667,7 @@ export function findAllPRs(workouts: Workout[], trackedExerciseIds?: string[]): 
         prType: "maxDistance",
         value: pr.distance,
         date: pr.date,
-        workoutId: pr.workoutId,
+        dayId: pr.dayId,
       });
     }
     
@@ -452,7 +680,7 @@ export function findAllPRs(workouts: Workout[], trackedExerciseIds?: string[]): 
         prType: "maxDuration",
         value: pr.duration,
         date: pr.date,
-        workoutId: pr.workoutId,
+        dayId: pr.dayId,
       });
     }
     
@@ -465,7 +693,7 @@ export function findAllPRs(workouts: Workout[], trackedExerciseIds?: string[]): 
         prType: "bestPace",
         value: pr.pace,
         date: pr.date,
-        workoutId: pr.workoutId,
+        dayId: pr.dayId,
       });
     }
   });
@@ -480,7 +708,7 @@ export function findAllPRs(workouts: Workout[], trackedExerciseIds?: string[]): 
         prType: "maxReps",
         value: pr.reps,
         date: pr.date,
-        workoutId: pr.workoutId,
+        dayId: pr.dayId,
       });
     }
   });
@@ -505,23 +733,35 @@ export interface StrengthAnalytics {
   volumeTrend: VolumeDataPoint[];
 }
 
-export function getStrengthAnalytics(workouts: Workout[], exercises: Map<string, ExerciseDoc>, timePeriod: TimePeriod = "month"): StrengthAnalytics {
-  const strengthWorkouts = workouts.filter(w => 
-    w.exercises.some(ex => ex.modality === "strength")
+/**
+ * Get strength-specific analytics from days
+ * CRITICAL: Analytics functions must accept plain arrays (Day[]), not Firestore snapshots.
+ */
+export function getStrengthAnalytics(days: Day[], exercises: Map<string, ExerciseDoc>, timePeriod: TimePeriod = "month"): StrengthAnalytics {
+  const strengthDays = days.filter(day => 
+    day.exercises.some(ex => ex.modality === "strength")
   );
 
-  const totalVolume = calculateTotalVolume(workouts);
-  const averageVolumePerWorkout = strengthWorkouts.length > 0 
-    ? totalVolume / strengthWorkouts.length 
+  const totalVolume = calculateTotalVolumeFromDays(days);
+  const averageVolumePerWorkout = strengthDays.length > 0 
+    ? totalVolume / strengthDays.length 
     : 0;
 
-  const maxVolumeWorkout = Math.max(...workouts.map(w => w.totalVolume || 0));
+  // Calculate max volume per day
+  const maxVolumeWorkout = Math.max(...days.map(day => {
+    return day.exercises.reduce((sum, ex) => {
+      if (ex.modality === "strength" && Array.isArray(ex.strengthSets)) {
+        return sum + ex.strengthSets.reduce((s, st) => s + (st.reps || 0) * (st.weight || 0), 0);
+      }
+      return sum;
+    }, 0);
+  }), 0);
 
   // Exercise frequency and max weight
   const exerciseMap = new Map<string, { name: string; count: number; maxWeight: number }>();
   
-  workouts.forEach(workout => {
-    workout.exercises
+  days.forEach(day => {
+    day.exercises
       .filter(ex => ex.modality === "strength" && ex.strengthSets)
       .forEach(ex => {
         const key = ex.exerciseId || ex.name;
@@ -547,8 +787,8 @@ export function getStrengthAnalytics(workouts: Workout[], exercises: Map<string,
   // Volume by muscle group
   const muscleGroupMap = new Map<string, { volume: number; frequency: number; exercises: Set<string> }>();
   
-  workouts.forEach(workout => {
-    workout.exercises
+  days.forEach(day => {
+    day.exercises
       .filter(ex => ex.modality === "strength" && ex.strengthSets)
       .forEach(ex => {
         const exerciseDoc = exercises.get(ex.exerciseId || "");
@@ -582,7 +822,7 @@ export function getStrengthAnalytics(workouts: Workout[], exercises: Map<string,
     }))
     .sort((a, b) => b.volume - a.volume);
 
-  const volumeTrend = getVolumeDataPoints(workouts, timePeriod); // Use timePeriod parameter
+  const volumeTrend = getVolumeDataPoints(days, timePeriod);
 
   return {
     totalVolume,
@@ -608,9 +848,13 @@ export interface CardioAnalytics {
   exercisesByFrequency: Array<{ exerciseId: string; name: string; count: number; totalDistance: number }>;
 }
 
-export function getCardioAnalytics(workouts: Workout[], timePeriod: TimePeriod = "month"): CardioAnalytics {
-  const cardioExercises = workouts
-    .flatMap(w => w.exercises.filter(ex => ex.modality === "cardio" && ex.cardioData))
+/**
+ * Get cardio-specific analytics from days
+ * CRITICAL: Analytics functions must accept plain arrays (Day[]), not Firestore snapshots.
+ */
+export function getCardioAnalytics(days: Day[], timePeriod: TimePeriod = "month"): CardioAnalytics {
+  const cardioExercises = days
+    .flatMap(day => day.exercises.filter(ex => ex.modality === "cardio" && ex.cardioData))
     .map(ex => ex.cardioData!);
 
   const totalDistance = cardioExercises.reduce((sum, data) => sum + (data.distance || 0), 0);
@@ -624,25 +868,24 @@ export function getCardioAnalytics(workouts: Workout[], timePeriod: TimePeriod =
   // Distance trend (grouped by period)
   const trendMap = new Map<string, { distance: number; duration: number }>();
   
-  workouts.forEach(workout => {
-    const workoutDate = (workout.date as any)?.toDate 
-      ? (workout.date as any).toDate() 
-      : new Date(workout.date as any);
+  days.forEach(day => {
+    const dayDate = parseISO(day.date);
+    if (isNaN(dayDate.getTime())) return; // Skip invalid dates
     
     let key: string;
     if (timePeriod === "week") {
-      const weekStart = new Date(workoutDate);
-      weekStart.setDate(workoutDate.getDate() - workoutDate.getDay());
+      const weekStart = new Date(dayDate);
+      weekStart.setDate(dayDate.getDate() - dayDate.getDay());
       key = weekStart.toISOString().split('T')[0];
     } else if (timePeriod === "month") {
-      key = `${workoutDate.getFullYear()}-${String(workoutDate.getMonth() + 1).padStart(2, '0')}`;
+      key = `${dayDate.getFullYear()}-${String(dayDate.getMonth() + 1).padStart(2, '0')}`;
     } else if (timePeriod === "year") {
-      key = String(workoutDate.getFullYear());
+      key = String(dayDate.getFullYear());
     } else {
-      key = workoutDate.toISOString().split('T')[0];
+      key = dayDate.toISOString().split('T')[0];
     }
     
-    const cardioInWorkout = workout.exercises
+    const cardioInDay = day.exercises
       .filter(ex => ex.modality === "cardio" && ex.cardioData)
       .reduce((acc, ex) => ({
         distance: acc.distance + (ex.cardioData?.distance || 0),
@@ -651,8 +894,8 @@ export function getCardioAnalytics(workouts: Workout[], timePeriod: TimePeriod =
     
     const existing = trendMap.get(key) || { distance: 0, duration: 0 };
     trendMap.set(key, {
-      distance: existing.distance + cardioInWorkout.distance,
-      duration: existing.duration + cardioInWorkout.duration,
+      distance: existing.distance + cardioInDay.distance,
+      duration: existing.duration + cardioInDay.duration,
     });
   });
 
@@ -677,8 +920,8 @@ export function getCardioAnalytics(workouts: Workout[], timePeriod: TimePeriod =
   // Exercise frequency
   const exerciseMap = new Map<string, { name: string; count: number; totalDistance: number }>();
   
-  workouts.forEach(workout => {
-    workout.exercises
+  days.forEach(day => {
+    day.exercises
       .filter(ex => ex.modality === "cardio" && ex.cardioData)
       .forEach(ex => {
         const key = ex.exerciseId || ex.name;
@@ -734,6 +977,35 @@ export function filterWorkoutsByPeriod(workouts: Workout[], period: TimePeriod):
       ? (workout.date as any).toDate() 
       : new Date(workout.date as any);
     return workoutDate >= cutoffDate;
+  });
+}
+
+/**
+ * Filter days by time period
+ * CRITICAL: Analytics functions must accept plain arrays (Day[]), not Firestore snapshots.
+ */
+export function filterDaysByPeriod(days: Day[], period: TimePeriod): Day[] {
+  if (period === "all") return days;
+  
+  const now = new Date();
+  let cutoffDate: Date;
+  
+  if (period === "week") {
+    cutoffDate = new Date(now);
+    cutoffDate.setDate(now.getDate() - 7);
+  } else if (period === "month") {
+    cutoffDate = new Date(now);
+    cutoffDate.setMonth(now.getMonth() - 1);
+  } else if (period === "year") {
+    cutoffDate = new Date(now);
+    cutoffDate.setFullYear(now.getFullYear() - 1);
+  } else {
+    return days;
+  }
+  
+  return days.filter(day => {
+    const dayDate = parseISO(day.date);
+    return dayDate >= cutoffDate;
   });
 }
 
