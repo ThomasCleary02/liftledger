@@ -82,6 +82,5 @@ export function createPreferencesService(storage: PreferencesStorage) {
   };
 }
 
-// Export types for use in platform code
-export type { PreferencesStorage };
+// Export constants for use in platform code
 export { DEFAULT_PREFERENCES, PREFERENCES_KEY };
