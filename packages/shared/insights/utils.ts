@@ -39,10 +39,34 @@ export function extractExerciseHistory(
       return dateA.getTime() - dateB.getTime();
     });
 
+
   for (const day of sortedDays) {
-    const exercise = day.exercises.find(
-      (ex) => (ex.exerciseId || ex.name) === exerciseId && ex.modality === modality
-    );
+    // Match by exerciseId (preferred) or name, and modality must match
+    // We need to be flexible because exercises might have been saved with different formats
+    const exercise = day.exercises.find((ex) => {
+      // Modality must always match
+      if (ex.modality !== modality) return false;
+      
+      // Get identifiers from both sides
+      const exId = ex.exerciseId || ex.name;
+      const searchId = exerciseId;
+      
+      // Match if:
+      // 1. Both have exerciseId and they match
+      // 2. Both have names and they match (case-insensitive for robustness)
+      // 3. One's exerciseId matches the other's name
+      const exNameLower = (ex.name || "").toLowerCase().trim();
+      const searchNameLower = (searchId || "").toLowerCase().trim();
+      
+      return (
+        exId === searchId ||
+        ex.exerciseId === searchId ||
+        ex.name === searchId ||
+        exNameLower === searchNameLower ||
+        (ex.exerciseId && ex.exerciseId === searchId) ||
+        (ex.name && ex.name === searchId)
+      );
+    });
 
     if (!exercise) continue;
 
@@ -107,6 +131,10 @@ export function shouldFetchInsight(history: ProgressPoint[]): boolean {
  * 
  * @param history - Array of progress points (must be sorted by date ascending)
  * @returns True if latest value is strictly greater than all previous values
+ * 
+ * Note: For the first log of an exercise (history.length === 1), this returns false
+ * since there's nothing to compare against. However, the first log can still trigger
+ * insights if it meets minimum requirements (8+ sessions, 14+ days).
  */
 export function isNewPR(history: ProgressPoint[]): boolean {
   if (history.length < 2) {
@@ -117,7 +145,8 @@ export function isNewPR(history: ProgressPoint[]): boolean {
   const previousValues = history.slice(0, -1).map((point) => point.value);
 
   // Latest value must be strictly greater than all previous values
-  return previousValues.every((prevValue) => latestValue > prevValue);
+  const isPR = previousValues.every((prevValue) => latestValue > prevValue);
+  return isPR;
 }
 
 /**

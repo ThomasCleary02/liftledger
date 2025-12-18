@@ -240,63 +240,92 @@ export default function DayView() {
    * Called asynchronously after exercise is saved
    */
   const fetchAndDisplayInsight = async (exercise: Exercise, allDays: Day[]) => {
-    const exerciseId = exercise.exerciseId || exercise.name;
-    const modality = exercise.modality;
-
-    if (!modality || (modality !== "strength" && modality !== "cardio" && modality !== "calisthenics")) {
-      return; // Invalid modality
-    }
-
-    // Extract exercise history
-    const history = extractExerciseHistory(allDays, exerciseId, modality);
-
-    if (history.length === 0) {
-      return; // No history available
-    }
-
-    // Check if we should fetch insights
-    const shouldFetch = shouldFetchInsight(history) || isNewPR(history);
-
-    if (!shouldFetch) {
-      return; // Don't fetch if requirements not met
-    }
-
-    // Determine metric name
-    const hasDistance = modality === "cardio" && exercise.cardioData?.distance !== undefined && exercise.cardioData.distance > 0;
-    const metric = getMetricName(modality, hasDistance);
-
-    // Check cache first
-    const cachedInsight = getCachedInsight(exerciseId, metric);
-    if (cachedInsight) {
-      displayInsight(cachedInsight);
-      return;
-    }
-
-    // Clear cache entry for this exercise to ensure fresh data
-    clearCacheEntry(exerciseId, metric);
-
     try {
-      // Fetch insight from API
-      const insight = await fetchProgressInsight({
+      // Use exerciseId if available, otherwise use name
+      // This must match how extractExerciseHistory matches exercises
+      const exerciseId = exercise.exerciseId || exercise.name;
+      const modality = exercise.modality;
+
+      if (!modality || (modality !== "strength" && modality !== "cardio" && modality !== "calisthenics")) {
+        logger.warn(`[Insights] Invalid modality for ${exercise.name}: ${modality}`);
+        return; // Invalid modality
+      }
+
+      // Extract exercise history
+      const history = extractExerciseHistory(allDays, exerciseId, modality);
+
+      if (history.length === 0) {
+        logger.warn(`[Insights] No history found for ${exercise.name} (id: ${exerciseId}, modality: ${modality})`);
+        return; // No history available
+      }
+
+      // Check if we should fetch insights
+      const isPR = isNewPR(history);
+      const meetsMinReqs = shouldFetchInsight(history);
+      const shouldFetch = meetsMinReqs || isPR;
+
+      if (!shouldFetch) {
+        logger.info(`[Insights] Requirements not met for ${exercise.name}: history=${history.length}, isPR=${isPR}, meetsMinReqs=${meetsMinReqs}`);
+        return; // Don't fetch if requirements not met
+      }
+
+      logger.info(`[Insights] Fetching insight for ${exercise.name}: history=${history.length}, isPR=${isPR}`);
+
+      // Determine metric name
+      const hasDistance = modality === "cardio" && exercise.cardioData?.distance !== undefined && exercise.cardioData.distance > 0;
+      const metric = getMetricName(modality, hasDistance);
+
+      // For new PRs, always fetch fresh data (skip cache)
+      // For regular insights, check cache first
+      if (!isPR) {
+        const cachedInsight = getCachedInsight(exerciseId, metric);
+        if (cachedInsight) {
+          logger.info(`[Insights] Using cached insight for ${exercise.name}`);
+          displayInsight(cachedInsight);
+          return;
+        }
+      } else {
+        // Clear cache for PRs to ensure we get fresh insight
+        clearCacheEntry(exerciseId, metric);
+      }
+
+      // Fetch insight from API (non-blocking - fire and forget)
+      // The toast will appear when the API responds
+      fetchProgressInsight({
         exercise: exercise.name,
         metric: metric,
         history: history,
-      });
-
-      // Cache the insight
-      setCachedInsight(exerciseId, metric, insight);
-
-      // Display the insight
-      displayInsight(insight);
+      })
+        .then((insight) => {
+          logger.info(`[Insights] Received insight from API for ${exercise.name}:`, {
+            isNewPR: insight.isNewPR,
+            hasText: !!insight.insightText,
+            textLength: insight.insightText?.length || 0,
+          });
+          
+          // Cache the insight
+          setCachedInsight(exerciseId, metric, insight);
+          
+          // Display the insight - use setTimeout to ensure it's called in the next tick
+          // This helps ensure React has finished any pending updates
+          setTimeout(() => {
+            displayInsight(insight);
+            logger.info(`[Insights] Successfully displayed insight for ${exercise.name}`);
+          }, 0);
+        })
+        .catch((error) => {
+          // Error handling is done in the outer catch block, but we need to handle it here too
+          // since we're not using await
+          if (error instanceof Error) {
+            if (!error.message.includes("CORS") && !error.message.includes("Failed to fetch") && !error.message.includes("Network error")) {
+              logger.error(`[Insights] Failed to fetch insight for ${exercise.name}:`, error.message);
+            }
+          }
+        });
     } catch (error) {
-      // Fail silently - insights are non-critical
-      // CORS and network errors are expected if API is not configured
+      // Handle any synchronous errors (shouldn't happen, but be safe)
       if (error instanceof Error) {
-        // Only log non-CORS errors to reduce console noise
-        // CORS errors indicate API configuration issue, not a code bug
-        if (!error.message.includes("CORS") && !error.message.includes("Failed to fetch")) {
-          logger.error(`Failed to fetch insight for ${exercise.name}:`, error.message);
-        }
+        logger.error(`[Insights] Unexpected error for ${exercise.name}:`, error.message);
       }
     }
   };
@@ -305,6 +334,13 @@ export default function DayView() {
    * Display insight as toast notification
    */
   const displayInsight = (insight: { isNewPR: boolean; insightText: string }) => {
+    if (!insight.insightText || insight.insightText.trim() === "") {
+      logger.warn(`[Insights] Attempted to display insight with empty text`);
+      return;
+    }
+    
+    logger.info(`[Insights] Displaying toast: isPR=${insight.isNewPR}, text="${insight.insightText.substring(0, 50)}..."`);
+    
     if (insight.isNewPR) {
       // PR insights get success toast
       toast.success(insight.insightText);
@@ -504,19 +540,52 @@ export default function DayView() {
       showSyncing(false);
 
       // Fetch and display insights asynchronously (non-blocking)
-      // Include the updated day in the history
+      // Build a complete list of days including the updated current day
       const updatedDay = { ...currentDay, exercises: nextExercises };
-      const daysWithUpdate = allDays.map((d) => (d.id === updatedDay.id ? updatedDay : d));
-      // If the day wasn't in allDays, add it
-      if (!allDays.find((d) => d.id === updatedDay.id)) {
+      
+      // Create a map of all days, replacing the current day with the updated version
+      const daysMap = new Map<string, Day>();
+      
+      // Add all existing days to the map
+      allDays.forEach((d) => {
+        if (d.id) {
+          daysMap.set(d.id, d);
+        }
+      });
+      
+      // Add or update the current day with the latest exercises
+      if (updatedDay.id) {
+        daysMap.set(updatedDay.id, updatedDay);
+      } else {
+        // If day doesn't have an ID yet, add it anyway (shouldn't happen, but be safe)
+        daysMap.set(updatedDay.date, updatedDay);
+      }
+      
+      // Convert map back to array
+      const daysWithUpdate = Array.from(daysMap.values());
+      
+      // Also ensure we have the current day even if it wasn't in allDays
+      const hasCurrentDay = daysWithUpdate.some((d) => 
+        d.id === updatedDay.id || d.date === updatedDay.date
+      );
+      if (!hasCurrentDay) {
         daysWithUpdate.push(updatedDay);
       }
+      
+      // Sort by date to ensure proper history extraction
+      daysWithUpdate.sort((a, b) => {
+        const dateA = parseISO(a.date);
+        const dateB = parseISO(b.date);
+        return dateA.getTime() - dateB.getTime();
+      });
       
       try {
         await fetchAndDisplayInsight(cleanedExercise, daysWithUpdate);
       } catch (error) {
         // Fail silently - insights are non-critical
-        logger.error("Failed to fetch insight", error);
+        if (error instanceof Error && !error.message.includes("CORS") && !error.message.includes("Failed to fetch")) {
+          logger.error("Failed to fetch insight", error);
+        }
       }
     } catch (error) {
       logger.error("Failed to save exercise", error);
