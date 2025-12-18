@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { format, parseISO, isValid } from "date-fns";
+import { format, parseISO, isValid, differenceInDays } from "date-fns";
 import { useAuth } from "../../../../providers/Auth";
 import {
   getDayByDate,
@@ -19,7 +19,7 @@ import DayNavigation from "../../../../components/DayNavigation";
 import { Trash2, Dumbbell, Heart, Activity, Pencil, Plus, Moon, FileText, X, ChevronRight } from "lucide-react";
 import { usePreferences } from "../../../../lib/hooks/usePreferences";
 import { formatWeight, formatDistance } from "../../../../lib/utils/units";
-import { toast } from "../../../../lib/toast";
+import { toast, removeToast } from "../../../../lib/toast";
 import { logger } from "../../../../lib/logger";
 import { listDays } from "../../../../lib/firestore/days";
 import { DayNavigationSkeleton, ExerciseListSkeleton } from "../../../../components/LoadingSkeleton";
@@ -265,7 +265,15 @@ export default function DayView() {
       const shouldFetch = meetsMinReqs || isPR;
 
       if (!shouldFetch) {
-        logger.info(`[Insights] Requirements not met for ${exercise.name}: history=${history.length}, isPR=${isPR}, meetsMinReqs=${meetsMinReqs}`);
+        // Log why requirements aren't met for debugging
+        if (history.length > 0) {
+          const firstDate = parseISO(history[0].date);
+          const latestDate = parseISO(history[history.length - 1].date);
+          const daysDiff = Math.abs(differenceInDays(latestDate, firstDate));
+          logger.info(`[Insights] Requirements not met for ${exercise.name}: history=${history.length}, isPR=${isPR}, meetsMinReqs=${meetsMinReqs}, daysSpan=${daysDiff}`);
+        } else {
+          logger.info(`[Insights] Requirements not met for ${exercise.name}: history=${history.length}, isPR=${isPR}, meetsMinReqs=${meetsMinReqs}`);
+        }
         return; // Don't fetch if requirements not met
       }
 
@@ -275,20 +283,35 @@ export default function DayView() {
       const hasDistance = modality === "cardio" && exercise.cardioData?.distance !== undefined && exercise.cardioData.distance > 0;
       const metric = getMetricName(modality, hasDistance);
 
+      // Track loading toast ID so we can remove it when the real insight arrives
+      let loadingToastId: string | null = null;
+
       // For new PRs, always fetch fresh data (skip cache)
-      // For regular insights, check cache first
+      // For regular insights, check cache first (but only if it's not a PR insight)
       if (!isPR) {
         const cachedInsight = getCachedInsight(exerciseId, metric);
         if (cachedInsight) {
-          logger.info(`[Insights] Using cached insight for ${exercise.name}`);
-          displayInsight(cachedInsight);
-          return;
+          // Only use cached insight if it's not a PR (to avoid showing stale PR messages)
+          if (!cachedInsight.isNewPR) {
+            logger.info(`[Insights] Using cached insight for ${exercise.name}`);
+            // Add small delay to ensure React has finished updates
+            setTimeout(() => {
+              displayInsight(cachedInsight, metric);
+            }, 100);
+            return;
+          } else {
+            // Clear stale PR cache
+            logger.info(`[Insights] Clearing stale PR cache for ${exercise.name}`);
+            clearCacheEntry(exerciseId, metric);
+          }
         }
+        // Show loading toast for regular insights too (gives immediate feedback)
+        loadingToastId = toast.info("Analyzing your progress...");
       } else {
         // Clear cache for PRs to ensure we get fresh insight
         clearCacheEntry(exerciseId, metric);
         // Show immediate feedback for PRs - they're important!
-        toast.info("Analyzing your progress...");
+        loadingToastId = toast.info("Analyzing your progress...");
       }
 
       // Fetch insight from API (non-blocking - fire and forget)
@@ -305,12 +328,22 @@ export default function DayView() {
             textLength: insight.insightText?.length || 0,
           });
           
+          // Remove loading toast if it exists
+          if (loadingToastId) {
+            removeToast(loadingToastId);
+          }
+          
           // Cache the insight
           setCachedInsight(exerciseId, metric, insight);
           
-          // Display the insight immediately (no setTimeout needed)
-          displayInsight(insight);
-          logger.info(`[Insights] Successfully displayed insight for ${exercise.name}`);
+          // Display the insight with a delay to avoid overlapping with "Exercise saved" toast
+          // For PRs, show sooner (1 second) since they're more important
+          // For regular insights, wait longer (2 seconds) so the success toast can be seen
+          const delay = insight.isNewPR ? 1000 : 2000;
+          setTimeout(() => {
+            displayInsight(insight, metric);
+            logger.info(`[Insights] Successfully displayed insight for ${exercise.name}`);
+          }, delay);
         })
         .catch((error) => {
           // Error handling is done in the outer catch block, but we need to handle it here too
@@ -330,22 +363,44 @@ export default function DayView() {
   };
 
   /**
+   * Format insight text with proper units
+   * Replaces "weight" with "lbs" or "kgs" based on user preference
+   */
+  const formatInsightText = (text: string, metric: string): string => {
+    if (metric !== "weight") {
+      return text; // Only format weight metrics
+    }
+
+    const unitLabel = units === "metric" ? "kgs" : "lbs";
+    
+    // Replace patterns like "240 weight" or " weight" with the unit
+    // Handle both "weight" and " weight" (with space)
+    let formatted = text.replace(/\s+weight\b/gi, ` ${unitLabel}`);
+    formatted = formatted.replace(/\bweight\b/gi, unitLabel);
+    
+    return formatted;
+  };
+
+  /**
    * Display insight as toast notification
    */
-  const displayInsight = (insight: { isNewPR: boolean; insightText: string }) => {
+  const displayInsight = (insight: { isNewPR: boolean; insightText: string }, metric: string) => {
     if (!insight.insightText || insight.insightText.trim() === "") {
       logger.warn(`[Insights] Attempted to display insight with empty text`);
       return;
     }
     
-    logger.info(`[Insights] Displaying toast: isPR=${insight.isNewPR}, text="${insight.insightText.substring(0, 50)}..."`);
+    // Format the text with proper units
+    const formattedText = formatInsightText(insight.insightText, metric);
+    
+    logger.info(`[Insights] Displaying toast: isPR=${insight.isNewPR}, text="${formattedText.substring(0, 50)}..."`);
     
     if (insight.isNewPR) {
-      // PR insights get success toast
-      toast.success(insight.insightText);
+      // PR insights get success toast (8 seconds - shorter since they're exciting and easy to read)
+      toast.success(formattedText, 8000);
     } else {
-      // Regular insights get info toast
-      toast.info(insight.insightText);
+      // Regular insights get info toast (15 seconds - longer since they're more detailed and harder to read)
+      toast.info(formattedText, 15000);
     }
   };
 

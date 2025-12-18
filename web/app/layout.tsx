@@ -10,7 +10,11 @@ import { PWAInstallPrompt } from "../components/PWAInstallPrompt";
 import { ServiceWorkerUpdate } from "../components/ServiceWorkerUpdate";
 import React from "react";
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({ 
+  subsets: ["latin"],
+  display: "swap",
+  preload: true,
+});
 
 export const metadata: Metadata = {
   title: "LiftLedger - Track Your Workouts, Achieve Your Goals",
