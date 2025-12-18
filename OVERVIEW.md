@@ -18,6 +18,7 @@ liftledger/
 │   └── shared/              # Shared business logic (platform-agnostic)
 │       ├── analytics/       # Analytics calculations (streaks, PRs, summaries)
 │       ├── firestore/      # Firestore services (days, workouts, exercises, templates)
+│       ├── insights/        # Progress insights (API client, utilities, cache)
 │       ├── preferences/     # User preferences service
 │       └── hooks/            # Shared React hooks
 ├── expo-app/                # React Native (Expo) mobile app
@@ -192,11 +193,13 @@ interface FriendRequest {
 - **Add Exercise Section:** Always visible at top (no scrolling needed)
 - **Exercise List:** Shows all exercises for the day with edit/delete options
 - **Sync Status Indicator:** Shows "Syncing...", "Synced", or "Offline" status
+- **Progress Insights:** Automatic toast notifications after logging exercises (when criteria met)
 
 **Layout:**
 1. Header: Rest Day toggle + Template button
 2. Add Exercise section (top)
 3. Exercises list (below)
+4. Toast notifications (insights appear automatically)
 
 ### Analytics
 
@@ -209,6 +212,27 @@ interface FriendRequest {
 - **Strength:** Volume analytics, muscle group distribution, top exercises
 - **Cardio:** Distance, duration, pace analytics
 - **PRs:** Personal records for tracked exercises
+
+### Progress Insights
+
+**Integration:** LiftLedger Insights Service
+
+**Features:**
+- **Automatic Insights:** Fetched automatically when users log exercises
+- **Smart Triggering:** Insights shown when:
+  - User has 8+ exercise sessions and 14+ days of history, OR
+  - Latest log is a new personal record (always triggers)
+- **Toast Notifications:** Insights displayed as non-intrusive toast messages
+- **Caching:** 5-minute cache to reduce API calls
+- **Error Handling:** Silent failures (non-critical feature)
+
+**Implementation:**
+- **Shared Package** (platform-agnostic, reusable):
+  - API client: `packages/shared/insights/api.ts`
+  - Utilities: `packages/shared/insights/utils.ts` (history extraction, PR detection)
+  - Cache: `packages/shared/insights/cache.ts` (in-memory with TTL)
+- **Web Integration:** `web/app/(app)/day/[date]/page.tsx` (async, non-blocking, uses toast notifications)
+- **Expo Integration:** Ready to integrate (uses `Alert.alert()` for notifications)
 
 ### Friends & Leaderboards (v2)
 
@@ -294,6 +318,18 @@ interface FriendRequest {
 7. **`friendRequests`** - Friend request system (v2)
    - Indexed on: `toUserId` + `status`, `fromUserId` + `status`, `fromUserId` + `toUserId` + `status`
    - Security: Users can read requests they sent/received, create as sender, update as recipient
+
+### External Services
+
+1. **LiftLedger Insights Service**
+   - **Endpoint:** `https://liftledgerservices-e2bcfshcf6frfycb.centralus-01.azurewebsites.net/api/insights/progress`
+   - **Purpose:** Provides AI-powered progress insights for exercises
+   - **Integration:** Shared package (`packages/shared/insights/`) - reusable across web and mobile
+   - **Web:** Integrated with toast notifications
+   - **Mobile:** Ready to integrate (uses `Alert.alert()`)
+   - **Triggering:** Automatic when logging exercises (8+ sessions or new PRs)
+   - **Caching:** 5-minute in-memory cache
+   - **Error Handling:** Silent failures (non-critical feature)
 
 ### Security Rules
 
@@ -397,6 +433,13 @@ All analytics functions accept plain `Day[]` arrays (not Firestore snapshots):
    - Friends-only leaderboards (volume, cardio, consistency)
    - Username management (required at signup, editable in account settings)
    - Password reset functionality
+
+9. **Progress Insights**
+   - Automatic AI-powered insights via LiftLedger Insights Service
+   - Triggered when logging exercises (8+ sessions or new PRs)
+   - Toast notifications with personalized progress messages
+   - Caching layer for performance
+   - Silent error handling (non-critical feature)
 
 ### 🔄 Migration Status
 
@@ -520,12 +563,14 @@ All analytics functions accept plain `Day[]` arrays (not Firestore snapshots):
 ### Shared Package
 - `packages/shared/firestore/days.ts` - Days service
 - `packages/shared/analytics/calculations.ts` - Analytics functions
+- `packages/shared/insights/` - Progress insights (API client, utilities, cache)
 - `packages/shared/preferences.ts` - Preferences service
 
 ### Web App
-- `web/app/(app)/day/[date]/page.tsx` - Day view
+- `web/app/(app)/day/[date]/page.tsx` - Day view (with insights integration)
 - `web/app/(app)/analytics/page.tsx` - Analytics
 - `web/components/DayNavigation.tsx` - Day navigation component
+- `web/lib/insights/*` - Re-exports from shared package (backward compatibility)
 
 ### Expo App
 - `expo-app/app/day/[date].tsx` - Day view
@@ -550,5 +595,6 @@ LiftLedger is now a **production-ready, day-based fitness tracking application**
 - ✅ Cross-platform support (web + mobile)
 - ✅ Production polish (loading states, error handling, PWA)
 - ✅ Marketing presence (homepage, legal pages)
+- ✅ Progress insights via LiftLedger Insights Service
 
-The app successfully migrated from a workout-centric model to a day-based model while maintaining backward compatibility and ensuring no data loss.
+The app successfully migrated from a workout-centric model to a day-based model while maintaining backward compatibility and ensuring no data loss. The integration with LiftLedger Insights Service provides users with automatic, AI-powered progress insights when they log exercises, enhancing the user experience with personalized feedback.

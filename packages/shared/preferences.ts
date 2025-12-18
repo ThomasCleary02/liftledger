@@ -7,7 +7,7 @@
 
 export type UnitSystem = "metric" | "imperial";
 export type DefaultChartView = "week" | "month" | "year";
-export type TimePeriod = "week" | "month" | "year" | "all";
+// TimePeriod is exported from ./analytics/types to avoid duplicate exports
 
 export interface UserPreferences {
   units: UnitSystem;

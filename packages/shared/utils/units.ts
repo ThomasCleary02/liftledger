@@ -1,6 +1,6 @@
-// UnitSystem type - this should be defined in a shared types file
-// For now, we'll define it here or import from a types file
-export type UnitSystem = "metric" | "imperial";
+// UnitSystem type is imported from preferences to avoid duplicate exports
+// Note: UnitSystem should be imported from @liftledger/shared or @liftledger/shared/preferences
+import type { UnitSystem } from "../preferences";
 
 /**
  * Convert weight from stored value (always in lbs) to display unit

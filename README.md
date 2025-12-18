@@ -60,6 +60,7 @@ npm run lint
 - **PRs:** Personal records for tracked exercises
 - **Volume Analytics:** Strength volume, cardio distance, calisthenics reps
 - **Time Periods:** Filter by week/month/year/all
+- **Progress Insights:** Automatic AI-powered insights when logging exercises (8+ sessions or new PRs)
 
 ### Social Features (v2)
 - **Friends System:** Send/accept friend requests by email
@@ -83,6 +84,7 @@ npm run lint
 - Sync status indicators
 - PWA install prompts
 - Service worker updates
+- Progress insights via LiftLedger Insights Service
 
 ## 📊 Data Model
 
@@ -107,6 +109,10 @@ liftledger/
 │   └── preferences/       # User preferences service
 ├── expo-app/              # React Native app
 ├── web/                    # Next.js web app
+│   └── lib/insights/      # LiftLedger Insights integration
+│       ├── api.ts         # Insights API client
+│       ├── utils.ts       # History extraction & PR detection
+│       └── cache.ts       # Caching layer
 └── scripts/migrations/     # Data migration scripts
 ```
 

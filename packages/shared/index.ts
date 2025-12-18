@@ -12,3 +12,6 @@ export * from "./analytics/leaderboards";
 export * from "./utils/units";
 export * from "./preferences";
 export * from "./hooks/usePreferences";
+export * from "./insights/api";
+export * from "./insights/utils";
+export * from "./insights/cache";

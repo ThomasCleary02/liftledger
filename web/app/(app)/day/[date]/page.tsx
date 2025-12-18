@@ -25,6 +25,16 @@ import { listDays } from "../../../../lib/firestore/days";
 import { DayNavigationSkeleton, ExerciseListSkeleton } from "../../../../components/LoadingSkeleton";
 import { SyncStatusIndicator, useSyncStatus } from "../../../../components/SyncStatus";
 import { listTemplates, type WorkoutTemplate } from "../../../../lib/firestore/workoutTemplates";
+import {
+  fetchProgressInsight,
+  extractExerciseHistory,
+  shouldFetchInsight,
+  isNewPR,
+  getMetricName,
+  getCachedInsight,
+  setCachedInsight,
+  clearCacheEntry,
+} from "@liftledger/shared";
 
 type SelectedExercise = {
   id: string;
@@ -225,6 +235,85 @@ export default function DayView() {
     return null;
   };
 
+  /**
+   * Fetch and display progress insight for an exercise
+   * Called asynchronously after exercise is saved
+   */
+  const fetchAndDisplayInsight = async (exercise: Exercise, allDays: Day[]) => {
+    const exerciseId = exercise.exerciseId || exercise.name;
+    const modality = exercise.modality;
+
+    if (!modality || (modality !== "strength" && modality !== "cardio" && modality !== "calisthenics")) {
+      return; // Invalid modality
+    }
+
+    // Extract exercise history
+    const history = extractExerciseHistory(allDays, exerciseId, modality);
+
+    if (history.length === 0) {
+      return; // No history available
+    }
+
+    // Check if we should fetch insights
+    const shouldFetch = shouldFetchInsight(history) || isNewPR(history);
+
+    if (!shouldFetch) {
+      return; // Don't fetch if requirements not met
+    }
+
+    // Determine metric name
+    const hasDistance = modality === "cardio" && exercise.cardioData?.distance !== undefined && exercise.cardioData.distance > 0;
+    const metric = getMetricName(modality, hasDistance);
+
+    // Check cache first
+    const cachedInsight = getCachedInsight(exerciseId, metric);
+    if (cachedInsight) {
+      displayInsight(cachedInsight);
+      return;
+    }
+
+    // Clear cache entry for this exercise to ensure fresh data
+    clearCacheEntry(exerciseId, metric);
+
+    try {
+      // Fetch insight from API
+      const insight = await fetchProgressInsight({
+        exercise: exercise.name,
+        metric: metric,
+        history: history,
+      });
+
+      // Cache the insight
+      setCachedInsight(exerciseId, metric, insight);
+
+      // Display the insight
+      displayInsight(insight);
+    } catch (error) {
+      // Fail silently - insights are non-critical
+      // CORS and network errors are expected if API is not configured
+      if (error instanceof Error) {
+        // Only log non-CORS errors to reduce console noise
+        // CORS errors indicate API configuration issue, not a code bug
+        if (!error.message.includes("CORS") && !error.message.includes("Failed to fetch")) {
+          logger.error(`Failed to fetch insight for ${exercise.name}:`, error.message);
+        }
+      }
+    }
+  };
+
+  /**
+   * Display insight as toast notification
+   */
+  const displayInsight = (insight: { isNewPR: boolean; insightText: string }) => {
+    if (insight.isNewPR) {
+      // PR insights get success toast
+      toast.success(insight.insightText);
+    } else {
+      // Regular insights get info toast
+      toast.info(insight.insightText);
+    }
+  };
+
   const handleExerciseSelect = async (
     exerciseId: string,
     name: string,
@@ -413,6 +502,22 @@ export default function DayView() {
       setCalisthenicsSets([{ reps: "10" }]);
       toast.success(editingIndex !== null ? "Exercise updated" : "Exercise added successfully");
       showSyncing(false);
+
+      // Fetch and display insights asynchronously (non-blocking)
+      // Include the updated day in the history
+      const updatedDay = { ...currentDay, exercises: nextExercises };
+      const daysWithUpdate = allDays.map((d) => (d.id === updatedDay.id ? updatedDay : d));
+      // If the day wasn't in allDays, add it
+      if (!allDays.find((d) => d.id === updatedDay.id)) {
+        daysWithUpdate.push(updatedDay);
+      }
+      
+      try {
+        await fetchAndDisplayInsight(cleanedExercise, daysWithUpdate);
+      } catch (error) {
+        // Fail silently - insights are non-critical
+        logger.error("Failed to fetch insight", error);
+      }
     } catch (error) {
       logger.error("Failed to save exercise", error);
       const message = error instanceof Error ? error.message : "Failed to save exercise";
