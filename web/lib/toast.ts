@@ -31,11 +31,11 @@ function addToast(message: string, type: ToastType) {
   toasts.push({ id, message, type });
   notifyListeners();
   
-  // Auto remove after 5 seconds
+  // Auto remove after 8 seconds (longer for insights which may have more text)
   setTimeout(() => {
     toasts = toasts.filter((t) => t.id !== id);
     notifyListeners();
-  }, 5000);
+  }, 8000);
 }
 
 export function removeToast(id: string) {

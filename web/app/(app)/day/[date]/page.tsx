@@ -287,6 +287,8 @@ export default function DayView() {
       } else {
         // Clear cache for PRs to ensure we get fresh insight
         clearCacheEntry(exerciseId, metric);
+        // Show immediate feedback for PRs - they're important!
+        toast.info("Analyzing your progress...");
       }
 
       // Fetch insight from API (non-blocking - fire and forget)
@@ -306,12 +308,9 @@ export default function DayView() {
           // Cache the insight
           setCachedInsight(exerciseId, metric, insight);
           
-          // Display the insight - use setTimeout to ensure it's called in the next tick
-          // This helps ensure React has finished any pending updates
-          setTimeout(() => {
-            displayInsight(insight);
-            logger.info(`[Insights] Successfully displayed insight for ${exercise.name}`);
-          }, 0);
+          // Display the insight immediately (no setTimeout needed)
+          displayInsight(insight);
+          logger.info(`[Insights] Successfully displayed insight for ${exercise.name}`);
         })
         .catch((error) => {
           // Error handling is done in the outer catch block, but we need to handle it here too
