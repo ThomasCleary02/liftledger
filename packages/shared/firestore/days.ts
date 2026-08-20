@@ -60,7 +60,8 @@ type DayDoc = {
 };
 
 export function isLoggedDay(day: Pick<Day, "exercises" | "isRestDay" | "status">): boolean {
-  return day.exercises.length > 0 || day.isRestDay || day.status === "deload" || day.status === "injured";
+  if (day.status === "injured") return false;
+  return day.exercises.length > 0 || day.isRestDay || day.status === "deload";
 }
 
 /**

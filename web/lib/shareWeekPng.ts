@@ -1,8 +1,12 @@
 import { format, startOfWeek, addDays } from "date-fns";
 import type { Day } from "@liftledger/shared/firestore/days";
-import { isLoggedDay, strengthVolume } from "@liftledger/shared";
+import { strengthVolume, toDisplayWeight, type UnitSystem } from "@liftledger/shared";
 
-export function downloadWeekSharePng(days: Day[], username?: string | null): void {
+export function downloadWeekSharePng(
+  days: Day[],
+  username?: string | null,
+  units: UnitSystem = "imperial"
+): void {
   const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
   const dates = Array.from({ length: 7 }, (_, i) => format(addDays(weekStart, i), "yyyy-MM-dd"));
   const byDate = new Map(days.map((day) => [day.date, day]));
@@ -25,14 +29,12 @@ export function downloadWeekSharePng(days: Day[], username?: string | null): voi
   let volume = 0;
   dates.forEach((date, index) => {
     const day = byDate.get(date);
-    const active = day ? isLoggedDay(day) && (!day.isRestDay || (day.exercises?.length || 0) > 0) : false;
-    const rest = Boolean(day?.isRestDay && (!day.exercises || day.exercises.length === 0));
-    const flag = day?.status;
+    const active = Boolean(day && !day.isRestDay && (day.exercises?.length || 0) > 0);
     if (day && day.exercises) volume += day.exercises.reduce((sum, ex) => sum + strengthVolume(ex.strengthSets), 0);
-    if (active || rest || flag) trained += 1;
+    if (active) trained += 1;
     const x = 80 + index * 140;
     const y = 360;
-    ctx.fillStyle = active ? "#ffffff" : rest || flag ? "#525252" : "#2a2a2a";
+    ctx.fillStyle = active ? "#ffffff" : "#2a2a2a";
     roundRect(ctx, x, y, 110, 140, 18);
     ctx.fill();
     ctx.fillStyle = active ? "#111111" : "#d4d4d4";
@@ -42,12 +44,14 @@ export function downloadWeekSharePng(days: Day[], username?: string | null): voi
     ctx.fillText(format(addDays(weekStart, index), "d"), x + 36, y + 100);
   });
 
+  const volumeLabel = units === "metric" ? "kg" : "lb";
+  const volumeDisplay = Math.round(toDisplayWeight(volume, units));
   ctx.fillStyle = "#ffffff";
   ctx.font = "700 48px system-ui, sans-serif";
-  ctx.fillText(`${trained} of 7 days`, 80, 620);
+  ctx.fillText(`${trained} of 7 days with work`, 80, 620);
   ctx.font = "400 32px system-ui, sans-serif";
   ctx.fillStyle = "#a3a3a3";
-  ctx.fillText(`${Math.round(volume).toLocaleString()} lb volume`, 80, 680);
+  ctx.fillText(`${volumeDisplay.toLocaleString()} ${volumeLabel} volume`, 80, 680);
 
   const link = document.createElement("a");
   link.download = `liftledger-week-${dates[0]}.png`;

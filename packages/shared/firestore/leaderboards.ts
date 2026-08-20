@@ -89,6 +89,8 @@ export async function fetchDaysForLeaderboard(
           isRestDay: data.isRestDay,
           exercises: Array.isArray(data.exercises) ? data.exercises : [],
           notes: data.notes,
+          status: data.status === "deload" || data.status === "injured" ? data.status : undefined,
+          importId: typeof data.importId === "string" ? data.importId : undefined,
           createdAt: data.createdAt instanceof Timestamp ? data.createdAt : Timestamp.now(),
           updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt : Timestamp.now(),
         };

@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { RefreshCw } from "lucide-react";
-import { toast } from "../lib/toast";
 
 export function ServiceWorkerUpdate() {
   const [updateAvailable, setUpdateAvailable] = useState(false);
@@ -32,7 +31,6 @@ export function ServiceWorkerUpdate() {
           if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
             // New service worker available
             setUpdateAvailable(true);
-            toast.info("Update available! Click to refresh.");
           }
         });
       });
@@ -70,7 +68,7 @@ export function ServiceWorkerUpdate() {
         <RefreshCw className="h-5 w-5 text-blue-600" />
         <div className="flex-1">
           <p className="text-sm font-semibold text-blue-900">Update Available</p>
-          <p className="text-xs text-blue-700">New features are ready!</p>
+          <p className="text-xs text-blue-700">Reload to use the latest version.</p>
         </div>
         <button
           onClick={() => {

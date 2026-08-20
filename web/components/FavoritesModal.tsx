@@ -30,11 +30,23 @@ export function FavoritesModal({
     };
   }, [open]);
 
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
   if (!open) return null;
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-end bg-black/50 md:items-center md:justify-center"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="favorites-title"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -42,10 +54,11 @@ export function FavoritesModal({
       <div className="w-full max-h-[90vh] flex flex-col rounded-t-3xl bg-white md:max-w-lg md:rounded-2xl md:shadow-xl" style={{ paddingBottom: "var(--safe-area-bottom)" }}>
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-          <h2 className="text-xl font-semibold text-gray-900">Favorite Exercises</h2>
+          <h2 id="favorites-title" className="text-xl font-semibold text-gray-900">Favorite Exercises</h2>
           <button
             onClick={onClose}
-            className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+            className="min-h-[44px] min-w-[44px] rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+            aria-label="Close favorites"
           >
             <X className="h-5 w-5" />
           </button>
@@ -61,7 +74,7 @@ export function FavoritesModal({
             <div className="py-12 text-center">
               <Star className="mx-auto mb-3 h-12 w-12 text-gray-300" />
               <p className="text-sm text-gray-500">No favorite exercises yet</p>
-              <p className="mt-1 text-xs text-gray-400">Star exercises in the workout editor to add them</p>
+              <p className="mt-1 text-xs text-gray-400">Star an exercise when you add it to a day</p>
             </div>
           ) : (
             <div className="space-y-2">

@@ -97,8 +97,9 @@ export default function AccountSettings() {
       setUploadingPhoto(true);
       const blob = await fileToAvatarBlob(file);
       const url = await uploadAvatar(app, user.uid, blob);
-      await accountService.setPhotoURL(url);
-      setPhotoURL(url);
+      const withBust = `${url}${url.includes("?") ? "&" : "?"}v=${Date.now()}`;
+      await accountService.setPhotoURL(withBust);
+      setPhotoURL(withBust);
       toast.success("Profile picture updated");
     } catch (error) {
       logger.error("Error uploading photo", error);

@@ -113,7 +113,7 @@ export default function Home() {
               </div>
               <h3 className="mb-2 text-xl font-bold text-gray-900">Analytics</h3>
               <p className="text-gray-600">
-                See PRs, cardio stats, and progress trends. Visualize your journey with detailed charts and insights.
+                See PRs, streaks, volume, and a week-at-a-glance.
               </p>
             </div>
 

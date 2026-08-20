@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 export function Avatar({
   name,
   photoURL,
@@ -9,8 +11,9 @@ export function Avatar({
   photoURL?: string | null;
   size?: number;
 }) {
+  const [failed, setFailed] = useState(false);
   const letter = (name || "?").replace(/^@/, "").trim().charAt(0).toUpperCase() || "?";
-  if (photoURL) {
+  if (photoURL && !failed) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
@@ -18,14 +21,15 @@ export function Avatar({
         alt=""
         width={size}
         height={size}
-        className="rounded-full object-cover"
+        className="flex-shrink-0 rounded-full object-cover"
         style={{ width: size, height: size }}
+        onError={() => setFailed(true)}
       />
     );
   }
   return (
     <div
-      className="flex items-center justify-center rounded-full bg-gray-200 text-sm font-semibold text-gray-700"
+      className="flex flex-shrink-0 items-center justify-center rounded-full bg-gray-200 text-sm font-semibold text-gray-700"
       style={{ width: size, height: size, fontSize: Math.max(11, Math.round(size * 0.4)) }}
     >
       {letter}

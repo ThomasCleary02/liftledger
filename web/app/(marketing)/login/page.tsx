@@ -6,6 +6,7 @@ import { useAuth } from "../../../providers/Auth";
 import { Mail, Lock, Eye, EyeOff, Dumbbell, User } from "lucide-react";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "../../../lib/firebase";
+import { toast } from "../../../lib/toast";
 
 export default function Login() {
   const router = useRouter();
@@ -91,7 +92,7 @@ export default function Login() {
       setError(null);
       await sendPasswordResetEmail(auth, email.trim());
       setError(null);
-      alert("Password reset email sent! Check your inbox.");
+      toast.success("Password reset email sent. Check your inbox.");
       setShowResetPassword(false);
     } catch (e: any) {
       const errorMessage = e?.message || "Failed to send reset email";
@@ -203,11 +204,12 @@ export default function Login() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="text-gray-500 hover:text-gray-700"
-                >
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="text-gray-500 hover:text-gray-700"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
                   {showPassword ? (
                     <EyeOff className="h-5 w-5" />
                   ) : (
@@ -263,6 +265,7 @@ export default function Login() {
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                     className="text-gray-500 hover:text-gray-700"
+                    aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
                   >
                     {showConfirmPassword ? (
                       <EyeOff className="h-5 w-5" />

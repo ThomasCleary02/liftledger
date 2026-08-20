@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { format, startOfWeek, eachDayOfInterval, addDays } from "date-fns";
 import { logger } from "../../../lib/logger";
+import { toast } from "../../../lib/toast";
 import { getTrackedExercises } from "../../../lib/firestore/account";
 import { CARDIO_ACTIVITY_LABELS, cardioPaceKind, type CardioActivityType } from "@liftledger/shared";
 import { downloadWeekSharePng } from "../../../lib/shareWeekPng";
@@ -52,6 +53,7 @@ export default function Analytics() {
   const { defaultChartView } = usePreferences();
   const [trackedExerciseIds, setTrackedExerciseIds] = useState<string[]>([]);
   const [hasInitializedPeriod, setHasInitializedPeriod] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     // Wait for auth to finish loading
@@ -96,6 +98,7 @@ export default function Analytics() {
 
   const loadData = async () => {
     try {
+      setLoadError(false);
       const [dayData, exerciseData] = await Promise.all([
         listDays({ limit: 1000, order: "desc" }),
         getAllExercises(),
@@ -111,6 +114,7 @@ export default function Analytics() {
       setSummary(analyticsSummary);
     } catch (error) {
       logger.error("Error loading analytics", error);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -129,7 +133,27 @@ export default function Analytics() {
     );
   }
 
-  if (!summary) {
+  if (loadError) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <div className="flex flex-col items-center px-6 text-center">
+          <h2 className="mb-2 text-2xl font-bold text-gray-900">Could not load analytics</h2>
+          <p className="mb-6 text-gray-500">Check your connection and try again.</p>
+          <button
+            onClick={() => {
+              setLoading(true);
+              loadData();
+            }}
+            className="rounded-xl bg-black px-6 py-3 font-semibold text-white"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!summary || days.length === 0) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50">
         <div className="flex flex-col items-center px-6 text-center">
@@ -174,6 +198,7 @@ export default function Analytics() {
                   <button
                     key={period}
                     onClick={() => setTimePeriod(period)}
+                    aria-current={timePeriod === period ? "true" : undefined}
                     className={`rounded px-3 py-1 text-xs font-semibold transition-colors ${
                       timePeriod === period
                         ? "bg-black text-white"
@@ -196,6 +221,7 @@ export default function Analytics() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
+                  aria-current={isActive ? "page" : undefined}
                   className={`flex flex-1 flex-col items-center gap-1 border-b-2 py-4 transition-colors ${
                     isActive ? "border-black" : "border-transparent text-gray-500"
                   }`}
@@ -296,13 +322,19 @@ function OverviewView({
         <div className="mb-3 flex items-center justify-between">
           <p className="text-sm font-semibold text-gray-900">This week</p>
           <div className="flex items-center gap-3">
-            <p className="text-sm text-gray-500">{trainedThisWeek} of 7 days trained</p>
+            <p className="text-sm text-gray-500">{trainedThisWeek} of 7 days with work</p>
             <button
               type="button"
               className="flex items-center gap-1 text-sm font-semibold text-gray-800"
+              aria-label="Share this week as an image"
               onClick={async () => {
-                const username = await accountService.getUsername();
-                downloadWeekSharePng(allDays, username);
+                try {
+                  const username = await accountService.getUsername();
+                  downloadWeekSharePng(allDays, username, units);
+                } catch (error) {
+                  logger.error("Share week failed", error);
+                  toast.error("Could not create that image");
+                }
               }}
             >
               <Share className="h-4 w-4" />
@@ -379,6 +411,16 @@ function StrengthView({
 }) {
   const strengthAnalytics = getStrengthAnalytics(days, exercises, timePeriod);
   const { units } = usePreferences();
+
+  if (strengthAnalytics.totalVolume === 0 && strengthAnalytics.exercisesByFrequency.length === 0) {
+    return (
+      <div className="rounded-2xl border border-gray-100 bg-white p-12 text-center shadow-sm">
+        <Dumbbell className="mx-auto mb-3 h-12 w-12 text-gray-300" />
+        <p className="font-medium text-gray-900">No strength work in this period</p>
+        <p className="mt-1 text-sm text-gray-500">Log barbell or machine sets to see volume here.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

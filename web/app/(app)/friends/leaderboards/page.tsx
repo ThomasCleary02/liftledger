@@ -29,6 +29,7 @@ export default function Leaderboards() {
   const [timePeriod, setTimePeriod] = useState<LeaderboardTimePeriod>("7days");
   const [leaderboardData, setLeaderboardData] = useState<any[]>([]);
   const [profiles, setProfiles] = useState<Record<string, { username: string | null; photoURL: string | null }>>({});
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     if (authLoading) return;
@@ -43,6 +44,7 @@ export default function Leaderboards() {
   const loadLeaderboard = async () => {
     try {
       setLoading(true);
+      setLoadError(false);
       const daysByUser = await fetchDaysForLeaderboard(db, auth);
 
       let data: any[] = [];
@@ -71,6 +73,7 @@ export default function Leaderboards() {
       setProfiles(profileMap);
     } catch (error) {
       logger.error("Error loading leaderboard", error);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -159,7 +162,19 @@ export default function Leaderboards() {
       {/* Scrollable Content */}
       <main className="flex-1 overflow-y-auto">
         <div className="container mx-auto px-4 py-6 md:px-8 md:max-w-4xl">
-          {leaderboardData.length === 0 ? (
+          {loadError ? (
+            <div className="rounded-2xl border border-gray-100 bg-white p-12 text-center shadow-sm">
+              <p className="font-medium text-gray-900">Could not load leaderboards</p>
+              <p className="mt-2 text-sm text-gray-500">Check your connection and try again.</p>
+              <button
+                type="button"
+                onClick={loadLeaderboard}
+                className="mt-4 rounded-lg bg-black px-4 py-2 text-sm font-semibold text-white"
+              >
+                Retry
+              </button>
+            </div>
+          ) : leaderboardData.length === 0 ? (
             <div className="rounded-2xl border border-gray-100 bg-white p-12 text-center shadow-sm">
               <Trophy className="mx-auto h-12 w-12 text-gray-300" />
               <p className="mt-4 text-gray-500">
@@ -208,11 +223,11 @@ export default function Leaderboards() {
                         photoURL={profiles[entry.userId]?.photoURL}
                         size={40}
                       />
-                      <div className="ml-3 flex-1">
-                        <p className={`font-semibold ${isCurrentUser ? "text-blue-700" : "text-gray-900"}`}>
+                      <div className="ml-3 min-w-0 flex-1">
+                        <p className={`truncate font-semibold ${isCurrentUser ? "text-blue-700" : "text-gray-900"}`}>
                           {isCurrentUser
                             ? "You"
-                            : profiles[entry.userId]?.username || entry.userId.substring(0, 8)}
+                            : profiles[entry.userId]?.username || "Unknown user"}
                         </p>
                         {isCurrentUser && (
                           <p className="text-xs text-blue-600 mt-0.5">Your rank</p>

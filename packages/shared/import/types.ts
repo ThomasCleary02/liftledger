@@ -17,6 +17,8 @@ export type ImportRow = {
   workoutName?: string;
   cardioType?: CardioActivityType;
   restDay?: boolean;
+  warmup?: boolean;
+  modality?: ExerciseModality;
 };
 
 export type DetectedFormat = "strong" | "hevy" | "liftledger" | "unknown";
@@ -47,6 +49,7 @@ export type ImportPreview = {
   weightUnitGuess: WeightUnit;
   distanceUnitGuess: DistanceUnit;
   warnings: string[];
+  dateOrder?: "mdy" | "dmy" | "ambiguous" | "iso";
 };
 
 export type ImportedDay = {

@@ -11,6 +11,13 @@ const KG_BAR = 20;
 const LB_PLATES = [45, 35, 25, 10, 5, 2.5];
 const KG_PLATES = [25, 20, 15, 10, 5, 2.5, 1.25];
 
+export function looksLikeBarbell(name?: string | null): boolean {
+  if (!name) return false;
+  const n = name.toLowerCase();
+  if (/\b(db|dumbbell|kettlebell|kb|machine|cable|smith|band)\b/.test(n)) return false;
+  return /\b(barbell|bb|squat|deadlift|bench|ohp|overhead|press|row|clean|snatch|rdl|good morning)\b/.test(n);
+}
+
 export function platesForBar(total: number, unit: "lb" | "kg"): PlatePlan | null {
   if (!Number.isFinite(total) || total <= 0) return null;
   const bar = unit === "kg" ? KG_BAR : LB_BAR;

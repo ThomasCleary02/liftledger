@@ -1,22 +1,37 @@
 import type { ImportRow, WeightUnit } from "./types";
 import { weightToLbs } from "./rows";
 
+const MAX_SETS = 200;
+
+export type PasteParseResult = {
+  rows: ImportRow[];
+  skipped: string[];
+  capped?: boolean;
+};
+
 export function parsePastedWorkout(
   text: string,
   date: string,
   weightUnit: WeightUnit
-): ImportRow[] {
+): PasteParseResult {
   const rows: ImportRow[] = [];
+  const skipped: string[] = [];
   const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
   let setCounter = 1;
+  let capped = false;
   for (const line of lines) {
+    if (rows.length >= MAX_SETS) {
+      capped = true;
+      break;
+    }
     const setsOf = line.match(/^(.+?)\s+(\d+)\s*[x×]\s*(\d+)(?:\s+@?\s*(\d+(?:\.\d+)?))?$/i);
     if (setsOf) {
       const name = setsOf[1].trim();
       const sets = Number(setsOf[2]);
       const reps = Number(setsOf[3]);
       const weight = setsOf[4] != null ? Number(setsOf[4]) : undefined;
-      for (let i = 0; i < Math.min(sets, 20); i++) {
+      const count = Math.min(sets, 20);
+      for (let i = 0; i < count && rows.length < MAX_SETS; i++) {
         rows.push({
           date,
           exerciseName: name,
@@ -25,6 +40,7 @@ export function parsePastedWorkout(
           weightLbs: weightToLbs(weight, weightUnit),
         });
       }
+      if (sets > 20 || rows.length >= MAX_SETS) capped = rows.length >= MAX_SETS;
       setCounter = 1;
       continue;
     }
@@ -59,7 +75,9 @@ export function parsePastedWorkout(
         setIndex: 1,
         distanceMiles: miles,
       });
+      continue;
     }
+    skipped.push(line);
   }
-  return rows;
+  return { rows, skipped, capped: capped || undefined };
 }

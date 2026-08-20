@@ -1,21 +1,24 @@
-import { headerUnit, parseDateCell, parseNumber, pick } from "./csv";
+import { headerUnit, parseDateCell, parseNumber, pick, type DateOrder } from "./csv";
 import { guessDistanceUnit, guessWeightUnit } from "./detect";
 import type { ImportPreview, ImportRow, WeightUnit, DistanceUnit } from "./types";
 import { toStoredDistance, toStoredWeight } from "../utils/units";
 
+export type ParseUnits = { weight: WeightUnit; distance: DistanceUnit; dateOrder: DateOrder };
+
 export function recordsToRows(
   records: Record<string, string>[],
-  getRow: (record: Record<string, string>, units: { weight: WeightUnit; distance: DistanceUnit }) => ImportRow | null,
+  getRow: (record: Record<string, string>, units: ParseUnits) => ImportRow | null,
   headers: string[],
   format: ImportPreview["format"],
-  overrides?: { weightUnit?: WeightUnit; distanceUnit?: DistanceUnit }
+  overrides?: { weightUnit?: WeightUnit; distanceUnit?: DistanceUnit; dateOrder?: DateOrder }
 ): ImportPreview {
   const weightUnit = overrides?.weightUnit ?? guessWeightUnit(headers);
   const distanceUnit = overrides?.distanceUnit ?? guessDistanceUnit(headers);
+  const dateOrder = overrides?.dateOrder ?? "mdy";
   const warnings: string[] = [];
   const rows: ImportRow[] = [];
   for (const record of records) {
-    const row = getRow(record, { weight: weightUnit, distance: distanceUnit });
+    const row = getRow(record, { weight: weightUnit, distance: distanceUnit, dateOrder });
     if (row) rows.push(row);
   }
   const dates = rows.map((row) => row.date).filter(Boolean).sort();
@@ -33,6 +36,7 @@ export function recordsToRows(
     weightUnitGuess: weightUnit,
     distanceUnitGuess: distanceUnit,
     warnings,
+    dateOrder,
   };
 }
 
@@ -51,14 +55,13 @@ export function durationSeconds(value: number | undefined, minutes: boolean): nu
   return minutes ? Math.round(value * 60) : Math.round(value);
 }
 
-export function parseStrongLike(
-  record: Record<string, string>,
-  units: { weight: WeightUnit; distance: DistanceUnit }
-): ImportRow | null {
-  const date = parseDateCell(pick(record, ["Date", "start_time", "Start Time", "Workout Date"]));
+export function parseStrongLike(record: Record<string, string>, units: ParseUnits): ImportRow | null {
+  const date = parseDateCell(pick(record, ["Date", "start_time", "Start Time", "Workout Date"]), units.dateOrder);
   const exerciseName = pick(record, ["Exercise Name", "exercise_title", "Exercise", "exercise"]);
   if (!date || !exerciseName) return null;
-  const setIndex = Math.max(1, Math.round(parseNumber(pick(record, ["Set Order", "set_index", "Set", "set"])) || 1));
+  const setRaw = pick(record, ["Set Order", "set_index", "Set", "set"]);
+  const warmup = /^\s*w/i.test(setRaw);
+  const setIndex = Math.max(1, Math.round(parseNumber(setRaw.replace(/^\s*[wdf]/i, "")) || 1));
   const headerKeys = Object.keys(record);
   const weightHeader = headerKeys.find((key) => normalizeMatch(key, ["weight", "weight kg", "weight lb", "weight lbs"]));
   const weightUnit = (weightHeader && headerUnit(weightHeader)) || (pick(record, ["weight_kg"]) ? "kg" : units.weight);
@@ -83,6 +86,7 @@ export function parseStrongLike(
     distanceMiles: distanceToMiles(distanceRaw, distanceUnit === "km" ? "km" : "mi"),
     notes: combinedNotes,
     workoutName,
+    warmup: warmup || undefined,
   };
 }
 

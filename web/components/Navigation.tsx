@@ -42,6 +42,7 @@ export function Navigation() {
               <button
                 key={item.path}
                 onClick={() => router.push(item.path)}
+                aria-current={isActive ? "page" : undefined}
                 className={`flex flex-col items-center justify-center gap-1 px-4 py-2 transition-colors ${
                   isActive ? "text-black" : "text-gray-500"
                 }`}
@@ -74,6 +75,7 @@ export function Navigation() {
               <button
                 key={item.path}
                 onClick={() => router.push(item.path)}
+                aria-current={isActive ? "page" : undefined}
                 className={`flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left transition-colors ${
                   isActive
                     ? "bg-black text-white"

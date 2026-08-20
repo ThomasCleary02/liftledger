@@ -68,8 +68,13 @@ export function createAccountService(db: Firestore, auth: Auth) {
         username: typeof data.username === "string" ? data.username : null,
         photoURL: typeof data.photoURL === "string" ? data.photoURL : null,
       };
-    } catch (error) {
+    } catch (error: unknown) {
+      const code =
+        typeof error === "object" && error && "code" in error ? String((error as { code: string }).code) : "";
       console.error("Error getting profile for user:", error);
+      if (code === "permission-denied") {
+        throw error;
+      }
       return { username: null, photoURL: null };
     }
   };

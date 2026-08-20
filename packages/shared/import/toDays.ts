@@ -8,6 +8,7 @@ function fold(s: string): string {
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\([^)]*\)/g, " ")
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
 }
@@ -19,13 +20,17 @@ function matchCatalog(name: string, catalog?: ExerciseDoc[]): ExerciseDoc | unde
 }
 
 function rowModality(row: ImportRow, catalogMatch?: ExerciseDoc): Exercise["modality"] {
+  if (row.modality) return row.modality;
+  const hasCardio =
+    (row.durationSeconds != null && row.durationSeconds > 0) || (row.distanceMiles != null && row.distanceMiles > 0);
+  const hasWeightValue = row.weightLbs != null;
+  const hasPositiveWeight = row.weightLbs != null && row.weightLbs > 0;
+  const hasReps = Boolean(row.reps && row.reps > 0);
+  if (hasCardio && !hasPositiveWeight && !hasReps) return "cardio";
+  if (hasWeightValue) return "strength";
+  if (hasReps && !hasCardio) return "calisthenics";
+  if (hasCardio) return "cardio";
   if (catalogMatch) return catalogMatch.modality;
-  const hasCardio = (row.durationSeconds != null && row.durationSeconds > 0) || (row.distanceMiles != null && row.distanceMiles > 0);
-  const hasWeight = row.weightLbs != null && row.weightLbs > 0;
-  if (hasCardio && !hasWeight && !(row.reps && row.reps > 0 && hasWeight)) {
-    if (!row.reps || hasCardio) return "cardio";
-  }
-  if (!hasWeight && row.reps && row.reps > 0) return "calisthenics";
   return "strength";
 }
 
@@ -86,6 +91,7 @@ export function rowsToImportedDays(rows: ImportRow[], catalog?: ExerciseDoc[]): 
         exercise.strengthSets = group.map((row: ImportRow) => ({
           reps: row.reps && row.reps > 0 ? row.reps : 1,
           weight: row.weightLbs != null ? row.weightLbs : 0,
+          ...(row.warmup ? { warmup: true as const } : {}),
         }));
       }
       exercises.push(exercise);

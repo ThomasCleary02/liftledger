@@ -42,7 +42,7 @@ export function RestTimer({
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Rest</p>
-          <p className="text-2xl font-bold tabular-nums text-gray-900">
+          <p className="text-2xl font-bold tabular-nums text-gray-900" aria-live="polite">
             {mins}:{secs.toString().padStart(2, "0")}
           </p>
         </div>
@@ -58,7 +58,7 @@ export function RestTimer({
       <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-100">
         <div
           className="h-full bg-black transition-[width] duration-1000 ease-linear"
-          style={{ width: `${Math.max(0, (remaining / seconds) * 100)}%` }}
+          style={{ width: `${seconds > 0 ? Math.max(0, (remaining / seconds) * 100) : 0}%` }}
         />
       </div>
     </div>

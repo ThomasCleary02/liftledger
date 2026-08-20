@@ -4,7 +4,7 @@ import React from "react";
 import { Plus, X } from "lucide-react";
 import { usePreferences } from "../lib/hooks/usePreferences";
 import { formatWeightInput } from "../lib/utils/units";
-import { formatPlatePlan, platesForBar } from "@liftledger/shared";
+import { formatPlatePlan, looksLikeBarbell, platesForBar } from "@liftledger/shared";
 
 export interface StrengthSet {
   reps: string;
@@ -16,6 +16,7 @@ interface StrengthSetInputProps {
   sets: StrengthSet[];
   onSetsChange: (sets: StrengthSet[]) => void;
   onAddedSet?: () => void;
+  exerciseName?: string;
 }
 
 const sanitizeValue = (field: keyof StrengthSet, value: string) => {
@@ -37,7 +38,7 @@ const sanitizeValue = (field: keyof StrengthSet, value: string) => {
   return value;
 };
 
-export default function StrengthSetInput({ sets, onSetsChange, onAddedSet }: StrengthSetInputProps) {
+export default function StrengthSetInput({ sets, onSetsChange, onAddedSet, exerciseName }: StrengthSetInputProps) {
   const { units } = usePreferences();
   const weightUnit = units === "metric" ? "kg" : "lb";
 
@@ -72,7 +73,7 @@ export default function StrengthSetInput({ sets, onSetsChange, onAddedSet }: Str
       {sets.map((set, idx) => {
         const weightNum = Number(set.weight);
         const plan =
-          !set.warmup && Number.isFinite(weightNum) && weightNum > 0
+          looksLikeBarbell(exerciseName) && !set.warmup && Number.isFinite(weightNum) && weightNum > 0
             ? platesForBar(weightNum, weightUnit)
             : null;
         return (
@@ -86,6 +87,8 @@ export default function StrengthSetInput({ sets, onSetsChange, onAddedSet }: Str
                   set.warmup ? "bg-amber-100 text-amber-800" : "bg-gray-100 text-gray-500"
                 }`}
                 aria-pressed={Boolean(set.warmup)}
+                aria-label={set.warmup ? "Warmup set on" : "Mark as warmup"}
+                title={set.warmup ? "Warmup (excluded from volume and PRs)" : "Mark as warmup"}
               >
                 W
               </button>

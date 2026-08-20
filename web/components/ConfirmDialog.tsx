@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
-import { X } from "lucide-react";
+import { useEffect, useId } from "react";
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -24,6 +23,8 @@ export function ConfirmDialog({
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
+  const titleId = useId();
+
   useEffect(() => {
     if (open) {
       document.body.style.overflow = "hidden";
@@ -35,28 +36,44 @@ export function ConfirmDialog({
     };
   }, [open]);
 
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onCancel();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onCancel]);
+
   if (!open) return null;
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-end bg-black/50 md:items-center md:justify-center"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={titleId}
       onClick={(e) => {
         if (e.target === e.currentTarget) onCancel();
       }}
     >
       <div className="w-full rounded-t-3xl bg-white p-6 md:max-w-md md:rounded-2xl">
         <div className="mb-4">
-          <h2 className="text-2xl font-bold text-gray-900">{title}</h2>
+          <h2 id={titleId} className="text-2xl font-bold text-gray-900">
+            {title}
+          </h2>
           <p className="mt-2 text-gray-600">{message}</p>
         </div>
         <div className="flex gap-3">
           <button
+            type="button"
             onClick={onCancel}
             className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-3 font-semibold text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500"
           >
             {cancelText}
           </button>
           <button
+            type="button"
             onClick={onConfirm}
             className={`flex-1 rounded-xl px-4 py-3 font-semibold text-white transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${
               danger

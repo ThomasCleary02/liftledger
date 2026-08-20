@@ -76,26 +76,64 @@ export function parseNumber(value: string | undefined): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
-export function parseDateCell(value: string): string | null {
+export type DateOrder = "mdy" | "dmy";
+
+function pad2(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+function isValidYmd(year: number, month: number, day: number): boolean {
+  if (month < 1 || month > 12 || day < 1 || day > 31) return false;
+  const dt = new Date(year, month - 1, day);
+  return dt.getFullYear() === year && dt.getMonth() === month - 1 && dt.getDate() === day;
+}
+
+export function inferDateOrder(values: string[]): DateOrder | "ambiguous" | "iso" {
+  let sawSlash = false;
+  let forced: DateOrder | undefined;
+  for (let i = 0; i < values.length; i++) {
+    const raw = (values[i] || "").trim();
+    if (/^\d{4}-\d{2}-\d{2}/.test(raw)) continue;
+    const m = raw.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+    if (!m) continue;
+    sawSlash = true;
+    const a = Number(m[1]);
+    const b = Number(m[2]);
+    if (a > 12 && b >= 1 && b <= 12) forced = "dmy";
+    else if (b > 12 && a >= 1 && a <= 12) forced = "mdy";
+  }
+  if (!sawSlash) return "iso";
+  if (forced) return forced;
+  return "ambiguous";
+}
+
+export function parseDateCell(value: string, order: DateOrder = "mdy"): string | null {
   const raw = value.trim();
   if (!raw) return null;
   const iso = raw.match(/^(\d{4}-\d{2}-\d{2})/);
-  if (iso) return iso[1];
+  if (iso) {
+    const [y, m, d] = iso[1].split("-").map(Number);
+    return isValidYmd(y, m, d) ? iso[1] : null;
+  }
   const mdy = raw.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
   if (mdy) {
-    const month = mdy[1].padStart(2, "0");
-    const day = mdy[2].padStart(2, "0");
-    let year = mdy[3];
-    if (year.length === 2) year = Number(year) > 50 ? `19${year}` : `20${year}`;
-    return `${year}-${month}-${day}`;
+    const first = Number(mdy[1]);
+    const second = Number(mdy[2]);
+    let year = Number(mdy[3]);
+    if (mdy[3].length === 2) year = year > 50 ? 1900 + year : 2000 + year;
+    const month = order === "dmy" ? second : first;
+    const day = order === "dmy" ? first : second;
+    if (!isValidYmd(year, month, day)) return null;
+    return `${year}-${pad2(month)}-${pad2(day)}`;
   }
   const parsed = Date.parse(raw);
   if (!Number.isNaN(parsed)) {
     const d = new Date(parsed);
     const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return `${y}-${m}-${day}`;
+    const m = d.getMonth() + 1;
+    const day = d.getDate();
+    if (!isValidYmd(y, m, day)) return null;
+    return `${y}-${pad2(m)}-${pad2(day)}`;
   }
   return null;
 }

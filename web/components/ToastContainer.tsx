@@ -25,14 +25,14 @@ export function ToastContainer() {
   if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed-below-status fixed left-4 right-4 z-50 flex flex-col gap-2 md:right-6 md:left-auto md:max-w-md">
+    <div className="fixed-below-status fixed left-4 right-4 z-50 flex flex-col gap-2 md:right-6 md:left-auto md:max-w-md" role="status" aria-live="polite">
       {toasts.map((toast) => {
         const config = toastConfig[toast.type];
         const Icon = config.icon;
         return (
           <div
             key={toast.id}
-            className={`flex items-center gap-3 rounded-lg border ${config.border} ${config.bg} px-4 py-3 shadow-lg min-w-[300px] max-w-[400px] animate-in slide-in-from-right`}
+            className={`flex w-full items-center gap-3 rounded-lg border ${config.border} ${config.bg} px-4 py-3 shadow-lg`}
           >
             <Icon className={`h-5 w-5 ${config.iconColor} flex-shrink-0`} />
             <p className={`flex-1 text-sm font-medium ${config.text}`}>{toast.message}</p>

@@ -21,7 +21,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "LiftLedger - Track Your Workouts, Achieve Your Goals",
-  description: "Track your workouts, achieve your goals. Log strength training, cardio, and calisthenics exercises with detailed analytics and personal records.",
+  description: "Track your workouts, achieve your goals. Log strength, cardio, and calisthenics with PRs, streaks, and weekly summaries.",
   manifest: "/manifest.json",
   metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"),
   icons: {

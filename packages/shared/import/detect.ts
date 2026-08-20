@@ -11,21 +11,33 @@ export function detectFormat(headers: string[]): DetectedFormat {
 }
 
 export function guessWeightUnit(headers: string[]): WeightUnit {
+  return weightUnitFromHeaders(headers) ?? "lb";
+}
+
+export function weightUnitFromHeaders(headers: string[]): WeightUnit | undefined {
   for (const header of headers) {
     const unit = headerUnit(header);
     if (unit === "kg" || unit === "lb") return unit;
   }
   const joined = headers.map(normalizeHeader).join(" ");
-  if (joined.includes("weight kg") || joined.includes("kg")) return "kg";
-  return "lb";
+  if (/\bweight kg\b/.test(joined) || /\bweight_kg\b/.test(joined)) return "kg";
+  if (/\bweight lbs?\b/.test(joined) || /\bweight_lbs?\b/.test(joined)) return "lb";
+  return undefined;
 }
 
 export function guessDistanceUnit(headers: string[]): DistanceUnit {
+  return distanceUnitFromHeaders(headers) ?? "mi";
+}
+
+export function distanceUnitFromHeaders(headers: string[]): DistanceUnit | undefined {
   for (const header of headers) {
     const unit = headerUnit(header);
     if (unit === "km" || unit === "mi") return unit;
   }
   const joined = headers.map(normalizeHeader).join(" ");
-  if (joined.includes("km")) return "km";
-  return "mi";
+  if (/\bdistance km\b/.test(joined) || /\bdistance_km\b/.test(joined)) return "km";
+  if (/\bdistance mi\b/.test(joined) || /\bdistance_mi\b/.test(joined) || /\bdistance miles\b/.test(joined)) {
+    return "mi";
+  }
+  return undefined;
 }

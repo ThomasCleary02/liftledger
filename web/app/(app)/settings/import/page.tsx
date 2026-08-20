@@ -12,7 +12,10 @@ import {
   rowsToImportedDays,
   rowsToObjects,
   suggestMapping,
+  toDisplayWeight,
+  weightUnitFromHeaders,
   type ColumnMapping,
+  type DateOrder,
   type DistanceUnit,
   type ImportPreview,
   type ImportedDay,
@@ -23,11 +26,12 @@ import { useAuth } from "../../../../providers/Auth";
 import { usePreferences } from "../../../../lib/hooks/usePreferences";
 import { getAllExercises } from "../../../../lib/firestore/exercises";
 import { createTemplate } from "../../../../lib/firestore/workoutTemplates";
-import { commitImportedDays, type CommitMode } from "../../../../lib/commitImport";
+import { commitImportedDays, mergeExercisesOntoDay, type CommitMode } from "../../../../lib/commitImport";
 import { undoLastImport } from "../../../../lib/undoImport";
 import { toast } from "../../../../lib/toast";
 import { logger } from "../../../../lib/logger";
 import { accountService } from "../../../../lib/firebase";
+import { ConfirmDialog } from "../../../../components/ConfirmDialog";
 
 type Tab = "file" | "paste" | "programs";
 
@@ -44,8 +48,11 @@ export default function ImportSettings() {
   const [fileText, setFileText] = useState("");
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [mapping, setMapping] = useState<ColumnMapping | null>(null);
+  const [mappingApplied, setMappingApplied] = useState(false);
   const [weightUnit, setWeightUnit] = useState<WeightUnit>(units === "metric" ? "kg" : "lb");
   const [distanceUnit, setDistanceUnit] = useState<DistanceUnit>(units === "metric" ? "km" : "mi");
+  const [dateOrder, setDateOrder] = useState<DateOrder>("mdy");
+  const [unitsConfirmed, setUnitsConfirmed] = useState(false);
   const [mode, setMode] = useState<CommitMode>("merge");
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState("");
@@ -53,6 +60,19 @@ export default function ImportSettings() {
   const [pasteDate, setPasteDate] = useState(todayYmd());
   const [programDate, setProgramDate] = useState(todayYmd());
   const [lastImport, setLastImport] = useState<LastImport | null>(null);
+  const [undoOpen, setUndoOpen] = useState(false);
+  const [savingTemplate, setSavingTemplate] = useState<string | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tabParam = params.get("tab");
+    if (tabParam === "paste" || tabParam === "programs" || tabParam === "file") setTab(tabParam);
+    const dateParam = params.get("date");
+    if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+      setPasteDate(dateParam);
+      setProgramDate(dateParam);
+    }
+  }, []);
 
   useEffect(() => {
     if (authLoading) return;
@@ -62,19 +82,32 @@ export default function ImportSettings() {
     }
   }, [user, router, authLoading]);
 
-  const rebuildPreview = (text: string, nextMapping?: ColumnMapping | null) => {
+  useEffect(() => {
+    if (fileText) return;
+    setWeightUnit(units === "metric" ? "kg" : "lb");
+    setDistanceUnit(units === "metric" ? "km" : "mi");
+  }, [units, fileText]);
+
+  const encodedWeight = preview ? weightUnitFromHeaders(preview.headers) : undefined;
+
+  const rebuildPreview = (text: string, nextMapping?: ColumnMapping | null, order?: DateOrder) => {
     const table = parseCsv(text);
     const { headers, records } = rowsToObjects(table);
+    const usedOrder = order || dateOrder;
     if (nextMapping) {
-      setPreview(parseMapped(records, headers, { ...nextMapping, weightUnit, distanceUnit }));
+      setPreview(
+        parseMapped(records, headers, { ...nextMapping, weightUnit, distanceUnit }, usedOrder)
+      );
       return;
     }
-    const parsed = parseImportFile(text, { weightUnit, distanceUnit });
+    const parsed = parseImportFile(text, { weightUnit, distanceUnit, dateOrder: usedOrder });
     setPreview(parsed);
     if (parsed.format === "unknown") {
       setMapping(suggestMapping(parsed.headers));
+      setMappingApplied(false);
     } else {
       setMapping(null);
+      setMappingApplied(true);
     }
   };
 
@@ -82,41 +115,60 @@ export default function ImportSettings() {
     if (!file) return;
     const text = await file.text();
     setFileText(text);
+    setUnitsConfirmed(false);
+    setMappingApplied(false);
     const parsed = parseImportFile(text);
-    setWeightUnit(parsed.weightUnitGuess);
+    const fromHeaders = weightUnitFromHeaders(parsed.headers);
+    setWeightUnit(fromHeaders ?? (units === "metric" ? "kg" : "lb"));
     setDistanceUnit(parsed.distanceUnitGuess);
+    if (parsed.dateOrder === "dmy") setDateOrder("dmy");
+    else setDateOrder("mdy");
     setPreview(parsed);
     if (parsed.format === "unknown") {
       setMapping(suggestMapping(parsed.headers));
     } else {
       setMapping(null);
+      setMappingApplied(true);
     }
   };
 
   useEffect(() => {
     if (!fileText) return;
-    rebuildPreview(fileText, mapping?.date && mapping.exercise ? mapping : null);
+    rebuildPreview(fileText, mappingApplied && mapping?.date && mapping.exercise ? mapping : null, dateOrder);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [weightUnit, distanceUnit]);
+  }, [weightUnit, distanceUnit, dateOrder]);
 
-  const commitDays = async (days: ImportedDay[]) => {
+  const goToImported = (date?: string) => {
+    if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      router.push(`/day/${date}`);
+      return;
+    }
+  };
+
+  const commitDays = async (days: ImportedDay[], afterDate?: string) => {
     if (days.length === 0) {
       toast.error("Nothing to import");
       return;
+    }
+    if (lastImport) {
+      toast.warning("A previous import can still be undone. This save replaces that undo.");
     }
     setBusy(true);
     try {
       const result = await commitImportedDays(days, mode, (done, total) => {
         setProgress(`Saving ${done} of ${total} days…`);
       });
+      const failedNote = result.failed ? ` ${result.failed} day${result.failed === 1 ? "" : "s"} failed.` : "";
       toast.success(
-        `Imported ${result.created} new day${result.created === 1 ? "" : "s"}, merged ${result.merged}, skipped ${result.skipped}`
+        `Imported ${result.created} new day${result.created === 1 ? "" : "s"}, merged ${result.merged}, skipped ${result.skipped}.${failedNote}`
       );
       const latest = await accountService.getLastImport();
       setLastImport(latest);
-      router.push("/day/today");
+      goToImported(afterDate || days[days.length - 1]?.date);
     } catch (error) {
       logger.error("Import failed", error);
+      const latest = await accountService.getLastImport().catch(() => null);
+      if (latest) setLastImport(latest);
       toast.error("Import failed. Try a smaller file or check the column mapping.");
     } finally {
       setBusy(false);
@@ -125,20 +177,40 @@ export default function ImportSettings() {
   };
 
   const handleFileImport = async () => {
-    if (!preview) return;
-    const catalog = await getAllExercises();
-    await commitDays(rowsToImportedDays(preview.rows, catalog));
+    if (!preview || busy) return;
+    setBusy(true);
+    try {
+      const catalog = await getAllExercises();
+      await commitDays(rowsToImportedDays(preview.rows, catalog), preview.dateMax);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const handlePasteImport = async () => {
-    const rows = parsePastedWorkout(pasteText, pasteDate, weightUnit);
-    if (rows.length === 0) {
-      toast.error("Could not read that workout. Try lines like “Bench Press 5x5 135”.");
-      return;
+    if (busy) return;
+    setBusy(true);
+    try {
+      const parsed = parsePastedWorkout(pasteText, pasteDate, weightUnit);
+      if (parsed.skipped.length > 0) {
+        toast.error(`Skipped ${parsed.skipped.length} line${parsed.skipped.length === 1 ? "" : "s"} that did not match.`);
+      }
+      if (parsed.capped) {
+        toast.error("Stopped at 200 sets. Split the paste if you have more.");
+      }
+      if (parsed.rows.length === 0) {
+        toast.error("Could not read that workout. Try lines like “Bench Press 5x5 135”.");
+        return;
+      }
+      const catalog = await getAllExercises();
+      await commitDays(rowsToImportedDays(parsed.rows, catalog), pasteDate);
+    } finally {
+      setBusy(false);
     }
-    const catalog = await getAllExercises();
-    await commitDays(rowsToImportedDays(rows, catalog));
   };
+
+  const canImportFile =
+    Boolean(preview && preview.rows.length > 0 && mappingApplied && unitsConfirmed && !busy);
 
   if (authLoading) {
     return (
@@ -147,6 +219,8 @@ export default function ImportSettings() {
       </div>
     );
   }
+
+  const displaySystem = weightUnit === "kg" ? "metric" : "imperial";
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-gray-50">
@@ -186,24 +260,13 @@ export default function ImportSettings() {
               <p className="font-semibold text-gray-900">Undo last import</p>
               <p className="mt-1 text-sm text-gray-500">
                 Removes sets tagged from {lastImport.dates.length} day{lastImport.dates.length === 1 ? "" : "s"}.
+                A new import replaces this undo pointer.
               </p>
               <button
                 type="button"
                 disabled={busy}
                 className="mt-3 rounded-lg border border-red-200 px-4 py-2 text-sm font-semibold text-red-700"
-                onClick={async () => {
-                  setBusy(true);
-                  try {
-                    const result = await undoLastImport();
-                    setLastImport(null);
-                    toast.success(`Removed imported work from ${result.days} days`);
-                  } catch (error) {
-                    logger.error("Undo import failed", error);
-                    toast.error(error instanceof Error ? error.message : "Could not undo import");
-                  } finally {
-                    setBusy(false);
-                  }
-                }}
+                onClick={() => setUndoOpen(true)}
               >
                 Undo last import
               </button>
@@ -228,19 +291,23 @@ export default function ImportSettings() {
                   <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
                     <p className="font-semibold text-amber-900">Confirm units before saving</p>
                     <p className="mt-1 text-sm text-amber-800">
-                      Strong and Hevy files are often metric. A wrong choice writes every set at the wrong weight.
+                      Strong files often omit the unit. A wrong choice writes every set at the wrong weight.
                     </p>
                     <div className="mt-3 flex flex-wrap gap-4">
                       <label className="text-sm font-medium text-gray-800">
                         Weight
                         <select
-                          className="ml-2 rounded-lg border border-gray-300 px-2 py-1"
+                          className="ml-2 rounded-lg border border-gray-300 px-2 py-1 disabled:opacity-60"
                           value={weightUnit}
+                          disabled={Boolean(encodedWeight)}
                           onChange={(event) => setWeightUnit(event.target.value as WeightUnit)}
                         >
                           <option value="lb">pounds (lb)</option>
                           <option value="kg">kilograms (kg)</option>
                         </select>
+                        {encodedWeight ? (
+                          <span className="ml-2 text-xs text-amber-800">Read from column headers</span>
+                        ) : null}
                       </label>
                       <label className="text-sm font-medium text-gray-800">
                         Distance
@@ -254,6 +321,28 @@ export default function ImportSettings() {
                         </select>
                       </label>
                     </div>
+                    {preview.dateOrder === "ambiguous" && (
+                      <div className="mt-3 space-y-1 text-sm text-gray-800">
+                        <p className="font-medium">Dates like 03/04/2024 — which is first?</p>
+                        <label className="flex items-center gap-2">
+                          <input type="radio" checked={dateOrder === "mdy"} onChange={() => setDateOrder("mdy")} />
+                          Month / day (US)
+                        </label>
+                        <label className="flex items-center gap-2">
+                          <input type="radio" checked={dateOrder === "dmy"} onChange={() => setDateOrder("dmy")} />
+                          Day / month
+                        </label>
+                      </div>
+                    )}
+                    <label className="mt-4 flex items-start gap-2 text-sm font-medium text-gray-900">
+                      <input
+                        type="checkbox"
+                        className="mt-1"
+                        checked={unitsConfirmed}
+                        onChange={(event) => setUnitsConfirmed(event.target.checked)}
+                      />
+                      I confirmed kg vs lb (and date order if shown)
+                    </label>
                   </section>
 
                   {preview.format === "unknown" && mapping && (
@@ -278,12 +367,13 @@ export default function ImportSettings() {
                             <select
                               className="mt-1 w-full rounded-lg border border-gray-300 px-2 py-2"
                               value={(mapping[key] as string | undefined) || ""}
-                              onChange={(event) =>
+                              onChange={(event) => {
+                                setMappingApplied(false);
                                 setMapping({
                                   ...mapping,
                                   [key]: event.target.value || undefined,
-                                } as ColumnMapping)
-                              }
+                                } as ColumnMapping);
+                              }}
                             >
                               {!required && <option value="">(none)</option>}
                               {preview.headers.map((header) => (
@@ -298,9 +388,10 @@ export default function ImportSettings() {
                           <input
                             type="checkbox"
                             checked={mapping.durationIsMinutes === true}
-                            onChange={(event) =>
-                              setMapping({ ...mapping, durationIsMinutes: event.target.checked })
-                            }
+                            onChange={(event) => {
+                              setMappingApplied(false);
+                              setMapping({ ...mapping, durationIsMinutes: event.target.checked });
+                            }}
                           />
                           Duration is minutes, not seconds
                         </label>
@@ -308,10 +399,17 @@ export default function ImportSettings() {
                       <button
                         type="button"
                         className="mt-4 rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white"
-                        onClick={() => rebuildPreview(fileText, mapping)}
+                        onClick={() => {
+                          if (!mapping) return;
+                          rebuildPreview(fileText, mapping, dateOrder);
+                          setMappingApplied(true);
+                        }}
                       >
                         Apply mapping
                       </button>
+                      {!mappingApplied && (
+                        <p className="mt-2 text-sm text-gray-500">Apply mapping before import.</p>
+                      )}
                     </section>
                   )}
 
@@ -338,7 +436,7 @@ export default function ImportSettings() {
                             <th className="pr-3">Exercise</th>
                             <th className="pr-3">Set</th>
                             <th className="pr-3">Reps</th>
-                            <th>Weight (lb)</th>
+                            <th>Weight ({weightUnit})</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -346,9 +444,13 @@ export default function ImportSettings() {
                             <tr key={`${row.date}-${row.exerciseName}-${index}`}>
                               <td className="pr-3 py-1">{row.date}</td>
                               <td className="pr-3 py-1">{row.exerciseName}</td>
-                              <td className="pr-3 py-1">{row.setIndex}</td>
+                              <td className="pr-3 py-1">{row.setIndex}{row.warmup ? " W" : ""}</td>
                               <td className="pr-3 py-1">{row.reps ?? ""}</td>
-                              <td className="py-1">{row.weightLbs != null ? Math.round(row.weightLbs) : ""}</td>
+                              <td className="py-1">
+                                {row.weightLbs != null
+                                  ? Math.round(toDisplayWeight(row.weightLbs, displaySystem) * 10) / 10
+                                  : ""}
+                              </td>
                             </tr>
                           ))}
                         </tbody>
@@ -374,12 +476,23 @@ export default function ImportSettings() {
                     </div>
                     <button
                       type="button"
-                      disabled={busy || preview.rows.length === 0}
+                      disabled={!canImportFile}
                       onClick={handleFileImport}
                       className="mt-4 rounded-lg bg-black px-4 py-2 text-sm font-semibold text-white disabled:bg-gray-300"
                     >
                       {busy ? progress || "Saving…" : "Import into my log"}
                     </button>
+                    {preview && !canImportFile && !busy && (
+                      <p className="mt-2 text-sm text-gray-500">
+                        {!unitsConfirmed
+                          ? "Confirm kg vs lb above before importing."
+                          : !mappingApplied
+                            ? "Apply column mapping first."
+                            : preview.rows.length === 0
+                              ? "Nothing to import yet."
+                              : null}
+                      </p>
+                    )}
                   </section>
                 </>
               )}
@@ -389,8 +502,17 @@ export default function ImportSettings() {
           {tab === "paste" && (
             <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm space-y-3">
               <p className="text-sm text-gray-600">
-                One exercise per line. Examples: <code>Bench Press 5x5 135</code>, <code>Squat 5 225</code>,{" "}
-                <code>Easy run 30 min</code>
+                One exercise per line. Examples:{" "}
+                {weightUnit === "kg" ? (
+                  <>
+                    <code>Bench Press 5x5 60</code>, <code>Squat 5 100</code>
+                  </>
+                ) : (
+                  <>
+                    <code>Bench Press 5x5 135</code>, <code>Squat 5 225</code>
+                  </>
+                )}
+                , <code>Easy run 30 min</code>
               </p>
               <label className="block text-sm font-medium text-gray-700">
                 Date
@@ -455,6 +577,9 @@ export default function ImportSettings() {
                   className="ml-2 rounded-lg border border-gray-300 px-3 py-2"
                 />
               </label>
+              <p className="text-sm text-gray-500">
+                Starter loads are example pounds. Edit the weights after you add the day.
+              </p>
               {STARTER_PROGRAMS.map((program) => (
                 <div key={program.id} className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
                   <p className="font-semibold text-gray-900">{program.name}</p>
@@ -467,29 +592,42 @@ export default function ImportSettings() {
                       type="button"
                       disabled={busy}
                       className="rounded-lg bg-black px-3 py-2 text-sm font-semibold text-white"
-                      onClick={() =>
-                        commitDays([
-                          { date: programDate, isRestDay: false, exercises: program.exercises },
-                        ])
-                      }
+                      onClick={async () => {
+                        if (busy) return;
+                        setBusy(true);
+                        try {
+                          await mergeExercisesOntoDay(programDate, program.exercises);
+                          toast.success(`Added ${program.name} to that day`);
+                          router.push(`/day/${programDate}`);
+                        } catch (error) {
+                          logger.error("Program load failed", error);
+                          toast.error("Could not add program to that day");
+                        } finally {
+                          setBusy(false);
+                        }
+                      }}
                     >
                       Add to that day
                     </button>
                     <button
                       type="button"
-                      disabled={busy}
+                      disabled={busy || savingTemplate === program.id}
                       className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-800"
                       onClick={async () => {
+                        if (savingTemplate) return;
+                        setSavingTemplate(program.id);
                         try {
                           await createTemplate({ name: program.name, exercises: program.exercises });
                           toast.success("Saved to your templates");
                         } catch (error) {
                           logger.error("Template save failed", error);
                           toast.error("Could not save template");
+                        } finally {
+                          setSavingTemplate(null);
                         }
                       }}
                     >
-                      Save as template
+                      {savingTemplate === program.id ? "Saving…" : "Save as template"}
                     </button>
                   </div>
                 </div>
@@ -498,6 +636,28 @@ export default function ImportSettings() {
           )}
         </div>
       </main>
+      <ConfirmDialog
+        open={undoOpen}
+        title="Undo last import?"
+        message="This removes imported sets from those days. Work you logged by hand stays."
+        confirmText="Undo import"
+        danger
+        onCancel={() => setUndoOpen(false)}
+        onConfirm={async () => {
+          setUndoOpen(false);
+          setBusy(true);
+          try {
+            const result = await undoLastImport();
+            setLastImport(null);
+            toast.success(`Removed imported work from ${result.days} days`);
+          } catch (error) {
+            logger.error("Undo import failed", error);
+            toast.error(error instanceof Error ? error.message : "Could not undo import");
+          } finally {
+            setBusy(false);
+          }
+        }}
+      />
     </div>
   );
 }

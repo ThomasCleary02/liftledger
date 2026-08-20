@@ -2,6 +2,8 @@
 
 import React from "react";
 import { Plus, X } from "lucide-react";
+import { usePreferences } from "../lib/hooks/usePreferences";
+import { getWeightUnit } from "../lib/utils/units";
 
 export interface CalisthenicsSet {
   reps: string;
@@ -30,6 +32,8 @@ export default function CalisthenicsSetInput({
   showDuration = false,
   onAddedSet,
 }: CalisthenicsSetInputProps) {
+  const { units } = usePreferences();
+  const weightUnit = getWeightUnit(units);
   const addSet = () => {
     const lastSet = sets[sets.length - 1];
     onSetsChange([...sets, lastSet ? { ...lastSet } : { reps: "10" }]);
@@ -60,6 +64,7 @@ export default function CalisthenicsSetInput({
               value={set.reps}
               onChange={(e) => updateSet(idx, "reps", e.target.value)}
               placeholder="Reps"
+              aria-label={`Set ${idx + 1} reps`}
             />
             <span className="w-12 text-gray-600">reps</span>
             <input
@@ -68,13 +73,14 @@ export default function CalisthenicsSetInput({
               className="ml-2 min-h-[48px] w-20 rounded-lg bg-gray-100 px-3 py-3 text-base text-gray-900 placeholder:text-gray-400 outline-none focus:bg-white focus:ring-2 focus:ring-black"
               value={set.addedWeight || ""}
               onChange={(e) => updateSet(idx, "addedWeight", e.target.value)}
-              placeholder="+wt"
-              aria-label={`Set ${idx + 1} added weight`}
+              placeholder={`+${weightUnit}`}
+              aria-label={`Set ${idx + 1} added weight in ${weightUnit}`}
             />
             {sets.length > 1 && (
               <button
                 onClick={() => removeSet(idx)}
-                className="ml-2 text-red-600 transition-colors hover:text-red-700"
+                type="button"
+                className="ml-2 flex min-h-[44px] min-w-[44px] items-center justify-center text-red-600 transition-colors hover:text-red-700"
                 aria-label={`Remove set ${idx + 1}`}
               >
                 <X className="h-5 w-5" />
@@ -90,6 +96,7 @@ export default function CalisthenicsSetInput({
                 value={set.duration || ""}
                 onChange={(e) => updateSet(idx, "duration", e.target.value)}
                 placeholder="Hold time (seconds)"
+                aria-label={`Set ${idx + 1} hold time in seconds`}
               />
               <span className="w-12 text-xs text-gray-600">sec</span>
             </div>
@@ -97,6 +104,7 @@ export default function CalisthenicsSetInput({
         </div>
       ))}
       <button
+        type="button"
         onClick={addSet}
         className="mt-2 flex min-h-[48px] w-full items-center justify-center gap-2 rounded-lg bg-gray-200 px-4 py-3 text-gray-800 transition-colors hover:bg-gray-300"
       >

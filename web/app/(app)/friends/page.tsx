@@ -10,6 +10,7 @@ import { Users, Mail, Trash2, Plus, Trophy, ChevronRight, Check, X } from "lucid
 import { Avatar } from "../../../components/Avatar";
 import { toast } from "../../../lib/toast";
 import { logger } from "../../../lib/logger";
+import { ConfirmDialog } from "../../../components/ConfirmDialog";
 
 export default function Friends() {
   const router = useRouter();
@@ -21,6 +22,7 @@ export default function Friends() {
   const [emailInput, setEmailInput] = useState("");
   const [sendingRequest, setSendingRequest] = useState(false);
   const [profiles, setProfiles] = useState<Record<string, { username: string | null; photoURL: string | null }>>({});
+  const [friendToRemove, setFriendToRemove] = useState<Friend | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -132,11 +134,13 @@ export default function Friends() {
   };
 
   const handleRemoveFriend = (friend: Friend) => {
-    if (!confirm("Are you sure you want to remove this friend?")) {
-      return;
-    }
+    setFriendToRemove(friend);
+  };
 
-    // Get the other user's ID (not current user)
+  const confirmRemoveFriend = () => {
+    const friend = friendToRemove;
+    setFriendToRemove(null);
+    if (!friend) return;
     const friendUserId = friend.userId === user?.uid 
       ? friend.friendUserId 
       : friend.userId;
@@ -213,15 +217,15 @@ export default function Friends() {
                       key={request.id}
                       className="flex items-center justify-between border-b border-gray-100 px-5 py-4 last:border-0"
                     >
-                      <div className="flex flex-1 items-center gap-3">
+                      <div className="flex min-w-0 flex-1 items-center gap-3">
                         <Avatar
                           name={profiles[request.fromUserId]?.username}
                           photoURL={profiles[request.fromUserId]?.photoURL}
                           size={40}
                         />
-                        <div className="flex-1">
-                          <p className="font-semibold text-gray-900">
-                            {profiles[request.fromUserId]?.username || request.fromUserId.substring(0, 8)}
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-semibold text-gray-900">
+                            {profiles[request.fromUserId]?.username || "Unknown user"}
                           </p>
                           <p className="text-sm text-gray-500">Sent you a friend request</p>
                         </div>
@@ -230,14 +234,14 @@ export default function Friends() {
                         <button
                           onClick={() => handleAcceptRequest(request.id)}
                           className="rounded-full bg-green-50 p-2 text-green-600 transition-colors hover:bg-green-100"
-                          title="Accept"
+                          aria-label="Accept friend request"
                         >
                           <Check className="h-5 w-5" />
                         </button>
                         <button
                           onClick={() => handleRejectRequest(request.id)}
                           className="rounded-full bg-red-50 p-2 text-red-600 transition-colors hover:bg-red-100"
-                          title="Reject"
+                          aria-label="Decline friend request"
                         >
                           <X className="h-5 w-5" />
                         </button>
@@ -260,15 +264,15 @@ export default function Friends() {
                       key={request.id}
                       className="flex items-center justify-between border-b border-gray-100 px-5 py-4 last:border-0"
                     >
-                      <div className="flex flex-1 items-center gap-3">
+                      <div className="flex min-w-0 flex-1 items-center gap-3">
                         <Avatar
                           name={profiles[request.toUserId]?.username}
                           photoURL={profiles[request.toUserId]?.photoURL}
                           size={40}
                         />
-                        <div className="flex-1">
-                          <p className="font-semibold text-gray-900">
-                            {profiles[request.toUserId]?.username || request.toUserId.substring(0, 8)}
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-semibold text-gray-900">
+                            {profiles[request.toUserId]?.username || "Unknown user"}
                           </p>
                           <p className="text-sm text-gray-500">Waiting for response</p>
                         </div>
@@ -276,7 +280,7 @@ export default function Friends() {
                       <button
                         onClick={() => handleCancelRequest(request.id)}
                         className="rounded-full bg-gray-100 p-2 text-gray-600 transition-colors hover:bg-gray-200"
-                        title="Cancel request"
+                        aria-label="Cancel friend request"
                       >
                         <X className="h-5 w-5" />
                       </button>
@@ -341,7 +345,7 @@ export default function Friends() {
                 <div className="rounded-2xl border border-gray-100 bg-white p-12 text-center shadow-sm">
                   <Users className="mx-auto h-12 w-12 text-gray-300" />
                   <p className="mt-4 text-gray-500">
-                    No friends yet. Add friends by email to get started!
+                    No friends yet. Add someone by email or username.
                   </p>
                 </div>
               ) : (
@@ -351,7 +355,7 @@ export default function Friends() {
                       key={friend.id}
                       className="flex items-center justify-between border-b border-gray-100 px-5 py-4 last:border-0"
                     >
-                      <div className="flex flex-1 items-center gap-3">
+                      <div className="flex min-w-0 flex-1 items-center gap-3">
                         <Avatar
                           name={(() => {
                             const friendUserId = friend.userId === user?.uid
@@ -367,13 +371,13 @@ export default function Friends() {
                           })()}
                           size={40}
                         />
-                        <div className="flex-1">
-                          <p className="font-semibold text-gray-900">
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-semibold text-gray-900">
                             {(() => {
                               const friendUserId = friend.userId === user?.uid 
                                 ? friend.friendUserId 
                                 : friend.userId;
-                              return profiles[friendUserId]?.username || friendUserId.substring(0, 8);
+                              return profiles[friendUserId]?.username || "Unknown user";
                             })()}
                           </p>
                           <p className="text-sm text-gray-500">
@@ -384,7 +388,7 @@ export default function Friends() {
                       <button
                         onClick={() => handleRemoveFriend(friend)}
                         className="rounded-full bg-red-50 p-2 text-red-600 transition-colors hover:bg-red-100"
-                        title="Remove friend"
+                        aria-label="Remove friend"
                       >
                         <Trash2 className="h-5 w-5" />
                       </button>
@@ -396,6 +400,15 @@ export default function Friends() {
           </div>
         </div>
       </main>
+      <ConfirmDialog
+        open={Boolean(friendToRemove)}
+        title="Remove friend?"
+        message="You can send a new request later if you change your mind."
+        confirmText="Remove"
+        danger
+        onCancel={() => setFriendToRemove(null)}
+        onConfirm={confirmRemoveFriend}
+      />
     </div>
   );
 }

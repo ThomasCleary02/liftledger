@@ -21,8 +21,10 @@ export function PWAInstallPrompt() {
     const handler = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
-      // Show prompt after a delay to not be too aggressive
-      setTimeout(() => setShowPrompt(true), 3000);
+      window.setTimeout(() => {
+        if (sessionStorage.getItem("pwa-prompt-dismissed")) return;
+        setShowPrompt(true);
+      }, 3000);
     };
 
     window.addEventListener("beforeinstallprompt", handler);
@@ -81,7 +83,8 @@ export function PWAInstallPrompt() {
             </button>
             <button
               onClick={handleDismiss}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50"
+              className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50"
+              aria-label="Dismiss install prompt"
             >
               <X className="h-4 w-4" />
             </button>

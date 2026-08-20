@@ -27,6 +27,7 @@ import {
   Download,
   Upload,
 } from "lucide-react";
+import { Avatar } from "../../../components/Avatar";
 import { toast } from "../../../lib/toast";
 import { logger } from "../../../lib/logger";
 import { ConfirmDialog } from "../../../components/ConfirmDialog";
@@ -92,6 +93,8 @@ export default function Settings() {
   const [editingTemplate, setEditingTemplate] = useState<WorkoutTemplate | null>(null);
   const [templateExercises, setTemplateExercises] = useState<Exercise[]>([]);
   const [templateName, setTemplateName] = useState("");
+  const [profileName, setProfileName] = useState<string | null>(null);
+  const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
 
   useEffect(() => {
     // Wait for auth to finish loading
@@ -100,10 +103,11 @@ export default function Settings() {
     if (!user) {
       router.replace("/login");
     } else {
-      // Load favorites when user is authenticated
       loadFavorites();
-      loadTrackedExercises(); // Add this
-      loadTemplates(); // Add this
+      loadTrackedExercises();
+      loadTemplates();
+      accountService.getUsername().then(setProfileName).catch(() => setProfileName(null));
+      accountService.getPhotoURL().then(setProfilePhoto).catch(() => setProfilePhoto(null));
     }
   }, [user, router, authLoading]);
 
@@ -123,15 +127,29 @@ export default function Settings() {
 
   const handleDeleteAccountConfirm = () => {
     setDeleteAccountConfirmOpen(false);
-    const uid = user?.uid;
-    const remove = uid ? deleteAvatarFile(app, uid).catch(() => undefined) : Promise.resolve();
-    remove
+    const current = user;
+    if (!current) return;
+    const lastSignIn = current.metadata.lastSignInTime
+      ? new Date(current.metadata.lastSignInTime).getTime()
+      : 0;
+    if (!lastSignIn || Date.now() - lastSignIn > 5 * 60 * 1000) {
+      toast.error("Sign in again, then delete your account. Firebase requires a recent login.");
+      return;
+    }
+    accountService
+      .setPhotoURL(null)
+      .then(() => deleteAvatarFile(app, current.uid))
       .then(() => deleteUserAccount())
       .then(() => {
         toast.success("Account deleted successfully");
       })
       .catch((error: unknown) => {
         logger.error("Failed to delete account", error);
+        const code = typeof error === "object" && error && "code" in error ? String((error as { code: string }).code) : "";
+        if (code === "auth/requires-recent-login") {
+          toast.error("Sign in again, then delete your account.");
+          return;
+        }
         const message = error instanceof Error ? error.message : "Failed to delete account";
         toast.error(message);
       });
@@ -361,13 +379,13 @@ export default function Settings() {
                 onClick={() => router.push("/settings/account")}
                 className="w-full px-5 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
               >
-              <div className="flex items-center">
-                <div className="mr-4 rounded-full bg-gray-100 p-3">
-                  <div className="h-6 w-6 rounded-full bg-gray-300"></div>
+              <div className="flex min-w-0 items-center">
+                <div className="mr-4">
+                  <Avatar name={profileName || user?.email} photoURL={profilePhoto} size={40} />
                 </div>
-                  <div className="text-left">
+                  <div className="min-w-0 text-left">
                     <p className="font-semibold text-gray-900">Account Settings</p>
-                    <p className="text-sm text-gray-500">Username, profile picture, and more</p>
+                    <p className="truncate text-sm text-gray-500">Username, profile picture, and more</p>
                 </div>
               </div>
                 <ChevronRight className="h-5 w-5 text-gray-400" />
@@ -387,7 +405,7 @@ export default function Settings() {
               />
               <SettingItem
                 icon={BarChart3}
-                title="Default Chart View"
+                title="Default analytics period"
                 subtitle={getChartViewLabel(defaultChartView)}
                 onClick={() => setChartModalOpen(true)}
               />
@@ -412,7 +430,7 @@ export default function Settings() {
               <SettingItem
                 icon={Upload}
                 title="Import workouts"
-                subtitle="Strong, Hevy, spreadsheet, paste, or starter programs"
+                subtitle="CSV, paste, or starters. Undo lives on the import screen."
                 onClick={() => router.push("/settings/import")}
               />
               <SettingItem
@@ -476,9 +494,9 @@ export default function Settings() {
             onCreate={handleCreateNewTemplate}
           />
 
-          {/* Account Section */}
+          {/* Session */}
           <section>
-            <h2 className="mb-3 text-lg font-semibold text-gray-900">Account</h2>
+            <h2 className="mb-3 text-lg font-semibold text-gray-900">Session</h2>
             <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
               <SettingItem
                 icon={LogOut}
@@ -499,7 +517,7 @@ export default function Settings() {
 
           {/* App Info */}
           <div className="py-6 text-center">
-            <p className="text-sm text-gray-400">LiftLedger v1.0.0</p>
+            <p className="text-sm text-gray-400">LiftLedger v2.2.0</p>
           </div>
           </div>
         </div>
@@ -741,22 +759,22 @@ function ChartViewModal({
   };
 
   const options: { value: DefaultChartView; label: string; description: string }[] = [
-    { value: "week", label: "Week", description: "Group data by week" },
-    { value: "month", label: "Month", description: "Group data by month" },
-    { value: "year", label: "Year", description: "Group data by year" },
+    { value: "week", label: "Week", description: "Last 7 days on Analytics" },
+    { value: "month", label: "Month", description: "Last 30 days on Analytics" },
+    { value: "year", label: "Year", description: "Last 365 days on Analytics" },
   ];
 
   return (
     <div className="fixed inset-0 z-50 flex items-end bg-black/50 md:items-center md:justify-center">
       <div className="w-full rounded-t-3xl bg-white p-6 md:max-w-md md:rounded-2xl">
         <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-gray-900">Default Chart View</h2>
+          <h2 className="text-2xl font-bold text-gray-900">Default analytics period</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <X className="h-6 w-6" />
           </button>
         </div>
 
-        <p className="mb-4 text-gray-600">Choose your default chart grouping</p>
+        <p className="mb-4 text-gray-600">Choose the period Analytics opens to. You can still switch to All on that screen.</p>
 
         <div className="space-y-3">
           {options.map((option) => (
@@ -1012,11 +1030,18 @@ function TemplatesModal({
   onCreate: () => void;  // Add this
 }) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   if (!open) return null;
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this template?")) return;
+  const handleDelete = (id: string) => {
+    setPendingDeleteId(id);
+  };
+
+  const confirmDelete = async () => {
+    if (!pendingDeleteId) return;
+    const id = pendingDeleteId;
+    setPendingDeleteId(null);
     setDeletingId(id);
     try {
       await onDelete(id);
@@ -1097,6 +1122,15 @@ function TemplatesModal({
           )}
         </div>
       </div>
+      <ConfirmDialog
+        open={Boolean(pendingDeleteId)}
+        title="Delete template?"
+        message="This cannot be undone."
+        confirmText="Delete"
+        danger
+        onCancel={() => setPendingDeleteId(null)}
+        onConfirm={confirmDelete}
+      />
     </div>
   );
 }

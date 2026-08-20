@@ -13,14 +13,14 @@ import {
   Day,
 } from "../../../../lib/firestore/days";
 import { accountService } from "../../../../lib/firebase";
-import { isLoggedDay, type DayStatus } from "@liftledger/shared";
+import { type DayStatus } from "@liftledger/shared";
 import type { Exercise } from "../../../../lib/firestore/workouts";
 import ExerciseSearch from "../../../../components/ExerciseSearch";
 import StrengthSetInput, { StrengthSet } from "../../../../components/StrengthSetInput";
 import CalisthenicsSetInput, { CalisthenicsSet } from "../../../../components/CalisthenicsSetInput";
 import CardioInput, { CardioData } from "../../../../components/CardioInput";
 import DayNavigation from "../../../../components/DayNavigation";
-import { Trash2, Dumbbell, Heart, Activity, Pencil, Plus, Moon, FileText, X, ChevronRight, Upload, Link2 } from "lucide-react";
+import { Trash2, Dumbbell, Heart, Activity, Pencil, Plus, Moon, FileText, X, ChevronRight, Upload, Link2, Unlink } from "lucide-react";
 import { usePreferences } from "../../../../lib/hooks/usePreferences";
 import { formatWeight, formatDistance, formatCardioDuration, formatWeightInput, formatDistanceInput, toStoredWeight, toStoredDistance } from "../../../../lib/utils/units";
 import { toast, removeToast } from "../../../../lib/toast";
@@ -28,6 +28,7 @@ import { logger } from "../../../../lib/logger";
 import { DayNavigationSkeleton, ExerciseListSkeleton } from "../../../../components/LoadingSkeleton";
 import { SyncStatusIndicator, useSyncStatus } from "../../../../components/SyncStatus";
 import { listTemplates, type WorkoutTemplate } from "../../../../lib/firestore/workoutTemplates";
+import { ConfirmDialog } from "../../../../components/ConfirmDialog";
 import { RestTimer } from "../../../../components/RestTimer";
 import {
   rememberExercises,
@@ -108,6 +109,7 @@ export default function DayView() {
   const [resting, setResting] = useState(false);
   const [restKey, setRestKey] = useState(0);
   const [lastHint, setLastHint] = useState<string | null>(null);
+  const [exerciseToRemove, setExerciseToRemove] = useState<number | null>(null);
 
   const startRest = () => {
     if (restTimerSeconds <= 0) return;
@@ -896,10 +898,13 @@ export default function DayView() {
             exercises: [],
           });
       const nextRest = currentDay === day ? !currentDay.isRestDay : true;
-      if (currentDay.isRestDay !== nextRest) {
-        await updateDay(currentDay.id, { isRestDay: nextRest });
+      if (nextRest) {
+        await updateDay(currentDay.id, { isRestDay: true, status: null });
+        applyDayIfCurrent({ ...currentDay, isRestDay: true, status: undefined });
+      } else {
+        await updateDay(currentDay.id, { isRestDay: false });
+        applyDayIfCurrent({ ...currentDay, isRestDay: false });
       }
-      applyDayIfCurrent({ ...currentDay, isRestDay: nextRest });
       toast.success(nextRest ? "Marked as rest day" : "Removed rest day");
       showSyncing(false);
     } catch (error) {
@@ -919,8 +924,12 @@ export default function DayView() {
         ? day
         : await createDay({ date: currentDate, isRestDay: false, exercises: [], status: status || undefined });
       const next = currentDay.status === status ? null : status;
-      await updateDay(currentDay.id, { status: next });
-      applyDayIfCurrent({ ...currentDay, status: next || undefined });
+      await updateDay(currentDay.id, { status: next, isRestDay: next ? false : currentDay.isRestDay });
+      applyDayIfCurrent({
+        ...currentDay,
+        status: next || undefined,
+        isRestDay: next ? false : currentDay.isRestDay,
+      });
       toast.success(next === "deload" ? "Marked as deload" : next === "injured" ? "Marked as injury / skip" : "Cleared day flag");
       showSyncing(false);
     } catch (error) {
@@ -934,12 +943,33 @@ export default function DayView() {
 
   const pairSuperset = async (idx: number) => {
     if (!day || idx < 1) return;
+    if (!beginSave()) return;
     const group = day.exercises[idx - 1].supersetGroup || day.exercises[idx].supersetGroup || Date.now();
     const next = day.exercises.map((item, i) =>
       i === idx || i === idx - 1 ? { ...item, supersetGroup: group } : item
     );
-    await updateDay(day.id, { exercises: next.map(cleanExercise) });
-    applyDayIfCurrent({ ...day, exercises: next.map(cleanExercise) });
+    try {
+      await updateDay(day.id, { exercises: next.map(cleanExercise) });
+      applyDayIfCurrent({ ...day, exercises: next.map(cleanExercise) });
+    } finally {
+      endSave();
+    }
+  };
+
+  const unlinkSuperset = async (idx: number) => {
+    if (!day || !day.exercises[idx].supersetGroup) return;
+    if (!beginSave()) return;
+    const next = day.exercises.map((item, i) => {
+      if (i !== idx) return item;
+      const { supersetGroup: _drop, ...rest } = item;
+      return rest;
+    });
+    try {
+      await updateDay(day.id, { exercises: next.map(cleanExercise) });
+      applyDayIfCurrent({ ...day, exercises: next.map(cleanExercise) });
+    } finally {
+      endSave();
+    }
   };
 
   const formatDuration = (seconds: number): string => {
@@ -990,8 +1020,10 @@ export default function DayView() {
         currentDate={currentDate}
         onDateChange={handleDateChange}
         onTodayClick={handleTodayClick}
-        loggedDates={new Set(nearbyDays.filter((d) => isLoggedDay(d) && d.exercises.length > 0).map((d) => d.date))}
-        restDates={new Set(nearbyDays.filter((d) => d.isRestDay || d.status).map((d) => d.date))}
+        loggedDates={new Set(nearbyDays.filter((d) => !d.isRestDay && d.exercises.length > 0).map((d) => d.date))}
+        restDates={new Set(nearbyDays.filter((d) => d.isRestDay).map((d) => d.date))}
+        deloadDates={new Set(nearbyDays.filter((d) => d.status === "deload").map((d) => d.date))}
+        injuredDates={new Set(nearbyDays.filter((d) => d.status === "injured").map((d) => d.date))}
       />
       </header>
 
@@ -1045,6 +1077,16 @@ export default function DayView() {
           )}
         </div>
 
+        {day?.status === "deload" && (
+          <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            Deload day. Lighter work still counts toward your streak.
+          </div>
+        )}
+        {day?.status === "injured" && (
+          <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+            Injury / skip. This day does not count toward your streak. You can still log modified work.
+          </div>
+        )}
         {!isRestDay && !hasExercises && !selectedExercise && (
           <div className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
             <button
@@ -1068,7 +1110,7 @@ export default function DayView() {
             </button>
             <button
               type="button"
-              onClick={() => router.push("/settings/import")}
+              onClick={() => router.push(`/settings/import?tab=file&date=${currentDate}`)}
               className="flex min-h-[52px] items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-900"
             >
               <Upload className="h-4 w-4" />
@@ -1076,7 +1118,7 @@ export default function DayView() {
             </button>
           </div>
         )}
-        {!isRestDay && (
+        {(!isRestDay || hasExercises) && (
           <div className="mb-6 rounded-lg border border-gray-200 bg-white px-4 py-5">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-900">Add Exercise</h2>
@@ -1124,6 +1166,7 @@ export default function DayView() {
                     sets={strengthSets}
                     onSetsChange={setStrengthSets}
                     onAddedSet={startRest}
+                    exerciseName={selectedExercise.name}
                   />
                 )}
 
@@ -1140,7 +1183,7 @@ export default function DayView() {
                   <CalisthenicsSetInput
                     sets={calisthenicsSets}
                     onSetsChange={setCalisthenicsSets}
-                    showDuration={false}
+                    showDuration
                     onAddedSet={startRest}
                   />
                 )}
@@ -1162,7 +1205,7 @@ export default function DayView() {
         )}
 
         {/* Exercises List */}
-        {!isRestDay && hasExercises && (
+        {hasExercises && (
           <div className="mb-6">
             <h2 className="mb-3 text-lg font-semibold text-gray-900">Exercises</h2>
               <div className="space-y-3">
@@ -1171,8 +1214,8 @@ export default function DayView() {
                   return (
                     <div key={`${ex.name}-${idx}`} className="rounded-lg border border-gray-200 bg-white p-4">
                       <div className="mb-2 flex items-start justify-between">
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-gray-900">
+                        <div className="min-w-0 flex-1">
+                          <h3 className="truncate font-semibold text-gray-900">
                             {ex.supersetGroup ? "⇄ " : ""}
                             {ex.name}
                           </h3>
@@ -1188,8 +1231,17 @@ export default function DayView() {
                               : ex.modality}
                           </span>
                         </div>
-                        <div className="flex items-center gap-2">
-                          {idx > 0 && (
+                        <div className="flex flex-shrink-0 items-center gap-2">
+                          {ex.supersetGroup ? (
+                            <button
+                              onClick={() => unlinkSuperset(idx)}
+                              className="rounded-full bg-gray-100 p-2 text-gray-600 transition-colors hover:bg-gray-200"
+                              aria-label="Unlink superset"
+                              title="Unlink superset"
+                            >
+                              <Unlink className="h-4 w-4" />
+                            </button>
+                          ) : idx > 0 ? (
                             <button
                               onClick={() => pairSuperset(idx)}
                               className="rounded-full bg-gray-100 p-2 text-gray-600 transition-colors hover:bg-gray-200"
@@ -1198,7 +1250,7 @@ export default function DayView() {
                             >
                               <Link2 className="h-4 w-4" />
                             </button>
-                          )}
+                          ) : null}
                           <button
                             onClick={() => startEditingExercise(idx)}
                             className="rounded-full bg-gray-100 p-2 text-gray-600 transition-colors hover:bg-gray-200"
@@ -1207,7 +1259,7 @@ export default function DayView() {
                             <Pencil className="h-4 w-4" />
                           </button>
                           <button
-                            onClick={() => removeExercise(idx)}
+                            onClick={() => setExerciseToRemove(idx)}
                             className="rounded-full bg-red-50 p-2 text-red-600 transition-colors hover:bg-red-100"
                             aria-label={`Remove ${ex.name}`}
                           >
@@ -1220,7 +1272,11 @@ export default function DayView() {
                           ex.strengthSets?.map((st: any, i: number) => (
                             <div key={i} className="rounded bg-gray-100 px-3 py-1">
                               <span className="text-sm text-gray-700">
-                                {st.warmup ? "W " : ""}
+                                {st.warmup ? (
+                                  <span className="mr-1 text-xs font-semibold text-amber-800" title="Warmup">
+                                    W
+                                  </span>
+                                ) : null}
                                 {st.reps}×{formatWeight(st.weight, units)}
                               </span>
                             </div>
@@ -1253,23 +1309,25 @@ export default function DayView() {
           </div>
         )}
 
-        {isRestDay && (
+        {isRestDay && !hasExercises && (
           <div className="rounded-lg border border-blue-200 bg-blue-50 p-8 text-center">
             <Moon className="mx-auto mb-4 h-12 w-12 text-blue-500" />
             <p className="text-lg font-semibold text-blue-900">Rest Day</p>
-            <p className="mt-2 text-sm text-blue-700">No exercises logged for this rest day.</p>
+            <p className="mt-2 text-sm text-blue-700">Recovery day. Turn rest off to log work.</p>
           </div>
         )}
 
         {/* Template Selector Modal */}
         {showTemplateSelector && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4" role="dialog" aria-modal="true" aria-labelledby="template-title">
             <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white shadow-xl">
               <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-                <h3 className="text-lg font-bold text-gray-900">Select Template</h3>
+                <h3 id="template-title" className="text-lg font-bold text-gray-900">Select Template</h3>
                 <button
+                  type="button"
                   onClick={() => setShowTemplateSelector(false)}
-                  className="rounded-full p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                  className="rounded-full p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                  aria-label="Close templates"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -1324,6 +1382,19 @@ export default function DayView() {
           onSkip={() => setResting(false)}
         />
       )}
+      <ConfirmDialog
+        open={exerciseToRemove !== null}
+        title="Remove exercise?"
+        message="This set data will be deleted from today."
+        confirmText="Remove"
+        danger
+        onCancel={() => setExerciseToRemove(null)}
+        onConfirm={() => {
+          const idx = exerciseToRemove;
+          setExerciseToRemove(null);
+          if (idx != null) void removeExercise(idx);
+        }}
+      />
     </div>
   );
 }

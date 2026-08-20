@@ -35,6 +35,7 @@ export function SyncStatusIndicator() {
 
     // Initial check
     setIsOnline(navigator.onLine);
+    if (!navigator.onLine) setStatus("offline");
 
     return () => {
       window.removeEventListener("online", handleOnline);
