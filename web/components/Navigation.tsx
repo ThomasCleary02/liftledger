@@ -4,8 +4,15 @@ import { usePathname, useRouter } from "next/navigation";
 import { Dumbbell, BarChart3, Users, Settings } from "lucide-react";
 import { useAuth } from "../providers/Auth";
 
-const navItems = [
-  { path: "/workouts", label: "Workouts", icon: Dumbbell },
+type NavItem = {
+  path: string;
+  label: string;
+  icon: typeof Dumbbell;
+  matchPrefix?: string;
+};
+
+const navItems: NavItem[] = [
+  { path: "/day/today", label: "Workouts", icon: Dumbbell, matchPrefix: "/day/" },
   { path: "/analytics", label: "Analytics", icon: BarChart3 },
   { path: "/friends", label: "Friends", icon: Users },
   { path: "/settings", label: "Settings", icon: Settings },
@@ -24,11 +31,13 @@ export function Navigation() {
   return (
     <>
       {/* Mobile Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-gray-200 bg-white md:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-gray-200 bg-white md:hidden" style={{ paddingBottom: "var(--safe-area-bottom)", paddingLeft: "env(safe-area-inset-left, 0px)", paddingRight: "env(safe-area-inset-right, 0px)" }}>
         <div className="flex h-16 items-center justify-around">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = pathname === item.path || pathname?.startsWith(item.path + "/");
+            const isActive = item.matchPrefix
+                ? pathname?.startsWith(item.matchPrefix)
+                : pathname === item.path || pathname?.startsWith(item.path + "/");
             return (
               <button
                 key={item.path}
@@ -58,7 +67,9 @@ export function Navigation() {
         <nav className="flex-1 space-y-1 px-4 py-6">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = pathname === item.path || pathname?.startsWith(item.path + "/");
+            const isActive = item.matchPrefix
+                ? pathname?.startsWith(item.matchPrefix)
+                : pathname === item.path || pathname?.startsWith(item.path + "/");
             return (
               <button
                 key={item.path}

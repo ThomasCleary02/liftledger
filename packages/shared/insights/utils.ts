@@ -26,7 +26,8 @@ const MIN_DURATION_DAYS = 14; // Minimum duration in days
 export function extractExerciseHistory(
   days: Day[],
   exerciseId: string,
-  modality: "strength" | "cardio" | "calisthenics"
+  modality: "strength" | "cardio" | "calisthenics",
+  options?: { cardioMetric?: "distance" | "duration" }
 ): ProgressPoint[] {
   const history: ProgressPoint[] = [];
 
@@ -76,8 +77,14 @@ export function extractExerciseHistory(
       // Extract max weight from all sets for this day
       value = Math.max(...exercise.strengthSets.map((set) => set.weight || 0));
     } else if (modality === "cardio" && exercise.cardioData) {
-      // Prefer distance, fallback to duration
-      if (exercise.cardioData.distance && exercise.cardioData.distance > 0) {
+      const metric = options?.cardioMetric;
+      if (metric === "duration") {
+        if (exercise.cardioData.duration > 0) value = exercise.cardioData.duration;
+      } else if (metric === "distance") {
+        if (exercise.cardioData.distance && exercise.cardioData.distance > 0) {
+          value = exercise.cardioData.distance;
+        }
+      } else if (exercise.cardioData.distance && exercise.cardioData.distance > 0) {
         value = exercise.cardioData.distance;
       } else if (exercise.cardioData.duration && exercise.cardioData.duration > 0) {
         value = exercise.cardioData.duration;

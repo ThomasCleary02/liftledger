@@ -25,7 +25,7 @@ export default function Login() {
   // Redirect if already authenticated (wait for auth to finish loading)
   useEffect(() => {
     if (!authLoading && user) {
-      router.replace("/workouts");
+      router.replace("/day/today");
     }
   }, [user, authLoading, router]);
 
@@ -114,9 +114,9 @@ export default function Login() {
       if (mode === "login") {
         await signIn(email, password);
       } else {
-        await signUp(email, password);
+        await signUp(email, password, username.trim());
       }
-      router.replace("/workouts");
+      router.replace("/day/today");
     } catch (e: any) {
       const errorMessage = e?.message || "An error occurred";
       const friendlyMessage = errorMessage.includes("email-already-in-use")

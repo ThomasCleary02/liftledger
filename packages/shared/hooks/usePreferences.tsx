@@ -10,6 +10,8 @@ import type {
   UserPreferences,
   UnitSystem,
   DefaultChartView,
+  ThemePreference,
+  RestTimerSeconds,
 } from "../preferences";
 
 /**
@@ -22,6 +24,8 @@ export interface PreferencesService {
   updateUnitSystem(units: UnitSystem): Promise<void>;
   updateDefaultChartView(view: DefaultChartView): Promise<void>;
   updatePRNotifications(enabled: boolean): Promise<void>;
+  updateTheme(theme: ThemePreference): Promise<void>;
+  updateRestTimerSeconds(seconds: RestTimerSeconds): Promise<void>;
 }
 
 type PreferencesContextType = {
@@ -31,10 +35,14 @@ type PreferencesContextType = {
   updateUnits: (units: UnitSystem) => Promise<void>;
   updateChartView: (view: DefaultChartView) => Promise<void>;
   updatePRNotifications: (enabled: boolean) => Promise<void>;
+  updateTheme: (theme: ThemePreference) => Promise<void>;
+  updateRestTimer: (seconds: RestTimerSeconds) => Promise<void>;
   // Convenience getters
   units: UnitSystem;
   defaultChartView: DefaultChartView;
   prNotifications: boolean;
+  theme: ThemePreference;
+  restTimerSeconds: RestTimerSeconds;
 };
 
 const PreferencesContext = createContext<PreferencesContextType | undefined>(undefined);
@@ -77,6 +85,16 @@ export function createPreferencesProvider(service: PreferencesService) {
       await loadPreferences();
     };
 
+    const updateThemePref = async (theme: ThemePreference) => {
+      await service.updateTheme(theme);
+      await loadPreferences();
+    };
+
+    const updateRestTimerPref = async (seconds: RestTimerSeconds) => {
+      await service.updateRestTimerSeconds(seconds);
+      await loadPreferences();
+    };
+
     const value: PreferencesContextType = {
       preferences,
       loading,
@@ -84,9 +102,13 @@ export function createPreferencesProvider(service: PreferencesService) {
       updateUnits,
       updateChartView,
       updatePRNotifications: updatePRNotifs,
+      updateTheme: updateThemePref,
+      updateRestTimer: updateRestTimerPref,
       units: preferences?.units || "imperial",
       defaultChartView: preferences?.defaultChartView || "month",
       prNotifications: preferences?.prNotifications ?? true,
+      theme: preferences?.theme || "system",
+      restTimerSeconds: preferences?.restTimerSeconds ?? 0,
     };
 
     return (

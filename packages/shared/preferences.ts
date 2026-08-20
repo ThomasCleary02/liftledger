@@ -7,12 +7,16 @@
 
 export type UnitSystem = "metric" | "imperial";
 export type DefaultChartView = "week" | "month" | "year";
+export type ThemePreference = "system" | "light" | "dark";
+export type RestTimerSeconds = 0 | 60 | 90 | 120 | 180;
 // TimePeriod is exported from ./analytics/types to avoid duplicate exports
 
 export interface UserPreferences {
   units: UnitSystem;
   defaultChartView: DefaultChartView;
   prNotifications: boolean;
+  theme: ThemePreference;
+  restTimerSeconds: RestTimerSeconds;
 }
 
 /**
@@ -31,6 +35,8 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   units: "imperial",
   defaultChartView: "month",
   prNotifications: true,
+  theme: "system",
+  restTimerSeconds: 0,
 };
 
 /**
@@ -73,12 +79,22 @@ export function createPreferencesService(storage: PreferencesStorage) {
     await savePreferences({ prNotifications: enabled });
   }
 
+  async function updateTheme(theme: ThemePreference): Promise<void> {
+    await savePreferences({ theme });
+  }
+
+  async function updateRestTimerSeconds(restTimerSeconds: RestTimerSeconds): Promise<void> {
+    await savePreferences({ restTimerSeconds });
+  }
+
   return {
     getPreferences,
     savePreferences,
     updateUnitSystem,
     updateDefaultChartView,
     updatePRNotifications,
+    updateTheme,
+    updateRestTimerSeconds,
   };
 }
 

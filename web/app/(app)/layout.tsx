@@ -8,7 +8,7 @@ export default function AppLayout({
   return (
     <>
       <Navigation />
-      <div className="pb-16 md:ml-64">
+      <div className="app-shell md:ml-64">
         {children}
       </div>
     </>

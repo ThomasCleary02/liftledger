@@ -2,8 +2,7 @@ import { Day } from "../firestore/days";
 import { parseISO, isValid } from "date-fns";
 import {
   calculateTotalVolumeFromDays,
-  calculateTotalCardioDistanceFromDays,
-  calculateCurrentStreakFromDays,
+  calculateTotalCardioDurationFromDays,
 } from "./calculations";
 
 export type LeaderboardTimePeriod = "7days" | "30days" | "all";
@@ -19,7 +18,7 @@ export interface VolumeLeaderboardEntry extends LeaderboardEntry {
 }
 
 export interface CardioDistanceLeaderboardEntry extends LeaderboardEntry {
-  value: number; // total distance in mi/km
+  value: number; // total cardio duration in seconds
 }
 
 export interface ConsistencyLeaderboardEntry extends LeaderboardEntry {
@@ -105,8 +104,7 @@ export function getVolumeLeaderboard(
 }
 
 /**
- * Get cardio distance leaderboard from days grouped by user
- * Returns ranked list of users by total cardio distance
+ * Rank friends by cardio time. Distance is not comparable across run / bike / row.
  */
 export function getCardioDistanceLeaderboard(
   daysByUser: Record<string, Day[]>,
@@ -116,12 +114,12 @@ export function getCardioDistanceLeaderboard(
 
   for (const [userId, days] of Object.entries(daysByUser)) {
     const filteredDays = filterDaysByTimePeriod(days, timePeriod);
-    const distance = calculateTotalCardioDistanceFromDays(filteredDays);
+    const duration = calculateTotalCardioDurationFromDays(filteredDays);
 
     entries.push({
       userId,
-      value: distance,
-      rank: 0, // Will be set after sorting
+      value: duration,
+      rank: 0,
     });
   }
 

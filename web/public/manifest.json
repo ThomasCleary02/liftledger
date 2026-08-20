@@ -4,6 +4,7 @@
   "description": "Track your workouts, achieve your goals",
   "start_url": "/day/today",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui", "browser"],
   "background_color": "#000000",
   "theme_color": "#000000",
   "orientation": "portrait",

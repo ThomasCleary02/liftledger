@@ -18,6 +18,7 @@ import CardioInput, { CardioData } from "../../components/CardioInput";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { usePreferences } from "../../lib/hooks/usePreferences";
 import { formatWeight, formatDistance } from "../../lib/utils/units";
+import { inferCardioActivityType } from "@liftledger/shared";
 import { listTemplates, type WorkoutTemplate } from "../../lib/firestore/workoutTemplates";
 
 type SelectedExercise = {
@@ -307,7 +308,10 @@ export default function DayView() {
         return;
       }
 
-      const cardioDataObj: any = { duration };
+      const cardioDataObj: any = {
+        duration,
+        activityType: inferCardioActivityType(selectedExercise.name, selectedExercise.id),
+      };
       if (distance && isFinite(distance) && distance > 0) {
         cardioDataObj.distance = distance;
         if (duration > 0) {

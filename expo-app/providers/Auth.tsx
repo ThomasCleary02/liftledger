@@ -20,6 +20,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsub = onAuthStateChanged(auth, u => {
       setUser(u);
       setLoading(false);
+      if (u) {
+        accountService.ensureEmailIndex().catch((error) => {
+          console.error("Failed to write email index", error);
+        });
+      }
     });
     return () => unsub();
   }, []);

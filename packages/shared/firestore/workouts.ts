@@ -35,6 +35,8 @@ import {
   SnapshotOptions,
 } from "firebase/firestore";
 import type { ExerciseModality } from "./exercises";
+import { type CardioActivityType, isCardioActivityType, inferCardioActivityType } from "../cardio";
+export type { CardioActivityType } from "../cardio";
 
 // --------- Types ---------
 export interface StrengthSetEntry {
@@ -48,9 +50,10 @@ export interface ListWorkoutsOptions {
 }
 
 export interface CardioEntry {
-  duration: number;  // minutes or seconds
-  distance?: number; // miles/km
-  pace?: number;     // optional calculated field (e.g., min/mile)
+  duration: number; // stored in seconds
+  distance?: number; // stored in miles
+  pace?: number; // seconds per mile, when distance is present
+  activityType?: CardioActivityType;
 }
 
 export interface CalisthenicsSetEntry {
@@ -118,6 +121,9 @@ function normalizeExercise(ex: any): Exercise {
           duration: ex.cardioData.duration,
           distance: typeof ex.cardioData.distance === "number" ? ex.cardioData.distance : undefined,
           pace: typeof ex.cardioData.pace === "number" ? ex.cardioData.pace : undefined,
+          activityType: isCardioActivityType(ex.cardioData.activityType)
+            ? ex.cardioData.activityType
+            : inferCardioActivityType(nameIn, idIn),
         }
       };
     }

@@ -3,6 +3,14 @@ import { Day } from "../firestore/days";
 import { ExerciseDoc } from "../firestore/exercises";
 import { AnalyticsSummary, ExercisePR, VolumeDataPoint, MuscleGroupStats, TimePeriod } from "./types";
 import { parseISO } from "date-fns";
+import {
+  CARDIO_ACTIVITY_TYPES,
+  type CardioActivityType,
+  cardioPaceKind,
+  milesPerHour,
+  resolveCardioActivityType,
+  secondsPerMile,
+} from "../cardio";
 
 /**
  * Calculate total volume from workouts
@@ -518,220 +526,100 @@ export function getVolumeDataPoints(days: Day[], period: TimePeriod = "month"): 
  * Find all Personal Records from days, filtered by tracked exercises if provided
  * CRITICAL: Analytics functions must accept plain arrays (Day[]), not Firestore snapshots.
  */
+type DatedPR = { value: number; date: Date; dayId: string };
+
+function betterHigh(current: DatedPR | undefined, value: number, date: Date, dayId: string): DatedPR | undefined {
+  if (!(value > 0)) return current;
+  if (!current || value > current.value) return { value, date, dayId };
+  return current;
+}
+
+function betterLow(current: DatedPR | undefined, value: number, date: Date, dayId: string): DatedPR | undefined {
+  if (!(value > 0) || !isFinite(value)) return current;
+  if (!current || value < current.value) return { value, date, dayId };
+  return current;
+}
+
+function pushDatedPR(
+  prs: ExercisePR[],
+  exerciseId: string,
+  exerciseName: string,
+  modality: ExercisePR["modality"],
+  prType: ExercisePR["prType"],
+  record?: DatedPR
+) {
+  if (!record) return;
+  prs.push({
+    exerciseId,
+    exerciseName,
+    modality,
+    prType,
+    value: record.value,
+    date: record.date,
+    dayId: record.dayId,
+  });
+}
+
 export function findAllPRs(days: Day[], trackedExerciseIds?: string[]): ExercisePR[] {
   const prs: ExercisePR[] = [];
-  const strengthPRs = new Map<string, { weight: number; reps: number; volume: number; date: Date; dayId: string; name: string }>();
-  const cardioPRs = new Map<string, { distance: number; duration: number; pace: number; date: Date; dayId: string; name: string }>();
-  const calisthenicsPRs = new Map<string, { reps: number; duration?: number; date: Date; dayId: string; name: string }>();
+  const strengthPRs = new Map<string, { name: string; maxWeight?: DatedPR; maxVolume?: DatedPR }>();
+  const cardioPRs = new Map<string, { name: string; maxDistance?: DatedPR; maxDuration?: DatedPR; bestPace?: DatedPR }>();
+  const calisthenicsPRs = new Map<string, { name: string; maxReps?: DatedPR }>();
 
   days.forEach(day => {
-    // Parse date from day.date (YYYY-MM-DD format)
     const dayDate = parseISO(day.date);
-    if (isNaN(dayDate.getTime())) return; // Skip invalid dates
+    if (isNaN(dayDate.getTime())) return;
 
     day.exercises.forEach(ex => {
       const exerciseId = ex.exerciseId || ex.name;
 
       if (ex.modality === "strength" && ex.strengthSets) {
+        const current = strengthPRs.get(exerciseId) || { name: ex.name };
         ex.strengthSets.forEach(set => {
-          const current = strengthPRs.get(exerciseId);
-          
-          // Initialize if needed
-          if (!current) {
-            strengthPRs.set(exerciseId, {
-              weight: set.weight,
-              reps: set.reps,
-              volume: set.reps * set.weight,
-              date: dayDate,
-              dayId: day.id,
-              name: ex.name,
-            });
-          } else {
-            // Update each field independently, preserving others
-            const updated: typeof current = { ...current };
-            let updatedAny = false;
-            
-            if (set.weight > current.weight) {
-              updated.weight = set.weight;
-              updatedAny = true;
-            }
-            
-            // Still track maxReps but don't display it
-            if (set.reps > current.reps) {
-              updated.reps = set.reps;
-              // Don't set updatedAny - we track but don't create PR for it
-            }
-            
-            const volume = set.reps * set.weight;
-            if (volume > current.volume) {
-              updated.volume = volume;
-              updatedAny = true;
-            }
-            
-            // Only update date/dayId if we found a new PR
-            if (updatedAny) {
-              updated.date = dayDate;
-              updated.dayId = day.id;
-            }
-            
-            strengthPRs.set(exerciseId, updated);
-          }
+          current.maxWeight = betterHigh(current.maxWeight, set.weight || 0, dayDate, day.id);
+          current.maxVolume = betterHigh(current.maxVolume, (set.reps || 0) * (set.weight || 0), dayDate, day.id);
         });
+        current.name = ex.name;
+        strengthPRs.set(exerciseId, current);
       }
 
       if (ex.modality === "cardio" && ex.cardioData) {
-        const current = cardioPRs.get(exerciseId);
+        const current = cardioPRs.get(exerciseId) || { name: ex.name };
         const data = ex.cardioData;
-        
-        // Track max distance
-        if (!current || (data.distance || 0) > (current.distance || 0)) {
-          cardioPRs.set(exerciseId, {
-            distance: data.distance || 0,
-            duration: current?.duration || data.duration || 0,
-            pace: current?.pace || (data.pace || Infinity),
-            date: dayDate,
-            dayId: day.id,
-            name: ex.name,
-          });
+        current.maxDistance = betterHigh(current.maxDistance, data.distance || 0, dayDate, day.id);
+        current.maxDuration = betterHigh(current.maxDuration, data.duration || 0, dayDate, day.id);
+        const computedPace = secondsPerMile(data.duration, data.distance || 0) ?? data.pace;
+        if (computedPace) {
+          current.bestPace = betterLow(current.bestPace, computedPace, dayDate, day.id);
         }
-        
-        // Track max duration
-        if (!current || data.duration > (current.duration || 0)) {
-          cardioPRs.set(exerciseId, {
-            distance: current?.distance || (data.distance || 0),
-            duration: data.duration,
-            pace: current?.pace || (data.pace || Infinity),
-            date: dayDate,
-            dayId: day.id,
-            name: ex.name,
-          });
-        }
-        
-        // Track best pace (lower is better)
-        if (data.pace && data.pace > 0 && (!current || data.pace < (current.pace || Infinity))) {
-          cardioPRs.set(exerciseId, {
-            distance: current?.distance || (data.distance || 0),
-            duration: current?.duration || data.duration || 0,
-            pace: data.pace,
-            date: dayDate,
-            dayId: day.id,
-            name: ex.name,
-          });
-        }
+        current.name = ex.name;
+        cardioPRs.set(exerciseId, current);
       }
 
       if (ex.modality === "calisthenics" && ex.calisthenicsSets) {
+        const current = calisthenicsPRs.get(exerciseId) || { name: ex.name };
         ex.calisthenicsSets.forEach(set => {
-          const current = calisthenicsPRs.get(exerciseId);
-          
-          if (!current || set.reps > current.reps) {
-            calisthenicsPRs.set(exerciseId, {
-              ...current || { duration: undefined, date: dayDate, dayId: day.id, name: ex.name },
-              reps: set.reps,
-              date: dayDate,
-              dayId: day.id,
-            });
-          }
-          
-          if (set.duration && (!current || set.duration > (current.duration || 0))) {
-            calisthenicsPRs.set(exerciseId, {
-              ...current || { reps: 0, date: dayDate, dayId: day.id, name: ex.name },
-              duration: set.duration,
-              date: dayDate,
-              dayId: day.id,
-            });
-          }
+          current.maxReps = betterHigh(current.maxReps, set.reps || 0, dayDate, day.id);
         });
+        current.name = ex.name;
+        calisthenicsPRs.set(exerciseId, current);
       }
     });
   });
 
-  // Convert to PR array
   strengthPRs.forEach((pr, exerciseId) => {
-    // Only add maxWeight PR if weight > 0
-    if (pr.weight > 0) {
-      prs.push({
-        exerciseId,
-        exerciseName: pr.name,
-        modality: "strength",
-        prType: "maxWeight",
-        value: pr.weight,
-        date: pr.date,
-        dayId: pr.dayId,
-      });
-    }
-    
-    // REMOVED: maxReps for strength - we track but don't display
-    
-    // Only add maxVolume PR if volume > 0
-    if (pr.volume > 0) {
-      prs.push({
-        exerciseId,
-        exerciseName: pr.name,
-        modality: "strength",
-        prType: "maxVolume",
-        value: pr.volume,
-        date: pr.date,
-        dayId: pr.dayId,
-      });
-    }
+    pushDatedPR(prs, exerciseId, pr.name, "strength", "maxWeight", pr.maxWeight);
+    pushDatedPR(prs, exerciseId, pr.name, "strength", "maxVolume", pr.maxVolume);
   });
 
-  // Add cardio PRs
   cardioPRs.forEach((pr, exerciseId) => {
-    // Max distance PR
-    if (pr.distance > 0) {
-      prs.push({
-        exerciseId,
-        exerciseName: pr.name,
-        modality: "cardio",
-        prType: "maxDistance",
-        value: pr.distance,
-        date: pr.date,
-        dayId: pr.dayId,
-      });
-    }
-    
-    // Max duration PR
-    if (pr.duration > 0) {
-      prs.push({
-        exerciseId,
-        exerciseName: pr.name,
-        modality: "cardio",
-        prType: "maxDuration",
-        value: pr.duration,
-        date: pr.date,
-        dayId: pr.dayId,
-      });
-    }
-    
-    // Best pace PR (only if we have a valid pace)
-    if (pr.pace && isFinite(pr.pace) && pr.pace > 0 && pr.pace !== Infinity) {
-      prs.push({
-        exerciseId,
-        exerciseName: pr.name,
-        modality: "cardio",
-        prType: "bestPace",
-        value: pr.pace,
-        date: pr.date,
-        dayId: pr.dayId,
-      });
-    }
+    pushDatedPR(prs, exerciseId, pr.name, "cardio", "maxDistance", pr.maxDistance);
+    pushDatedPR(prs, exerciseId, pr.name, "cardio", "maxDuration", pr.maxDuration);
+    pushDatedPR(prs, exerciseId, pr.name, "cardio", "bestPace", pr.bestPace);
   });
 
-  // Add calisthenics PRs (keep maxReps for calisthenics)
   calisthenicsPRs.forEach((pr, exerciseId) => {
-    if (pr.reps > 0) {
-      prs.push({
-        exerciseId,
-        exerciseName: pr.name,
-        modality: "calisthenics",
-        prType: "maxReps",
-        value: pr.reps,
-        date: pr.date,
-        dayId: pr.dayId,
-      });
-    }
+    pushDatedPR(prs, exerciseId, pr.name, "calisthenics", "maxReps", pr.maxReps);
   });
 
   // At the end, filter by tracked exercises if provided
@@ -859,119 +747,151 @@ export function getStrengthAnalytics(days: Day[], exercises: Map<string, Exercis
   };
 }
 
-/**
- * Get cardio-specific analytics
- */
-export interface CardioAnalytics {
+export interface CardioExerciseStats {
+  exerciseId: string;
+  name: string;
+  count: number;
   totalDistance: number;
-  totalDuration: number; // seconds
-  averagePace: number; // seconds per mile
+  totalDuration: number;
+}
+
+export interface CardioTypeStats {
+  type: CardioActivityType;
+  sessions: number;
+  totalDuration: number;
+  totalDistance: number;
   longestDistance: number;
   longestDuration: number;
-  bestPace: number; // seconds per mile (lower is better)
-  distanceTrend: Array<{ date: Date; distance: number; duration: number }>;
-  exercisesByFrequency: Array<{ exerciseId: string; name: string; count: number; totalDistance: number }>;
+  averagePace?: number;
+  bestPace?: number;
+  averageSpeed?: number;
+  bestSpeed?: number;
+  exercises: CardioExerciseStats[];
+}
+
+export interface CardioAnalytics {
+  sessions: number;
+  totalDuration: number;
+  byType: CardioTypeStats[];
+}
+
+type TypeAccumulator = {
+  sessions: number;
+  totalDuration: number;
+  totalDistance: number;
+  pacedDuration: number;
+  pacedDistance: number;
+  longestDistance: number;
+  longestDuration: number;
+  bestPace: number;
+  bestSpeed: number;
+  exercises: Map<string, CardioExerciseStats>;
+};
+
+function emptyTypeAccumulator(): TypeAccumulator {
+  return {
+    sessions: 0,
+    totalDuration: 0,
+    totalDistance: 0,
+    pacedDuration: 0,
+    pacedDistance: 0,
+    longestDistance: 0,
+    longestDuration: 0,
+    bestPace: Infinity,
+    bestSpeed: 0,
+    exercises: new Map(),
+  };
 }
 
 /**
- * Get cardio-specific analytics from days
- * CRITICAL: Analytics functions must accept plain arrays (Day[]), not Firestore snapshots.
+ * Cardio stats grouped by activity type so run pace is never mixed with bike miles.
+ * `timePeriod` is unused: callers already pass filtered days.
  */
-export function getCardioAnalytics(days: Day[], timePeriod: TimePeriod = "month"): CardioAnalytics {
-  const cardioExercises = days
-    .flatMap(day => day.exercises.filter(ex => ex.modality === "cardio" && ex.cardioData))
-    .map(ex => ex.cardioData!);
+export function getCardioAnalytics(days: Day[], _timePeriod: TimePeriod = "month"): CardioAnalytics {
+  const byType = new Map<CardioActivityType, TypeAccumulator>();
 
-  const totalDistance = cardioExercises.reduce((sum, data) => sum + (data.distance || 0), 0);
-  const totalDuration = cardioExercises.reduce((sum, data) => sum + data.duration, 0);
-  const averagePace = totalDistance > 0 ? totalDuration / totalDistance : 0;
+  for (const day of days) {
+    if (!day || !Array.isArray(day.exercises)) continue;
 
-  const longestDistance = Math.max(...cardioExercises.map(d => d.distance || 0), 0);
-  const longestDuration = Math.max(...cardioExercises.map(d => d.duration), 0);
-  const bestPace = Math.min(...cardioExercises.filter(d => d.distance && d.distance > 0).map(d => d.pace || Infinity), Infinity);
+    for (const ex of day.exercises) {
+      if (ex.modality !== "cardio" || !ex.cardioData) continue;
 
-  // Distance trend (grouped by period)
-  const trendMap = new Map<string, { distance: number; duration: number }>();
-  
-  days.forEach(day => {
-    const dayDate = parseISO(day.date);
-    if (isNaN(dayDate.getTime())) return; // Skip invalid dates
-    
-    let key: string;
-    if (timePeriod === "week") {
-      const weekStart = new Date(dayDate);
-      weekStart.setDate(dayDate.getDate() - dayDate.getDay());
-      key = weekStart.toISOString().split('T')[0];
-    } else if (timePeriod === "month") {
-      key = `${dayDate.getFullYear()}-${String(dayDate.getMonth() + 1).padStart(2, '0')}`;
-    } else if (timePeriod === "year") {
-      key = String(dayDate.getFullYear());
-    } else {
-      key = dayDate.toISOString().split('T')[0];
-    }
-    
-    const cardioInDay = day.exercises
-      .filter(ex => ex.modality === "cardio" && ex.cardioData)
-      .reduce((acc, ex) => ({
-        distance: acc.distance + (ex.cardioData?.distance || 0),
-        duration: acc.duration + (ex.cardioData?.duration || 0),
-      }), { distance: 0, duration: 0 });
-    
-    const existing = trendMap.get(key) || { distance: 0, duration: 0 };
-    trendMap.set(key, {
-      distance: existing.distance + cardioInDay.distance,
-      duration: existing.duration + cardioInDay.duration,
-    });
-  });
+      const data = ex.cardioData;
+      const type = resolveCardioActivityType(data.activityType, ex.name, ex.exerciseId);
+      const acc = byType.get(type) ?? emptyTypeAccumulator();
+      const distance = data.distance || 0;
+      const duration = data.duration || 0;
 
-  const distanceTrend = Array.from(trendMap.entries())
-    .map(([dateStr, data]) => {
-      let parsedDate: Date;
-      if (timePeriod === "month") {
-        const [year, month] = dateStr.split('-').map(Number);
-        parsedDate = new Date(year, month - 1, 1);
-      } else if (timePeriod === "year") {
-        parsedDate = new Date(Number(dateStr), 0, 1);
-      } else {
-        parsedDate = new Date(dateStr);
+      acc.sessions += 1;
+      acc.totalDuration += duration;
+      acc.totalDistance += distance;
+      acc.longestDuration = Math.max(acc.longestDuration, duration);
+      acc.longestDistance = Math.max(acc.longestDistance, distance);
+
+      const kind = cardioPaceKind(type);
+      if (distance > 0 && duration > 0) {
+        acc.pacedDuration += duration;
+        acc.pacedDistance += distance;
+        if (kind === "pace") {
+          const pace = secondsPerMile(duration, distance);
+          if (pace && pace < acc.bestPace) acc.bestPace = pace;
+        }
+        if (kind === "speed") {
+          const speed = milesPerHour(duration, distance);
+          if (speed && speed > acc.bestSpeed) acc.bestSpeed = speed;
+        }
       }
-      return {
-        date: parsedDate,
-        ...data,
+
+      const exerciseKey = ex.exerciseId || ex.name;
+      const current = acc.exercises.get(exerciseKey) || {
+        exerciseId: exerciseKey,
+        name: ex.name,
+        count: 0,
+        totalDistance: 0,
+        totalDuration: 0,
       };
+      current.count += 1;
+      current.totalDistance += distance;
+      current.totalDuration += duration;
+      acc.exercises.set(exerciseKey, current);
+
+      byType.set(type, acc);
+    }
+  }
+
+  const types: CardioTypeStats[] = CARDIO_ACTIVITY_TYPES
+    .map((type) => {
+      const acc = byType.get(type);
+      if (!acc || acc.sessions === 0) return null;
+
+      const kind = cardioPaceKind(type);
+      const stats: CardioTypeStats = {
+        type,
+        sessions: acc.sessions,
+        totalDuration: acc.totalDuration,
+        totalDistance: acc.totalDistance,
+        longestDistance: acc.longestDistance,
+        longestDuration: acc.longestDuration,
+        exercises: Array.from(acc.exercises.values()).sort((a, b) => b.count - a.count),
+      };
+
+      if (kind === "pace" && acc.pacedDistance > 0) {
+        stats.averagePace = acc.pacedDuration / acc.pacedDistance;
+        if (isFinite(acc.bestPace)) stats.bestPace = acc.bestPace;
+      }
+      if (kind === "speed" && acc.pacedDuration > 0) {
+        stats.averageSpeed = milesPerHour(acc.pacedDuration, acc.pacedDistance);
+        if (acc.bestSpeed > 0) stats.bestSpeed = acc.bestSpeed;
+      }
+
+      return stats;
     })
-    .sort((a, b) => a.date.getTime() - b.date.getTime());
-
-  // Exercise frequency
-  const exerciseMap = new Map<string, { name: string; count: number; totalDistance: number }>();
-  
-  days.forEach(day => {
-    day.exercises
-      .filter(ex => ex.modality === "cardio" && ex.cardioData)
-      .forEach(ex => {
-        const key = ex.exerciseId || ex.name;
-        const current = exerciseMap.get(key) || { name: ex.name, count: 0, totalDistance: 0 };
-        exerciseMap.set(key, {
-          name: ex.name,
-          count: current.count + 1,
-          totalDistance: current.totalDistance + (ex.cardioData?.distance || 0),
-        });
-      });
-  });
-
-  const exercisesByFrequency = Array.from(exerciseMap.entries())
-    .map(([exerciseId, data]) => ({ exerciseId, ...data }))
-    .sort((a, b) => b.count - a.count);
+    .filter((row): row is CardioTypeStats => row !== null);
 
   return {
-    totalDistance,
-    totalDuration,
-    averagePace: isFinite(averagePace) ? averagePace : 0,
-    longestDistance,
-    longestDuration,
-    bestPace: isFinite(bestPace) ? bestPace : 0,
-    distanceTrend,
-    exercisesByFrequency,
+    sessions: types.reduce((sum, t) => sum + t.sessions, 0),
+    totalDuration: types.reduce((sum, t) => sum + t.totalDuration, 0),
+    byType: types,
   };
 }
 

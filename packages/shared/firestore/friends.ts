@@ -13,9 +13,9 @@ import {
   QueryDocumentSnapshot,
   SnapshotOptions,
 } from "firebase/firestore";
+import { lookupUserIdByEmail } from "./emailIndex";
 
 const COLLECTION = "friends";
-const ACCOUNTS_COLLECTION = "accounts";
 
 // --------- Types ---------
 export interface Friend {
@@ -129,18 +129,10 @@ export function createFriendsService(db: Firestore, auth: Auth) {
         throw new Error("Invalid email address");
       }
 
-      // Find user by email in accounts collection
-      // Note: This requires email to be stored in accounts collection
-      const accountsCol = collection(db, ACCOUNTS_COLLECTION);
-      const accountsQuery = query(accountsCol, where("email", "==", normalizedEmail));
-      const accountsSnapshot = await getDocs(accountsQuery);
-
-      if (accountsSnapshot.empty) {
+      const friendUserId = await lookupUserIdByEmail(db, normalizedEmail);
+      if (!friendUserId) {
         throw new Error("No user found with that email address");
       }
-
-      const friendAccount = accountsSnapshot.docs[0];
-      const friendUserId = friendAccount.id;
 
       // Prevent adding yourself as a friend
       if (friendUserId === uid) {

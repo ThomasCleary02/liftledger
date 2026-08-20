@@ -1,13 +1,60 @@
 import type { Firestore } from "firebase/firestore";
 import type { Auth } from "firebase/auth";
-import { collection, query, where, getDocs, deleteDoc, doc, getDoc, setDoc } from "firebase/firestore";
+import { collection, query, where, getDocs, deleteDoc, doc, getDoc, setDoc, deleteField } from "firebase/firestore";
 import { deleteUser } from "firebase/auth";
+import { deleteEmailIndex, writeEmailIndex } from "./emailIndex";
+import { claimUsername, deleteUsernameIndex, lookupUserIdByUsername } from "./usernameIndex";
 
 const WORKOUTS_COLLECTION = "workouts";
 const ACCOUNTS_COLLECTION = "accounts";
+const DAYS_COLLECTION = "days";
+const TEMPLATES_COLLECTION = "workoutTemplates";
+const FRIENDS_COLLECTION = "friends";
+const FRIEND_REQUESTS_COLLECTION = "friendRequests";
+
+async function deleteMatching(
+  db: Firestore,
+  collectionName: string,
+  field: string,
+  value: string
+): Promise<void> {
+  const snapshot = await getDocs(query(collection(db, collectionName), where(field, "==", value)));
+  await Promise.all(snapshot.docs.map((docSnapshot) => deleteDoc(docSnapshot.ref)));
+}
 
 export function createAccountService(db: Firestore, auth: Auth) {
+  const persistEmailIndex = async () => {
+    const user = auth.currentUser;
+    if (!user?.email) return;
+    await writeEmailIndex(db, user.uid, user.email);
+    await setDoc(
+      doc(db, ACCOUNTS_COLLECTION, user.uid),
+      { email: user.email.toLowerCase() },
+      { merge: true }
+    );
+    const accountDoc = await getDoc(doc(db, ACCOUNTS_COLLECTION, user.uid));
+    const username = accountDoc.exists() ? accountDoc.data()?.username : undefined;
+    if (typeof username === "string" && username) {
+      try {
+        await claimUsername(db, user.uid, username);
+      } catch {
+        const owner = await lookupUserIdByUsername(db, username);
+        if (owner && owner !== user.uid) {
+          await setDoc(
+            doc(db, ACCOUNTS_COLLECTION, user.uid),
+            { username: deleteField() },
+            { merge: true }
+          );
+        }
+      }
+    }
+  };
+
   return {
+    async ensureEmailIndex(): Promise<void> {
+      await persistEmailIndex();
+    },
+
     async deleteUserAccount(): Promise<void> {
       const user = auth.currentUser;
       if (!user) {
@@ -15,23 +62,27 @@ export function createAccountService(db: Firestore, auth: Auth) {
       }
 
       try {
-        // Delete all workouts
-        const workoutsQuery = query(
-          collection(db, WORKOUTS_COLLECTION),
-          where("ownerId", "==", user.uid)
-        );
-        const workoutsSnapshot = await getDocs(workoutsQuery);
-        
-        const deletePromises = workoutsSnapshot.docs.map(docSnapshot => 
-          deleteDoc(doc(db, WORKOUTS_COLLECTION, docSnapshot.id))
-        );
-        
-        await Promise.all(deletePromises);
+        const accountSnap = await getDoc(doc(db, ACCOUNTS_COLLECTION, user.uid));
+        const username = accountSnap.exists() ? accountSnap.data()?.username : undefined;
 
-        // Delete account document
+        await Promise.all([
+          deleteMatching(db, DAYS_COLLECTION, "userId", user.uid),
+          deleteMatching(db, TEMPLATES_COLLECTION, "ownerId", user.uid),
+          deleteMatching(db, WORKOUTS_COLLECTION, "ownerId", user.uid),
+          deleteMatching(db, FRIENDS_COLLECTION, "userId", user.uid),
+          deleteMatching(db, FRIENDS_COLLECTION, "friendUserId", user.uid),
+          deleteMatching(db, FRIEND_REQUESTS_COLLECTION, "fromUserId", user.uid),
+          deleteMatching(db, FRIEND_REQUESTS_COLLECTION, "toUserId", user.uid),
+        ]);
+
+        if (user.email) {
+          await deleteEmailIndex(db, user.email);
+        }
+        if (typeof username === "string" && username) {
+          await deleteUsernameIndex(db, username);
+        }
+
         await deleteDoc(doc(db, ACCOUNTS_COLLECTION, user.uid));
-
-        // Delete the auth account
         await deleteUser(user);
       } catch (error: any) {
         console.error("Error deleting account:", error);
@@ -60,6 +111,7 @@ export function createAccountService(db: Firestore, auth: Auth) {
             accountData.trackedExercises = existing.trackedExercises || [];
           }
           await setDoc(accountRef, accountData, { merge: true });
+          await persistEmailIndex();
         }
         
         if (accountDoc.exists()) {
@@ -102,6 +154,7 @@ export function createAccountService(db: Firestore, auth: Auth) {
         }
 
         await setDoc(accountRef, accountData, { merge: true });
+          await persistEmailIndex();
 
         return !isFavorite;
       } catch (error) {
@@ -131,6 +184,7 @@ export function createAccountService(db: Firestore, auth: Auth) {
             accountData.trackedExercises = existing.trackedExercises || [];
           }
           await setDoc(accountRef, accountData, { merge: true });
+          await persistEmailIndex();
         }
         
         if (accountDoc.exists()) {
@@ -161,6 +215,7 @@ export function createAccountService(db: Firestore, auth: Auth) {
         }
         
         await setDoc(accountRef, accountData, { merge: true });
+          await persistEmailIndex();
       } catch (error) {
         console.error("Error setting tracked exercises:", error);
         throw error;
@@ -195,6 +250,7 @@ export function createAccountService(db: Firestore, auth: Auth) {
         }
 
         await setDoc(accountRef, accountData, { merge: true });
+          await persistEmailIndex();
 
         return !isTracked;
       } catch (error) {
@@ -234,17 +290,26 @@ export function createAccountService(db: Firestore, auth: Auth) {
 
       try {
         const accountRef = doc(db, ACCOUNTS_COLLECTION, user.uid);
+        const accountDoc = await getDoc(accountRef);
+        const previous = accountDoc.exists() ? accountDoc.data()?.username : undefined;
+
+        await claimUsername(db, user.uid, username);
+
+        if (typeof previous === "string" && previous.toLowerCase() !== username.trim().toLowerCase()) {
+          await deleteUsernameIndex(db, previous);
+        }
+
         const accountData: any = {
           username: username.trim(),
           updatedAt: new Date().toISOString(),
         };
         
-        // Ensure email is stored for friend request lookups
         if (user.email) {
           accountData.email = user.email.toLowerCase();
         }
 
         await setDoc(accountRef, accountData, { merge: true });
+        await persistEmailIndex();
       } catch (error) {
         console.error("Error setting username:", error);
         throw error;

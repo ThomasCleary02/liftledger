@@ -11,7 +11,7 @@ import {
   getConsistencyLeaderboard,
   type LeaderboardTimePeriod,
 } from "@liftledger/shared/analytics/leaderboards";
-import { formatWeight, formatDistance } from "../../../../lib/utils/units";
+import { formatWeight, formatCardioDuration } from "../../../../lib/utils/units";
 import { usePreferences } from "../../../../lib/hooks/usePreferences";
 import { Trophy, ArrowLeft, BarChart3, Map as MapIcon, Calendar } from "lucide-react";
 import { logger } from "../../../../lib/logger";
@@ -82,7 +82,7 @@ export default function Leaderboards() {
     if (metric === "volume") {
       return formatWeight(value, units);
     } else if (metric === "cardio") {
-      return formatDistance(value, units);
+      return formatCardioDuration(value);
     } else {
       return `${value} days`;
     }
@@ -100,7 +100,7 @@ export default function Leaderboards() {
   }
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-gray-50">
+    <div className="flex h-full flex-col overflow-hidden bg-gray-50">
       {/* Fixed Header */}
       <header className="flex-shrink-0 border-b border-gray-200 bg-white">
         <div className="px-4 py-4 md:px-8 md:py-6">
@@ -129,7 +129,7 @@ export default function Leaderboards() {
                       : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                   }`}
                 >
-                  {m === "volume" ? "Volume" : m === "cardio" ? "Cardio" : "Consistency"}
+                  {m === "volume" ? "Volume" : m === "cardio" ? "Cardio time" : "Consistency"}
                 </button>
               ))}
             </div>

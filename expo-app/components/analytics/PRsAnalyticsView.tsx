@@ -47,6 +47,8 @@ export default function PRsAnalyticsView({ prs }: Props) {
       const secs = Math.round(pr.value % 60);
       const unit = units === "metric" ? "km" : "mi";
       return `${mins}:${secs.toString().padStart(2, '0')} /${unit}`;
+    } else if (pr.prType === "maxVolume") {
+      return formatWeight(pr.value, units);
     } else {
       return `${pr.value.toFixed(0)}${pr.prType === "maxReps" ? " reps" : ""}`;
     }

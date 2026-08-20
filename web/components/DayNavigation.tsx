@@ -8,61 +8,103 @@ interface DayNavigationProps {
   currentDate: string; // YYYY-MM-DD
   onDateChange: (date: string) => void;
   onTodayClick?: () => void;
+  loggedDates?: Set<string>;
+  restDates?: Set<string>;
 }
 
-export default function DayNavigation({ currentDate, onDateChange, onTodayClick }: DayNavigationProps) {
+export default function DayNavigation({
+  currentDate,
+  onDateChange,
+  onTodayClick,
+  loggedDates,
+  restDates,
+}: DayNavigationProps) {
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   const date = parseISO(currentDate);
   const formattedDate = format(date, "EEEE, MMMM d, yyyy");
+  const today = format(new Date(), "yyyy-MM-dd");
+  const isToday = today === currentDate;
+  const weekDates = [-3, -2, -1, 0, 1, 2, 3].map((offset) => format(addDays(date, offset), "yyyy-MM-dd"));
 
   const goToPreviousDay = () => {
-    const prevDate = subDays(date, 1);
-    onDateChange(format(prevDate, "yyyy-MM-dd"));
+    onDateChange(format(subDays(date, 1), "yyyy-MM-dd"));
   };
 
   const goToNextDay = () => {
-    const nextDate = addDays(date, 1);
-    onDateChange(format(nextDate, "yyyy-MM-dd"));
+    const next = format(addDays(date, 1), "yyyy-MM-dd");
+    if (next > today) return;
+    onDateChange(next);
   };
 
-  const isToday = format(new Date(), "yyyy-MM-dd") === currentDate;
-
   return (
-    <div className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-3 md:px-8 md:py-4">
-      <div className="flex min-w-0 flex-1 items-center gap-2 md:gap-3">
-        <button
-          onClick={goToPreviousDay}
-          className="flex touch-target flex-shrink-0 items-center justify-center rounded-lg p-2 text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-black"
-          aria-label="Previous day"
-        >
-          <ChevronLeft className="h-5 w-5" />
-        </button>
+    <div className="relative border-b border-gray-200 bg-white px-4 py-3 md:px-8 md:py-4">
+      <div className="flex items-center justify-between">
+        <div className="flex min-w-0 flex-1 items-center gap-2 md:gap-3">
+          <button
+            onClick={goToPreviousDay}
+            className="flex touch-target flex-shrink-0 items-center justify-center rounded-lg p-2 text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-black"
+            aria-label="Previous day"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
 
-        <button
-          onClick={() => setShowDatePicker(!showDatePicker)}
-          className="min-w-0 flex-1 text-left focus:outline-none focus:ring-2 focus:ring-black rounded-lg px-2 py-1"
-        >
-          <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-gray-500 flex-shrink-0" />
-            <div className="min-w-0 flex-1">
-              <h1 className="text-lg font-bold text-gray-900 md:text-xl truncate">
-                {formattedDate}
-              </h1>
-              {isToday && (
-                <p className="text-xs text-gray-500 mt-0.5">Today</p>
-              )}
+          <button
+            onClick={() => setShowDatePicker(!showDatePicker)}
+            className="min-w-0 flex-1 rounded-lg px-2 py-1 text-left focus:outline-none focus:ring-2 focus:ring-black"
+          >
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 flex-shrink-0 text-gray-500" />
+              <div className="min-w-0 flex-1">
+                <h1 className="truncate text-lg font-bold text-gray-900 md:text-xl">
+                  {formattedDate}
+                </h1>
+                {isToday && (
+                  <p className="mt-0.5 text-xs text-gray-500">Today</p>
+                )}
+              </div>
             </div>
-          </div>
-        </button>
+          </button>
 
-        <button
-          onClick={goToNextDay}
-          className="flex touch-target flex-shrink-0 items-center justify-center rounded-lg p-2 text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-black"
-          aria-label="Next day"
-        >
-          <ChevronRight className="h-5 w-5" />
-        </button>
+          <button
+            onClick={goToNextDay}
+            disabled={isToday}
+            className="flex touch-target flex-shrink-0 items-center justify-center rounded-lg p-2 text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-black disabled:opacity-30"
+            aria-label="Next day"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-3 flex items-center justify-between gap-1">
+        {weekDates.map((day) => {
+          const selected = day === currentDate;
+          const trained = loggedDates?.has(day);
+          const rest = restDates?.has(day);
+          const isFuture = day > today;
+          return (
+            <button
+              key={day}
+              type="button"
+              disabled={isFuture}
+              onClick={() => onDateChange(day)}
+              className={`flex min-h-[44px] flex-1 flex-col items-center justify-center rounded-lg py-1 text-xs font-medium ${
+                isFuture
+                  ? "cursor-not-allowed text-gray-300"
+                  : selected
+                    ? "bg-black text-white"
+                    : "text-gray-600 hover:bg-gray-100"
+              }`}
+            >
+              <span>{format(parseISO(day), "EEEEE")}</span>
+              <span className="text-sm font-semibold">{format(parseISO(day), "d")}</span>
+              <span className={`mt-0.5 h-1.5 w-1.5 rounded-full ${
+                trained ? (selected ? "bg-white" : "bg-black") : rest ? (selected ? "bg-white/70" : "bg-blue-400") : "bg-transparent"
+              }`} />
+            </button>
+          );
+        })}
       </div>
 
       {showDatePicker && (
@@ -75,7 +117,7 @@ export default function DayNavigation({ currentDate, onDateChange, onTodayClick 
                 onDateChange(e.target.value);
                 setShowDatePicker(false);
               }}
-              max={format(new Date(), "yyyy-MM-dd")}
+              max={today}
               className="w-full rounded-lg border border-gray-300 px-4 py-2 text-lg focus:border-black focus:outline-none focus:ring-2 focus:ring-black"
               autoFocus
             />

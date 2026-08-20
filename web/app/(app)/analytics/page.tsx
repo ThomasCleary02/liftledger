@@ -11,11 +11,12 @@ import {
   getCardioAnalytics,
   filterDaysByPeriod,
   findAllPRs,
+  type CardioTypeStats,
 } from "../../../lib/analytics/calculations";
 import { AnalyticsSummary, ExercisePR, TimePeriod } from "../../../lib/analytics/types";
 import { ExerciseDoc } from "../../../lib/firestore/exercises";
 import { usePreferences } from "../../../lib/hooks/usePreferences";
-import { formatWeight, formatDistance } from "../../../lib/utils/units";
+import { formatWeight, formatDistance, formatCardioDuration, formatPace, formatSpeed } from "../../../lib/utils/units";
 import {
   Dumbbell,
   BarChart3,
@@ -28,8 +29,10 @@ import {
   Clock,
   Gauge,
 } from "lucide-react";
+import { format, startOfWeek, eachDayOfInterval, addDays } from "date-fns";
 import { logger } from "../../../lib/logger";
 import { getTrackedExercises } from "../../../lib/firestore/account";
+import { CARDIO_ACTIVITY_LABELS, cardioPaceKind, type CardioActivityType } from "@liftledger/shared";
 
 type TabType = "overview" | "strength" | "cardio" | "prs";
 
@@ -133,7 +136,7 @@ export default function Analytics() {
             Start logging workouts to see your progress and analytics here.
           </p>
           <button
-            onClick={() => router.push("/workout/new")}
+            onClick={() => router.push("/day/today")}
             className="rounded-xl bg-black px-6 py-3 font-semibold text-white transition-opacity hover:opacity-90"
           >
             Create Your First Workout
@@ -151,7 +154,7 @@ export default function Analytics() {
   ];
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-gray-50">
+    <div className="flex h-full flex-col overflow-hidden bg-gray-50">
       {/* Fixed Header */}
       <header className="flex-shrink-0 border-b border-gray-200 bg-white">
         <div className="px-4 py-4 md:px-8 md:py-6">
@@ -209,7 +212,7 @@ export default function Analytics() {
       <main className="flex-1 overflow-y-auto">
         <div className="container mx-auto px-4 py-6 md:px-8 md:max-w-4xl">
           {activeTab === "overview" && (
-            <OverviewView summary={summary} days={filteredDays} timePeriod={timePeriod} />
+            <OverviewView summary={summary} days={filteredDays} allDays={days} timePeriod={timePeriod} />
           )}
           {activeTab === "strength" && (
             <StrengthView days={filteredDays} exercises={exercises} timePeriod={timePeriod} />
@@ -228,13 +231,33 @@ export default function Analytics() {
 function OverviewView({
   summary,
   days,
+  allDays,
   timePeriod,
 }: {
   summary: AnalyticsSummary;
   days: Day[];
+  allDays: Day[];
   timePeriod: TimePeriod;
 }) {
   const { units } = usePreferences();
+  const cardio = getCardioAnalytics(days, timePeriod);
+  const cardioBreakdown = cardio.byType
+    .filter((t) => t.sessions > 0)
+    .map((t) => {
+      const amount =
+        t.totalDistance > 0
+          ? formatDistance(t.totalDistance, units)
+          : formatCardioDuration(t.totalDuration);
+      return `${CARDIO_ACTIVITY_LABELS[t.type]} ${amount}`;
+    })
+    .join(" · ");
+
+  const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+  const weekDates = eachDayOfInterval({ start: weekStart, end: addDays(weekStart, 6) });
+  const trained = new Set(
+    allDays.filter((d) => !d.isRestDay && d.exercises.length > 0).map((d) => d.date)
+  );
+  const trainedThisWeek = weekDates.filter((date) => trained.has(format(date, "yyyy-MM-dd"))).length;
 
   return (
     <div className="space-y-6">
@@ -266,7 +289,35 @@ function OverviewView({
         />
       </div>
 
-      {/* Favorite Exercise */}
+      <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+        <div className="mb-3 flex items-center justify-between">
+          <p className="text-sm font-semibold text-gray-900">This week</p>
+          <p className="text-sm text-gray-500">{trainedThisWeek} of 7 days trained</p>
+        </div>
+        <div className="flex gap-2">
+          {weekDates.map((date) => {
+            const key = format(date, "yyyy-MM-dd");
+            const didTrain = trained.has(key);
+            const isToday = key === format(new Date(), "yyyy-MM-dd");
+            return (
+              <div key={key} className="flex flex-1 flex-col items-center gap-1">
+                <span className="text-xs text-gray-500">{format(date, "EEEEE")}</span>
+                <div
+                  className={`flex h-9 w-full items-center justify-center rounded-lg text-xs font-semibold ${
+                    didTrain
+                      ? "bg-black text-white"
+                      : isToday
+                        ? "border border-gray-300 text-gray-700"
+                        : "bg-gray-100 text-gray-400"
+                  }`}
+                >
+                  {format(date, "d")}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
       {summary.favoriteExercise && (
         <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
           <div className="flex items-center">
@@ -284,14 +335,13 @@ function OverviewView({
       {/* Quick Stats */}
       <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
         <StatRow label="Total Volume" value={formatWeight(summary.totalVolume, units)} />
-        <StatRow
-          label="Cardio Distance"
-          value={formatDistance(summary.totalCardioDistance, units)}
-        />
-        <StatRow
-          label="Cardio Duration"
-          value={`${Math.round(summary.totalCardioDuration / 60)} min`}
-        />
+        <StatRow label="Cardio time" value={formatCardioDuration(summary.totalCardioDuration)} />
+        {cardioBreakdown.length > 0 && (
+          <StatRow
+            label="By type"
+            value={cardioBreakdown}
+          />
+        )}
         <StatRow
           label="Calisthenics Reps"
           value={summary.totalCalisthenicsReps.toLocaleString()}
@@ -423,97 +473,221 @@ function CardioView({
 }) {
   const cardioAnalytics = getCardioAnalytics(days, timePeriod);
   const { units } = usePreferences();
+  const [selectedType, setSelectedType] = useState<CardioActivityType | "all">("all");
 
-  const formatPace = (secondsPerMile: number): string => {
-    if (!isFinite(secondsPerMile) || secondsPerMile === 0) return "N/A";
-    const mins = Math.floor(secondsPerMile / 60);
-    const secs = Math.round(secondsPerMile % 60);
-    const unit = units === "metric" ? "km" : "mi";
-    return `${mins}:${secs.toString().padStart(2, "0")} /${unit}`;
-  };
+  const types = cardioAnalytics.byType;
+  const activeType: CardioTypeStats | undefined =
+    selectedType === "all" ? undefined : types.find((t) => t.type === selectedType);
 
-  const formatDuration = (seconds: number): string => {
-    const hours = Math.floor(seconds / 3600);
-    const mins = Math.floor((seconds % 3600) / 60);
-    if (hours > 0) {
-      return `${hours}h ${mins}m`;
-    }
-    return `${mins}m`;
-  };
+  if (cardioAnalytics.sessions === 0) {
+    return (
+      <div className="rounded-2xl border border-gray-100 bg-white p-8 text-center shadow-sm">
+        <Heart className="mx-auto mb-3 h-10 w-10 text-gray-300" />
+        <p className="font-medium text-gray-900">No cardio in this period</p>
+        <p className="mt-1 text-sm text-gray-500">
+          Log a run, walk, bike, or row from the day view. Types stay separate so pace stays honest.
+        </p>
+      </div>
+    );
+  }
+
+  const showChips = types.length > 1;
+  const detail = types.length === 1 ? types[0] : activeType;
 
   return (
     <div className="space-y-6">
-      {/* Summary Stats */}
-      <div>
-        <h2 className="mb-4 text-xl font-bold text-gray-900">Cardio Summary</h2>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      {showChips && (
+        <div className="flex flex-wrap gap-2">
+          <TypeChip
+            label="All"
+            selected={selectedType === "all"}
+            onClick={() => setSelectedType("all")}
+          />
+          {types.map((t) => (
+            <TypeChip
+              key={t.type}
+              label={CARDIO_ACTIVITY_LABELS[t.type]}
+              selected={selectedType === t.type}
+              onClick={() => setSelectedType(t.type)}
+            />
+          ))}
+        </div>
+      )}
+
+      {!detail && (
+        <>
+          <div className="grid grid-cols-2 gap-3">
+            <StatCard
+              icon={Heart}
+              label="Sessions"
+              value={String(cardioAnalytics.sessions)}
+              color="bg-red-100 text-red-700"
+            />
+            <StatCard
+              icon={Clock}
+              label="Total time"
+              value={formatCardioDuration(cardioAnalytics.totalDuration)}
+              color="bg-orange-100 text-orange-700"
+            />
+          </div>
+
+          <div>
+            <h2 className="mb-3 text-lg font-semibold text-gray-700">By type</h2>
+            <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+              {types.map((t, idx) => (
+                <button
+                  key={t.type}
+                  type="button"
+                  onClick={() => setSelectedType(t.type)}
+                  className={`flex w-full items-center justify-between px-5 py-4 text-left ${
+                    idx < types.length - 1 ? "border-b border-gray-100" : ""
+                  }`}
+                >
+                  <div>
+                    <p className="font-semibold text-gray-900">{CARDIO_ACTIVITY_LABELS[t.type]}</p>
+                    <p className="text-sm text-gray-500">
+                      {t.sessions} session{t.sessions === 1 ? "" : "s"} · {formatCardioDuration(t.totalDuration)}
+                    </p>
+                  </div>
+                  <p className="text-sm font-semibold text-gray-900">
+                    {t.totalDistance > 0 ? formatDistance(t.totalDistance, units) : "—"}
+                  </p>
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      {detail && <CardioTypeDetail stats={detail} units={units} />}
+    </div>
+  );
+}
+
+function TypeChip({
+  label,
+  selected,
+  onClick,
+}: {
+  label: string;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+        selected ? "bg-black text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
+function CardioTypeDetail({
+  stats,
+  units,
+}: {
+  stats: CardioTypeStats;
+  units: "metric" | "imperial";
+}) {
+  const kind = cardioPaceKind(stats.type);
+  const label = CARDIO_ACTIVITY_LABELS[stats.type];
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <StatCard
+          icon={Clock}
+          label="Time"
+          value={formatCardioDuration(stats.totalDuration)}
+          color="bg-orange-100 text-orange-700"
+        />
+        <StatCard
+          icon={MapIcon}
+          label="Distance"
+          value={stats.totalDistance > 0 ? formatDistance(stats.totalDistance, units) : "—"}
+          color="bg-red-100 text-red-700"
+        />
+        {kind === "pace" && (
+          <>
+            <StatCard
+              icon={Gauge}
+              label="Avg pace"
+              value={formatPace(stats.averagePace || 0, units)}
+              color="bg-pink-100 text-pink-700"
+            />
+            <StatCard
+              icon={Trophy}
+              label="Best pace"
+              value={formatPace(stats.bestPace || 0, units)}
+              color="bg-yellow-100 text-yellow-700"
+            />
+          </>
+        )}
+        {kind === "speed" && (
+          <>
+            <StatCard
+              icon={Gauge}
+              label="Avg speed"
+              value={formatSpeed(stats.averageSpeed || 0, units)}
+              color="bg-pink-100 text-pink-700"
+            />
+            <StatCard
+              icon={Trophy}
+              label="Top speed"
+              value={formatSpeed(stats.bestSpeed || 0, units)}
+              color="bg-yellow-100 text-yellow-700"
+            />
+          </>
+        )}
+        {kind === "none" && (
           <StatCard
-            icon={MapIcon}
-            label="Total Distance"
-            value={formatDistance(cardioAnalytics.totalDistance, units)}
+            icon={Heart}
+            label="Sessions"
+            value={String(stats.sessions)}
             color="bg-red-100 text-red-700"
           />
-          <StatCard
-            icon={Clock}
-            label="Total Duration"
-            value={formatDuration(cardioAnalytics.totalDuration)}
-            color="bg-orange-100 text-orange-700"
-          />
-          <StatCard
-            icon={Gauge}
-            label="Avg Pace"
-            value={formatPace(cardioAnalytics.averagePace)}
-            color="bg-pink-100 text-pink-700"
-          />
-          <StatCard
-            icon={Trophy}
-            label="Best Pace"
-            value={formatPace(cardioAnalytics.bestPace)}
-            color="bg-yellow-100 text-yellow-700"
-          />
-        </div>
+        )}
       </div>
 
-      {/* PRs */}
       <div>
-        <h2 className="mb-4 text-xl font-bold text-gray-900">Personal Records</h2>
+        <h2 className="mb-3 text-lg font-semibold text-gray-700">{label} records</h2>
         <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-          <StatRow
-            label="Longest Distance"
-            value={formatDistance(cardioAnalytics.longestDistance, units)}
-          />
-          <StatRow
-            label="Longest Duration"
-            value={formatDuration(cardioAnalytics.longestDuration)}
-          />
-          <StatRow label="Best Pace" value={formatPace(cardioAnalytics.bestPace)} />
+          <StatRow label="Longest time" value={formatCardioDuration(stats.longestDuration)} />
+          {stats.longestDistance > 0 && (
+            <StatRow label="Longest distance" value={formatDistance(stats.longestDistance, units)} />
+          )}
+          {kind === "pace" && <StatRow label="Best pace" value={formatPace(stats.bestPace || 0, units)} />}
+          {kind === "speed" && <StatRow label="Top speed" value={formatSpeed(stats.bestSpeed || 0, units)} />}
         </div>
       </div>
 
-      {/* Top Exercises */}
-      {cardioAnalytics.exercisesByFrequency.length > 0 && (
+      {stats.exercises.length > 0 && (
         <div>
-          <h2 className="mb-4 text-xl font-bold text-gray-900">Most Performed Cardio</h2>
+          <h2 className="mb-3 text-lg font-semibold text-gray-700">Exercises</h2>
           <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
-            {cardioAnalytics.exercisesByFrequency.slice(0, 10).map((exercise, idx) => (
+            {stats.exercises.map((exercise, idx) => (
               <div
-                key={idx}
-                className={`px-5 py-4 ${
-                  idx < cardioAnalytics.exercisesByFrequency.length - 1
-                    ? "border-b border-gray-100"
-                    : ""
-                }`}
+                key={exercise.exerciseId}
+                className={`px-5 py-4 ${idx < stats.exercises.length - 1 ? "border-b border-gray-100" : ""}`}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
                     <p className="font-semibold text-gray-900">{exercise.name}</p>
-                    <p className="text-sm text-gray-500">{exercise.count} sessions</p>
+                    <p className="text-sm text-gray-500">
+                      {exercise.count} session{exercise.count === 1 ? "" : "s"}
+                    </p>
                   </div>
                   <div className="text-right">
                     <p className="text-lg font-bold text-gray-900">
-                      {formatDistance(exercise.totalDistance, units)}
+                      {formatCardioDuration(exercise.totalDuration)}
                     </p>
-                    <p className="text-xs text-gray-400">Total Distance</p>
+                    {exercise.totalDistance > 0 && (
+                      <p className="text-xs text-gray-400">{formatDistance(exercise.totalDistance, units)}</p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -548,17 +722,11 @@ function PRsView({ prs, trackedExerciseIds }: { prs: ExercisePR[]; trackedExerci
     } else if (pr.prType === "maxDistance") {
       return formatDistance(pr.value, units);
     } else if (pr.prType === "maxDuration") {
-      const hours = Math.floor(pr.value / 3600);
-      const mins = Math.floor((pr.value % 3600) / 60);
-      if (hours > 0) {
-        return `${hours}h ${mins}m`;
-      }
-      return `${mins} min`;
+      return formatCardioDuration(pr.value);
     } else if (pr.prType === "bestPace") {
-      const mins = Math.floor(pr.value / 60);
-      const secs = Math.round(pr.value % 60);
-      const unit = units === "metric" ? "km" : "mi";
-      return `${mins}:${secs.toString().padStart(2, "0")} /${unit}`;
+      return formatPace(pr.value, units);
+    } else if (pr.prType === "maxVolume") {
+      return formatWeight(pr.value, units);
     } else {
       return `${pr.value.toFixed(0)}${pr.prType === "maxReps" ? " reps" : ""}`;
     }

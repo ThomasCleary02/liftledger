@@ -1,9 +1,11 @@
+# Canonical Netlify config for the monorepo (repo root).
+# Build the PWA in web/; do not set the site base directory to web/.
 [build]
   command = "npm run build:web"
   publish = "web/.next"
 
 [build.environment]
-  NODE_VERSION = "18"
+  NODE_VERSION = "22"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"

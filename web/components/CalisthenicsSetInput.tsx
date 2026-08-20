@@ -12,6 +12,7 @@ interface CalisthenicsSetInputProps {
   sets: CalisthenicsSet[];
   onSetsChange: (sets: CalisthenicsSet[]) => void;
   showDuration?: boolean;
+  onAddedSet?: () => void;
 }
 
 const sanitizeValue = (value: string) => value.replace(/\D/g, "");
@@ -20,10 +21,12 @@ export default function CalisthenicsSetInput({
   sets,
   onSetsChange,
   showDuration = false,
+  onAddedSet,
 }: CalisthenicsSetInputProps) {
   const addSet = () => {
     const lastSet = sets[sets.length - 1];
     onSetsChange([...sets, lastSet ? { ...lastSet } : { reps: "10" }]);
+    onAddedSet?.();
   };
 
   const removeSet = (idx: number) => {
@@ -45,7 +48,7 @@ export default function CalisthenicsSetInput({
             <input
               type="text"
               inputMode="numeric"
-              className="mr-2 flex-1 rounded-lg bg-gray-100 px-3 py-2 text-gray-900 placeholder:text-gray-400 outline-none focus:bg-white focus:ring-2 focus:ring-black"
+              className="mr-2 min-h-[48px] flex-1 rounded-lg bg-gray-100 px-3 py-3 text-base text-gray-900 placeholder:text-gray-400 outline-none focus:bg-white focus:ring-2 focus:ring-black"
               value={set.reps}
               onChange={(e) => updateSet(idx, "reps", e.target.value)}
               placeholder="Reps"
@@ -66,7 +69,7 @@ export default function CalisthenicsSetInput({
               <input
                 type="text"
                 inputMode="numeric"
-                className="mr-2 flex-1 rounded-lg bg-gray-100 px-3 py-2 text-gray-900 placeholder:text-gray-400 outline-none focus:bg-white focus:ring-2 focus:ring-black"
+                className="mr-2 min-h-[48px] flex-1 rounded-lg bg-gray-100 px-3 py-3 text-base text-gray-900 placeholder:text-gray-400 outline-none focus:bg-white focus:ring-2 focus:ring-black"
                 value={set.duration || ""}
                 onChange={(e) => updateSet(idx, "duration", e.target.value)}
                 placeholder="Hold time (seconds)"
@@ -78,7 +81,7 @@ export default function CalisthenicsSetInput({
       ))}
       <button
         onClick={addSet}
-        className="mt-2 flex items-center gap-2 rounded-lg bg-gray-200 px-4 py-2 text-gray-800 transition-colors hover:bg-gray-300"
+        className="mt-2 flex min-h-[48px] w-full items-center justify-center gap-2 rounded-lg bg-gray-200 px-4 py-3 text-gray-800 transition-colors hover:bg-gray-300"
       >
         <Plus className="h-4 w-4" />
         Add Set

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "../../../providers/Auth";
 import { deleteUserAccount } from "../../../lib/firestore/account";
-import { UnitSystem, DefaultChartView } from "@liftledger/shared/preferences";
+import { UnitSystem, DefaultChartView, ThemePreference, RestTimerSeconds } from "@liftledger/shared/preferences";
 import { usePreferences } from "../../../lib/hooks/usePreferences";
 import { accountService } from "../../../lib/firebase";
 import {
@@ -21,6 +21,9 @@ import {
   Plus,
   ChevronRight as ChevronRightIcon,
   Pencil,
+  Moon,
+  Clock,
+  Download,
 } from "lucide-react";
 import { toast } from "../../../lib/toast";
 import { logger } from "../../../lib/logger";
@@ -36,7 +39,22 @@ import {
   deleteTemplate,
   type WorkoutTemplate
 } from "../../../lib/firestore/workoutTemplates";
+import { listDays } from "../../../lib/firestore/days";
+import { daysToCsv, downloadCsv } from "../../../lib/exportDaysCsv";
 import { Exercise } from "../../../lib/firestore/workouts";
+import StrengthSetInput from "../../../components/StrengthSetInput";
+import CardioInput, { CardioData } from "../../../components/CardioInput";
+import {
+  formatWeightInput,
+  formatDistanceInput,
+  toStoredWeight,
+  toStoredDistance,
+} from "../../../lib/utils/units";
+import {
+  inferCardioActivityType,
+  resolveCardioActivityType,
+  type CardioActivityType,
+} from "@liftledger/shared";
 
 export default function Settings() {
   const router = useRouter();
@@ -44,7 +62,9 @@ export default function Settings() {
   const { signOutUser, user, loading: authLoading } = useAuth();
   const [unitsModalOpen, setUnitsModalOpen] = useState(false);
   const [chartModalOpen, setChartModalOpen] = useState(false);
-  const { units, defaultChartView, updateUnits, updateChartView } = usePreferences();
+  const [themeModalOpen, setThemeModalOpen] = useState(false);
+  const [restModalOpen, setRestModalOpen] = useState(false);
+  const { units, defaultChartView, theme, restTimerSeconds, updateUnits, updateChartView, updateTheme, updateRestTimer } = usePreferences();
 
   // Add state for confirmations
   const [signOutConfirmOpen, setSignOutConfirmOpen] = useState(false);
@@ -279,6 +299,28 @@ export default function Settings() {
     return labels[view];
   };
 
+  const getThemeLabel = (value: ThemePreference) => {
+    if (value === "system") return "Match device";
+    if (value === "dark") return "Dark";
+    return "Light";
+  };
+
+  const getRestLabel = (seconds: RestTimerSeconds) => {
+    if (seconds === 0) return "Off";
+    return `${seconds / 60} min`;
+  };
+
+  const handleExportCsv = async () => {
+    try {
+      const days = await listDays({ limit: 2000, order: "asc" });
+      downloadCsv(`liftledger-${new Date().toISOString().slice(0, 10)}.csv`, daysToCsv(days, units));
+      toast.success("Export downloaded");
+    } catch (error) {
+      logger.error("Failed to export workouts", error);
+      toast.error("Failed to export workouts");
+    }
+  };
+
   useEffect(() => {
     if (user && !authLoading) {
       loadFavorites();
@@ -291,7 +333,7 @@ export default function Settings() {
   if (authLoading || !user) return null;
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-gray-50">
+    <div className="flex h-full flex-col overflow-hidden bg-gray-50">
       {/* Fixed Header */}
       <header className="flex-shrink-0 border-b border-gray-200 bg-white">
         <div className="px-4 py-4 md:px-8 md:py-6">
@@ -343,6 +385,24 @@ export default function Settings() {
                 title="Default Chart View"
                 subtitle={getChartViewLabel(defaultChartView)}
                 onClick={() => setChartModalOpen(true)}
+              />
+              <SettingItem
+                icon={Moon}
+                title="Theme"
+                subtitle={getThemeLabel(theme)}
+                onClick={() => setThemeModalOpen(true)}
+              />
+              <SettingItem
+                icon={Clock}
+                title="Rest timer"
+                subtitle={getRestLabel(restTimerSeconds)}
+                onClick={() => setRestModalOpen(true)}
+              />
+              <SettingItem
+                icon={Download}
+                title="Export workouts"
+                subtitle="Download a CSV of your training log"
+                onClick={handleExportCsv}
               />
               <SettingItem
                 icon={Star}
@@ -446,6 +506,34 @@ export default function Settings() {
         onClose={() => setChartModalOpen(false)}
         currentView={defaultChartView}
         onSave={updateChartView}
+      />
+      <ChoiceModal
+        open={themeModalOpen}
+        onClose={() => setThemeModalOpen(false)}
+        title="Theme"
+        description="Gym lighting is easier in dark mode."
+        current={theme}
+        onSave={updateTheme}
+        options={[
+          { value: "system", label: "Match device", description: "Follow your phone or computer" },
+          { value: "light", label: "Light", description: "Always light" },
+          { value: "dark", label: "Dark", description: "Always dark" },
+        ]}
+      />
+      <ChoiceModal
+        open={restModalOpen}
+        onClose={() => setRestModalOpen(false)}
+        title="Rest timer"
+        description="Starts when you add another set. Off by default."
+        current={restTimerSeconds}
+        onSave={(value) => updateRestTimer(value as RestTimerSeconds)}
+        options={[
+          { value: 0 as RestTimerSeconds, label: "Off", description: "No timer between sets" },
+          { value: 60 as RestTimerSeconds, label: "1 minute" },
+          { value: 90 as RestTimerSeconds, label: "90 seconds" },
+          { value: 120 as RestTimerSeconds, label: "2 minutes" },
+          { value: 180 as RestTimerSeconds, label: "3 minutes" },
+        ]}
       />
 
       <ConfirmDialog
@@ -690,6 +778,78 @@ function ChartViewModal({
         <button
           onClick={handleSave}
           className="mt-6 w-full rounded-xl bg-black py-4 font-bold text-white transition-opacity hover:opacity-90"
+        >
+          Save
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ChoiceModal<T extends string | number>({
+  open,
+  onClose,
+  title,
+  description,
+  options,
+  current,
+  onSave,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  description: string;
+  options: { value: T; label: string; description?: string }[];
+  current: T;
+  onSave: (value: T) => void;
+}) {
+  const [selected, setSelected] = useState<T>(current);
+
+  useEffect(() => {
+    if (open) setSelected(current);
+  }, [open, current]);
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end bg-black/50 md:items-center md:justify-center">
+      <div className="w-full rounded-t-3xl bg-white p-6 md:max-w-md md:rounded-2xl">
+        <div className="mb-6 flex items-center justify-between">
+          <h2 className="text-2xl font-bold text-gray-900">{title}</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <X className="h-6 w-6" />
+          </button>
+        </div>
+        <p className="mb-4 text-gray-600">{description}</p>
+        <div className="space-y-3">
+          {options.map((option) => (
+            <button
+              key={String(option.value)}
+              onClick={() => setSelected(option.value)}
+              className={`flex w-full items-center rounded-xl border-2 p-4 ${
+                selected === option.value ? "border-blue-500 bg-blue-50" : "border-gray-200 bg-gray-50"
+              }`}
+            >
+              <div
+                className={`mr-3 flex h-6 w-6 items-center justify-center rounded-full border-2 ${
+                  selected === option.value ? "border-blue-500" : "border-gray-300"
+                }`}
+              >
+                {selected === option.value && <div className="h-3 w-3 rounded-full bg-blue-500" />}
+              </div>
+              <div className="flex-1 text-left">
+                <p className="font-semibold text-gray-900">{option.label}</p>
+                {option.description && <p className="text-sm text-gray-500">{option.description}</p>}
+              </div>
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={() => {
+            onSave(selected);
+            onClose();
+          }}
+          className="mt-6 w-full rounded-xl bg-black py-4 font-bold text-white"
         >
           Save
         </button>
@@ -943,14 +1103,16 @@ function TemplateEditorModal({
   onClose: () => void;
   onSave: (name: string, exercises: Exercise[]) => Promise<void>; // Change this
 }) {
+  const { units } = usePreferences();
   const [name, setName] = useState(initialName);
   const [exercises, setExercises] = useState<Exercise[]>(initialExercises.map(ex => ({ ...ex })));
   const [selectedExercise, setSelectedExercise] = useState<{ id: string; name: string; modality: "strength" | "cardio" | "calisthenics" } | null>(null);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [allExercises, setAllExercises] = useState<ExerciseDoc[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [strengthSets, setStrengthSets] = useState<{ reps: string; weight: string }[]>([{ reps: "10", weight: "135" }]);
-  const [cardioData, setCardioData] = useState<{ duration: string; distance: string }>({ duration: "30", distance: "5" });
+  const [strengthSets, setStrengthSets] = useState<{ reps: string; weight: string }[]>([{ reps: "10", weight: formatWeightInput(135, units) }]);
+  const [cardioData, setCardioData] = useState<CardioData>({ duration: "30", distance: "" });
+  const [cardioActivityType, setCardioActivityType] = useState<CardioActivityType>("other");
   const [calisthenicsSets, setCalisthenicsSets] = useState<{ reps: string; duration?: string }[]>([{ reps: "10" }]);
 
   useEffect(() => {
@@ -973,11 +1135,12 @@ function TemplateEditorModal({
   const handleExerciseSelect = (id: string, exerciseName: string, modality: "strength" | "cardio" | "calisthenics") => {
     setSelectedExercise({ id, name: exerciseName, modality });
     if (modality === "cardio") {
-      setCardioData({ duration: "30", distance: "5" });
+      setCardioActivityType(inferCardioActivityType(exerciseName, id));
+      setCardioData({ duration: "30", distance: "" });
     } else if (modality === "calisthenics") {
       setCalisthenicsSets([{ reps: "10" }]);
     } else {
-      setStrengthSets([{ reps: "10", weight: "135" }]);
+      setStrengthSets([{ reps: "10", weight: formatWeightInput(135, units) }]);
     }
   };
 
@@ -994,13 +1157,14 @@ function TemplateEditorModal({
       setStrengthSets(
         ex.strengthSets?.map((s) => ({
           reps: String(s.reps),
-          weight: String(s.weight),
-        })) ?? [{ reps: "10", weight: "135" }]
+          weight: formatWeightInput(s.weight, units),
+        })) ?? [{ reps: "10", weight: formatWeightInput(135, units) }]
       );
     } else if (ex.modality === "cardio") {
+      setCardioActivityType(resolveCardioActivityType(ex.cardioData?.activityType, ex.name, ex.exerciseId));
       setCardioData({
         duration: ex.cardioData ? String(Math.round(ex.cardioData.duration / 60)) : "30",
-        distance: ex.cardioData?.distance != null ? String(ex.cardioData.distance) : "5",
+        distance: ex.cardioData?.distance != null ? formatDistanceInput(ex.cardioData.distance, units) : "",
       });
     } else {
       setCalisthenicsSets(
@@ -1020,7 +1184,11 @@ function TemplateEditorModal({
     if (selectedExercise.modality === "cardio") {
       const durationMinutes = Number(cardioData.duration);
       const duration = durationMinutes * 60;
-      const distance = cardioData.distance ? Number(cardioData.distance) : undefined;
+      const distanceDisplay = cardioData.distance ? Number(cardioData.distance) : undefined;
+      const distance =
+        distanceDisplay && isFinite(distanceDisplay) && distanceDisplay > 0
+          ? toStoredDistance(distanceDisplay, units)
+          : undefined;
 
       exercise = {
         exerciseId: selectedExercise.id,
@@ -1028,8 +1196,9 @@ function TemplateEditorModal({
         modality: "cardio",
         cardioData: {
           duration,
-          distance: distance && isFinite(distance) && distance > 0 ? distance : undefined,
-          pace: distance && distance > 0 && duration > 0 ? duration / distance : undefined,
+          activityType: cardioActivityType,
+          distance,
+          pace: distance && duration > 0 ? duration / distance : undefined,
         },
       };
     } else if (selectedExercise.modality === "calisthenics") {
@@ -1063,7 +1232,7 @@ function TemplateEditorModal({
           const reps = Number(s.reps);
           const weight = Number(s.weight);
           if (!isFinite(reps) || reps <= 0 || !isFinite(weight) || weight < 0) return null;
-          return { reps, weight };
+          return { reps, weight: toStoredWeight(weight, units) };
         })
         .filter((s): s is { reps: number; weight: number } => s !== null);
 
@@ -1228,65 +1397,16 @@ function TemplateEditorModal({
 
                 {/* Exercise input based on modality - simplified version */}
                 {selectedExercise.modality === "strength" && (
-                  <div className="space-y-2">
-                    {strengthSets.map((set, i) => (
-                      <div key={i} className="flex gap-2">
-                        <input
-                          type="number"
-                          placeholder="Reps"
-                          value={set.reps}
-                          onChange={(e) => {
-                            const newSets = [...strengthSets];
-                            newSets[i].reps = e.target.value;
-                            setStrengthSets(newSets);
-                          }}
-                          className="flex-1 rounded-lg border border-gray-200 px-3 py-2"
-                        />
-                        <input
-                          type="number"
-                          placeholder="Weight"
-                          value={set.weight}
-                          onChange={(e) => {
-                            const newSets = [...strengthSets];
-                            newSets[i].weight = e.target.value;
-                            setStrengthSets(newSets);
-                          }}
-                          className="flex-1 rounded-lg border border-gray-200 px-3 py-2"
-                        />
-                        <button
-                          onClick={() => setStrengthSets(strengthSets.filter((_, idx) => idx !== i))}
-                          className="rounded-lg bg-red-50 px-3 py-2 text-red-600"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    ))}
-                    <button
-                      onClick={() => setStrengthSets([...strengthSets, { reps: "10", weight: "135" }])}
-                      className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm"
-                    >
-                      Add Set
-                    </button>
-                  </div>
+                  <StrengthSetInput sets={strengthSets} onSetsChange={setStrengthSets} />
                 )}
 
                 {selectedExercise.modality === "cardio" && (
-                  <div className="space-y-3">
-                    <input
-                      type="number"
-                      placeholder="Duration (minutes)"
-                      value={cardioData.duration}
-                      onChange={(e) => setCardioData({ ...cardioData, duration: e.target.value })}
-                      className="w-full rounded-lg border border-gray-200 px-3 py-2"
-                    />
-                    <input
-                      type="number"
-                      placeholder="Distance (optional)"
-                      value={cardioData.distance}
-                      onChange={(e) => setCardioData({ ...cardioData, distance: e.target.value })}
-                      className="w-full rounded-lg border border-gray-200 px-3 py-2"
-                    />
-                  </div>
+                  <CardioInput
+                    data={cardioData}
+                    onDataChange={setCardioData}
+                    activityType={cardioActivityType}
+                    onActivityTypeChange={setCardioActivityType}
+                  />
                 )}
 
                 {selectedExercise.modality === "calisthenics" && (

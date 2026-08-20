@@ -10,7 +10,6 @@ import {
   Trophy,
   Mail,
   ArrowRight,
-  Clock,
   Monitor
 } from "lucide-react";
 
@@ -52,7 +51,7 @@ export default function Home() {
               Train Smarter. Track Better.
             </p>
             <p className="mx-auto mb-10 max-w-2xl text-lg text-gray-600 md:text-xl">
-              Simple workout logging, cross-platform access, and offline-ready tracking for your fitness journey.
+              A web workout tracker you can install on your phone. Log strength, cardio, and calisthenics with analytics that stay in sync.
             </p>
             
             <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
@@ -109,25 +108,25 @@ export default function Home() {
               </p>
             </div>
 
-            {/* Feature 3: Multi-platform */}
+            {/* Feature 3: Home screen */}
             <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm transition-all hover:shadow-md">
               <div className="mb-4 inline-flex rounded-xl bg-green-100 p-3">
                 <Smartphone className="h-6 w-6 text-green-700" />
               </div>
-              <h3 className="mb-2 text-xl font-bold text-gray-900">Cross-Platform</h3>
+              <h3 className="mb-2 text-xl font-bold text-gray-900">Install on Your Phone</h3>
               <p className="text-gray-600">
-                Use on web or mobile, share data seamlessly. Your workouts sync across all your devices.
+                Add LiftLedger to your home screen. It opens like an app in the browser you already use.
               </p>
             </div>
 
-            {/* Feature 4: Unit Preferences */}
+            {/* Feature 4: Day-based tracking */}
             <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm transition-all hover:shadow-md">
               <div className="mb-4 inline-flex rounded-xl bg-orange-100 p-3">
                 <Settings className="h-6 w-6 text-orange-700" />
               </div>
-              <h3 className="mb-2 text-xl font-bold text-gray-900">Offline-Ready</h3>
+              <h3 className="mb-2 text-xl font-bold text-gray-900">Day-Based Tracking</h3>
               <p className="text-gray-600">
-                Track workouts even without internet. Your data syncs automatically when you're back online.
+                Log multiple exercises per day, mark rest days, and keep streaks that include recovery.
               </p>
             </div>
           </div>
@@ -139,60 +138,62 @@ export default function Home() {
         <div className="mx-auto w-full max-w-7xl">
           <div className="mb-16 text-center">
             <h2 className="mb-4 text-4xl font-bold text-gray-900 md:text-5xl">
-              Available Everywhere
+              Use it anywhere
             </h2>
             <p className="mx-auto max-w-2xl text-lg text-gray-600">
-              Access your workouts on any device, anywhere you go
+              LiftLedger is a web app. Open it in the browser, or add it to your home screen for one-tap access.
             </p>
           </div>
 
           <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
-            {/* Web App */}
             <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-lg">
               <div className="mb-6 flex items-center gap-4">
                 <div className="rounded-xl bg-black p-4">
                   <Monitor className="h-8 w-8 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-2xl font-bold text-gray-900">Web App</h3>
-                  <p className="text-sm text-gray-500">Available Now</p>
+                  <h3 className="text-2xl font-bold text-gray-900">In the browser</h3>
+                  <p className="text-sm text-gray-500">Desktop, tablet, or phone</p>
                 </div>
               </div>
               <p className="mb-6 text-gray-600">
-                Access your workouts from any browser. Full-featured experience on desktop and tablet with real-time sync.
+                Full workout logging, analytics, friends, and settings from any modern browser. Your data syncs across devices.
               </p>
               <button
                 onClick={() => router.push("/day/today")}
                 className="w-full rounded-xl bg-black px-6 py-3 text-base font-semibold text-white transition-all hover:opacity-90 active:scale-95"
               >
-                Try Web App
+                Open LiftLedger
               </button>
             </div>
 
-            {/* Mobile App */}
             <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-lg">
               <div className="mb-6 flex items-center gap-4">
                 <div className="rounded-xl bg-black p-4">
                   <Smartphone className="h-8 w-8 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-2xl font-bold text-gray-900">Mobile App</h3>
-                  <div className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-0.5">
-                    <Clock className="h-3 w-3 text-amber-700" />
-                    <span className="text-xs font-semibold text-amber-700">In Development</span>
-                  </div>
+                  <h3 className="text-2xl font-bold text-gray-900">On your home screen</h3>
+                  <p className="text-sm text-gray-500">iPhone and Android</p>
                 </div>
               </div>
-              <p className="mb-6 text-gray-600">
-                Track workouts on the go with our native mobile app. Coming soon to iOS and Android with full feature parity.
+              <p className="mb-4 text-gray-600">
+                Install the web app for a full-screen experience without an App Store download.
               </p>
-              <div className="rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 p-8 text-center">
-                <Clock className="mx-auto mb-3 h-12 w-12 text-gray-400" />
-                <p className="text-sm font-medium text-gray-600">Mobile app coming soon</p>
-                <p className="mt-1 text-xs text-gray-500">
-                  Stay tuned for updates
-                </p>
-              </div>
+              <ul className="mb-6 space-y-2 text-sm text-gray-600">
+                <li>
+                  <span className="font-semibold text-gray-900">iPhone:</span> Share → Add to Home Screen
+                </li>
+                <li>
+                  <span className="font-semibold text-gray-900">Android:</span> Chrome menu → Install app
+                </li>
+              </ul>
+              <button
+                onClick={() => router.push("/day/today")}
+                className="w-full rounded-xl border-2 border-gray-300 bg-white px-6 py-3 text-base font-semibold text-gray-900 transition-all hover:border-gray-400 active:scale-95"
+              >
+                Get started
+              </button>
             </div>
           </div>
         </div>
@@ -207,7 +208,7 @@ export default function Home() {
               Start Tracking Today
             </h2>
             <p className="mb-8 text-lg text-gray-300 md:text-xl">
-              Join thousands of users tracking their fitness journey with LiftLedger
+              Log your workouts, watch your PRs, and keep a streak that includes rest days.
             </p>
             <button
               onClick={() => router.push("/day/today")}
@@ -250,7 +251,7 @@ export default function Home() {
           <div className="flex flex-col items-center justify-between gap-6 md:flex-row">
             <div className="text-center md:text-left">
               <p className="text-sm text-gray-600">
-                © 2025 LiftLedger. All rights reserved.
+                © 2026 LiftLedger. All rights reserved.
               </p>
             </div>
             <div className="flex flex-wrap items-center justify-center gap-6 text-sm">

@@ -62,7 +62,7 @@ export function PWAInstallPrompt() {
   }
 
   return (
-    <div className="fixed bottom-4 left-4 z-50 max-w-sm rounded-lg border border-gray-200 bg-white p-4 shadow-xl">
+    <div className="fixed-above-nav fixed left-4 z-50 max-w-sm rounded-lg border border-gray-200 bg-white p-4 shadow-xl">
       <div className="flex items-start gap-3">
         <div className="rounded-full bg-black p-2">
           <Download className="h-5 w-5 text-white" />
@@ -70,7 +70,7 @@ export function PWAInstallPrompt() {
         <div className="flex-1">
           <h3 className="mb-1 font-semibold text-gray-900">Install LiftLedger</h3>
           <p className="mb-3 text-sm text-gray-600">
-            Add LiftLedger to your home screen for quick access and offline support.
+            Add LiftLedger to your home screen for quicker access.
           </p>
           <div className="flex gap-2">
             <button

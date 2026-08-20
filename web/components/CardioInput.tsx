@@ -2,6 +2,11 @@
 
 import React from "react";
 import { usePreferences } from "../lib/hooks/usePreferences";
+import {
+  CARDIO_ACTIVITY_TYPES,
+  CARDIO_ACTIVITY_LABELS,
+  type CardioActivityType,
+} from "@liftledger/shared";
 
 export interface CardioData {
   duration: string;
@@ -11,6 +16,8 @@ export interface CardioData {
 interface CardioInputProps {
   data: CardioData;
   onDataChange: (data: CardioData) => void;
+  activityType?: CardioActivityType;
+  onActivityTypeChange?: (type: CardioActivityType) => void;
 }
 
 const sanitizeValue = (value: string, allowDecimal: boolean) => {
@@ -26,25 +33,56 @@ const sanitizeValue = (value: string, allowDecimal: boolean) => {
   return cleaned;
 };
 
-export default function CardioInput({ data, onDataChange }: CardioInputProps) {
+export default function CardioInput({
+  data,
+  onDataChange,
+  activityType = "other",
+  onActivityTypeChange,
+}: CardioInputProps) {
   const { units } = usePreferences();
   const distanceUnit = units === "metric" ? "km" : "mi";
+  const showDistancePrompt = activityType !== "other";
 
   return (
     <div>
+      {onActivityTypeChange && (
+        <div className="mb-4">
+          <p className="mb-2 text-sm font-medium text-gray-700">Type</p>
+          <div className="flex flex-wrap gap-2">
+            {CARDIO_ACTIVITY_TYPES.map((type) => {
+              const selected = type === activityType;
+              return (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => onActivityTypeChange(type)}
+                  className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+                    selected
+                      ? "bg-black text-white"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  }`}
+                >
+                  {CARDIO_ACTIVITY_LABELS[type]}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <div className="mb-4">
-        <label className="mb-2 block text-sm font-medium text-gray-700">Duration</label>
+        <label className="mb-2 block text-sm font-medium text-gray-700">Time</label>
         <div className="flex items-center">
           <input
             type="text"
             inputMode="numeric"
             pattern="[0-9]*"
-            className="flex-1 rounded-lg bg-gray-100 px-3 py-3 text-gray-900 placeholder:text-gray-400 outline-none transition-all focus:bg-white focus:ring-2 focus:ring-black"
+            className="min-h-[48px] flex-1 rounded-lg bg-gray-100 px-3 py-3 text-base text-gray-900 placeholder:text-gray-400 outline-none transition-all focus:bg-white focus:ring-2 focus:ring-black"
             value={data.duration}
             onChange={(e) =>
               onDataChange({ ...data, duration: sanitizeValue(e.target.value, false) })
             }
-            placeholder="Minutes (e.g., 30)"
+            placeholder="30"
             aria-label="Duration in minutes"
           />
           <span className="ml-3 w-20 font-medium text-gray-600">minutes</span>
@@ -53,14 +91,14 @@ export default function CardioInput({ data, onDataChange }: CardioInputProps) {
 
       <div>
         <label className="mb-2 block text-sm font-medium text-gray-700">
-          Distance (optional)
+          {showDistancePrompt ? "Distance" : "Distance (optional)"}
         </label>
         <div className="flex items-center">
           <input
             type="text"
             inputMode="decimal"
             pattern="[0-9.]*"
-            className="flex-1 rounded-lg bg-gray-100 px-3 py-3 text-gray-900 placeholder:text-gray-400 outline-none transition-all focus:bg-white focus:ring-2 focus:ring-black"
+            className="min-h-[48px] flex-1 rounded-lg bg-gray-100 px-3 py-3 text-base text-gray-900 placeholder:text-gray-400 outline-none transition-all focus:bg-white focus:ring-2 focus:ring-black"
             value={data.distance}
             onChange={(e) =>
               onDataChange({ ...data, distance: sanitizeValue(e.target.value, true) })

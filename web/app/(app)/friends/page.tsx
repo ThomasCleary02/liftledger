@@ -83,7 +83,7 @@ export default function Friends() {
 
   const handleSendFriendRequest = async () => {
     if (!emailInput.trim()) {
-      toast.error("Please enter an email address");
+      toast.error("Please enter an email or username");
       return;
     }
 
@@ -168,7 +168,7 @@ export default function Friends() {
   }
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-gray-50">
+    <div className="flex h-full flex-col overflow-hidden bg-gray-50">
       {/* Fixed Header */}
       <header className="flex-shrink-0 border-b border-gray-200 bg-white sticky top-0 z-10">
         <div className="px-4 py-4 md:px-8 md:py-6">
@@ -289,14 +289,17 @@ export default function Friends() {
             <section>
               <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
                 <h2 className="mb-3 text-lg font-semibold text-gray-900">Send Friend Request</h2>
+                <p className="mb-3 text-sm text-gray-500">Use their email or username.</p>
                 <div className="flex gap-2">
                   <div className="flex-1 relative">
                     <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
                     <input
-                      type="email"
+                      type="text"
+                      autoCapitalize="none"
+                      autoCorrect="off"
                       value={emailInput}
                       onChange={(e) => setEmailInput(e.target.value)}
-                      placeholder="Enter email address"
+                      placeholder="Email or username"
                       className="w-full rounded-lg border border-gray-200 bg-gray-50 pl-10 pr-4 py-3 outline-none focus:border-black focus:bg-white"
                       disabled={sendingRequest}
                       onKeyDown={(e) => {

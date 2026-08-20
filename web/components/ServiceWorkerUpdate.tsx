@@ -16,6 +16,10 @@ export function ServiceWorkerUpdate() {
     let refreshing = false;
 
     // Check for service worker updates
+    if (!navigator.serviceWorker.controller) {
+      return;
+    }
+
     navigator.serviceWorker.ready.then((reg) => {
       setRegistration(reg);
 
@@ -61,7 +65,7 @@ export function ServiceWorkerUpdate() {
   }
 
   return (
-    <div className="fixed top-4 right-4 z-50 rounded-lg border border-blue-200 bg-blue-50 p-3 shadow-lg">
+    <div className="fixed-below-status fixed right-4 z-50 rounded-lg border border-blue-200 bg-blue-50 p-3 shadow-lg">
       <div className="flex items-center gap-3">
         <RefreshCw className="h-5 w-5 text-blue-600" />
         <div className="flex-1">

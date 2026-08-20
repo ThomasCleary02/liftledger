@@ -1,5 +1,11 @@
-import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import { initializeApp, getApps, getApp } from "firebase/app";
+import {
+  initializeFirestore,
+  getFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+  memoryLocalCache,
+} from "firebase/firestore";
 import { getAuth, setPersistence, browserLocalPersistence } from "firebase/auth";
 import { createWorkoutService } from "@liftledger/shared/firestore/workouts";
 import { createExerciseService } from "@liftledger/shared/firestore/exercises";
@@ -44,12 +50,21 @@ if (typeof window !== "undefined") {
 }
 
 let app: ReturnType<typeof initializeApp>;
-let db: ReturnType<typeof getFirestore>;
+let db: ReturnType<typeof initializeFirestore>;
 let auth: ReturnType<typeof getAuth>;
 
 try {
-  app = initializeApp(firebaseConfig);
-  db = getFirestore(app);
+  app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+  try {
+    db = initializeFirestore(app, {
+      localCache:
+        typeof window === "undefined"
+          ? memoryLocalCache()
+          : persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+    });
+  } catch {
+    db = getFirestore(app);
+  }
   auth = getAuth(app);
   
   // Set persistence to localStorage (persists across browser sessions)

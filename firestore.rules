@@ -6,16 +6,59 @@ service cloud.firestore {
       return request.auth != null;
     }
     
-    // Helper function to check if user owns the resource
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // Accounts collection - users can read/write their own account
-    // Also allow authenticated users to read accounts (needed for friend requests by email lookup)
+    function friendDocId(a, b) {
+      return a < b ? a + '_' + b : b + '_' + a;
+    }
+
+    function isFriendOf(userId) {
+      return isAuthenticated()
+        && exists(/databases/$(database)/documents/friends/$(friendDocId(request.auth.uid, userId)));
+    }
+
+    function hasFriendRequestWith(userId) {
+      return isAuthenticated() && (
+        exists(/databases/$(database)/documents/friendRequests/$(request.auth.uid + '_' + userId)) ||
+        exists(/databases/$(database)/documents/friendRequests/$(userId + '_' + request.auth.uid))
+      );
+    }
+
     match /accounts/{userId} {
-      allow read: if isAuthenticated(); // Allow authenticated users to read (for email lookups)
+      allow get: if isOwner(userId) || isFriendOf(userId) || hasFriendRequestWith(userId);
+      allow list: if false;
       allow write: if isOwner(userId);
+    }
+
+    match /emailIndex/{email} {
+      function authEmail() {
+        return request.auth.token.email is string
+          ? request.auth.token.email.lower()
+          : "";
+      }
+      function isAuthEmailDoc() {
+        return isAuthenticated() && authEmail() != "" && authEmail() == email;
+      }
+
+      allow get: if isAuthenticated();
+      allow list: if false;
+      allow create: if isAuthEmailDoc() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthEmailDoc() && request.resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid || isAuthEmailDoc()
+      );
+    }
+
+    match /usernameIndex/{username} {
+      allow get: if isAuthenticated();
+      allow list: if false;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
 
     // Exercises collection - public read, admin write only
@@ -90,8 +133,11 @@ service cloud.firestore {
         request.resource.data.createdAt is timestamp
       );
       
-      // Allow delete if user is the owner (userId)
-      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      // Allow delete if either person in the friendship
+      allow delete: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.friendUserId == request.auth.uid
+      );
       
       // Prevent updates (friend relationships should be immutable)
       allow update: if false;
@@ -118,9 +164,10 @@ service cloud.firestore {
         request.resource.data.status in ["accepted", "rejected"];
       
       // Allow delete if user is sender and request is pending (for canceling)
-      allow delete: if isAuthenticated() &&
-        resource.data.fromUserId == request.auth.uid &&
-        resource.data.status == "pending";
+      allow delete: if isAuthenticated() && (
+        resource.data.fromUserId == request.auth.uid ||
+        resource.data.toUserId == request.auth.uid
+      );
     }
   }
 }

@@ -39,7 +39,7 @@ export function FavoritesModal({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="w-full max-h-[90vh] flex flex-col rounded-t-3xl bg-white md:max-w-lg md:rounded-2xl md:shadow-xl">
+      <div className="w-full max-h-[90vh] flex flex-col rounded-t-3xl bg-white md:max-w-lg md:rounded-2xl md:shadow-xl" style={{ paddingBottom: "var(--safe-area-bottom)" }}>
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
           <h2 className="text-xl font-semibold text-gray-900">Favorite Exercises</h2>

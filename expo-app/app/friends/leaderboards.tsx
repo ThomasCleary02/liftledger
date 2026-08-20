@@ -11,7 +11,7 @@ import {
   type LeaderboardTimePeriod,
 } from "@liftledger/shared/analytics/leaderboards";
 import { useAuth } from "../../providers/Auth";
-import { formatWeight, formatDistance } from "../../lib/utils/units";
+import { formatWeight, formatCardioDuration } from "../../lib/utils/units";
 import { usePreferences } from "../../lib/hooks/usePreferences";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { accountService } from "../../lib/firebase";
@@ -83,7 +83,7 @@ export default function Leaderboards() {
     if (metric === "volume") {
       return formatWeight(value, units);
     } else if (metric === "cardio") {
-      return formatDistance(value, units);
+      return formatCardioDuration(value);
     } else {
       return `${value} days`;
     }

@@ -3,12 +3,12 @@ import type { Auth } from "firebase/auth";
 import {
   Timestamp,
   collection,
-  setDoc,
   getDoc,
   getDocs,
   updateDoc,
   deleteDoc,
   doc,
+  runTransaction,
   orderBy,
   where,
   query,
@@ -124,6 +124,17 @@ export function createDayService(db: Firestore, auth: Auth) {
   const daysCol = collection(db, COLLECTION).withConverter<DayDoc>(converter);
   const dayDoc = (id: string) => doc(db, COLLECTION, id).withConverter<DayDoc>(converter);
 
+  const toDay = (id: string, d: DayDoc): Day => ({
+    id,
+    userId: d.userId,
+    date: d.date,
+    isRestDay: d.isRestDay,
+    exercises: d.exercises,
+    notes: d.notes,
+    createdAt: d.createdAt,
+    updatedAt: d.updatedAt,
+  });
+
   // --------- CRUD + Subscribe ---------
   return {
     async createDay(input: NewDayInput): Promise<Day> {
@@ -132,43 +143,29 @@ export function createDayService(db: Firestore, auth: Auth) {
 
       const dateStr = normalizeDateToYYYYMMDD(input.date);
       const dayId = generateDayId(uid, dateStr);
-      const now = Timestamp.now();
+      const ref = dayDoc(dayId);
 
-      // Check if day already exists
-      const existing = await getDoc(dayDoc(dayId));
-      if (existing.exists()) {
-        throw new Error(`Day for ${dateStr} already exists`);
-      }
+      return runTransaction(db, async (tx) => {
+        const existing = await tx.get(ref);
+        if (existing.exists()) {
+          return toDay(dayId, existing.data()!);
+        }
 
-      const payload: DayDoc = {
-        userId: uid,
-        date: dateStr,
-        isRestDay: input.isRestDay ?? false,
-        exercises: input.exercises ?? [],
-        createdAt: now,
-        updatedAt: now,
-      };
-      
-      // Only include notes if it's defined (Firestore doesn't allow undefined)
-      if (input.notes !== undefined && input.notes !== null) {
-        payload.notes = input.notes;
-      }
-
-      // Use setDoc with the specific dayId instead of addDoc
-      await setDoc(dayDoc(dayId), payload);
-      const s = await getDoc(dayDoc(dayId));
-      const d = s.data()!;
-      
-      return {
-        id: dayId,
-        userId: d.userId,
-        date: d.date,
-        isRestDay: d.isRestDay,
-        exercises: d.exercises,
-        notes: d.notes,
-        createdAt: d.createdAt,
-        updatedAt: d.updatedAt,
-      };
+        const now = Timestamp.now();
+        const payload: DayDoc = {
+          userId: uid,
+          date: dateStr,
+          isRestDay: input.isRestDay ?? false,
+          exercises: input.exercises ?? [],
+          createdAt: now,
+          updatedAt: now,
+        };
+        if (input.notes !== undefined && input.notes !== null) {
+          payload.notes = input.notes;
+        }
+        tx.set(ref, payload);
+        return toDay(dayId, payload);
+      });
     },
 
     async getDay(dayId: string): Promise<Day | null> {

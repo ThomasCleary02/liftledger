@@ -35,6 +35,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLoading(false);
         if (user) {
           logger.info("User authenticated", { email: user.email });
+          accountService.ensureEmailIndex().catch((error) => {
+            logger.error("Failed to write email index", error);
+          });
         } else {
           logger.info("User signed out");
         }

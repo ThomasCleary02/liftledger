@@ -5,11 +5,11 @@ export const metadata: Metadata = {
     default: "LiftLedger - Train Smarter. Track Better.",
     template: "%s | LiftLedger",
   },
-  description: "Simple workout logging, cross-platform access, and offline-ready tracking for your fitness journey.",
+  description: "A web workout tracker you can install on your phone. Log strength, cardio, and calisthenics with analytics that stay in sync.",
   keywords: ["workout tracker", "fitness app", "exercise log", "strength training", "cardio tracker", "calisthenics"],
   openGraph: {
     title: "LiftLedger - Train Smarter. Track Better.",
-    description: "Simple workout logging, cross-platform access, and offline-ready tracking for your fitness journey.",
+    description: "A web workout tracker you can install on your phone. Log strength, cardio, and calisthenics with analytics that stay in sync.",
     type: "website",
     images: [
       {
@@ -23,7 +23,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary",
     title: "LiftLedger - Train Smarter. Track Better.",
-    description: "Simple workout logging, cross-platform access, and offline-ready tracking for your fitness journey.",
+    description: "A web workout tracker you can install on your phone. Log strength, cardio, and calisthenics with analytics that stay in sync.",
   },
 };
 

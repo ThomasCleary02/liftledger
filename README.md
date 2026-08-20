@@ -1,153 +1,74 @@
 # LiftLedger
 
-**Train Smarter. Track Better.**
+A day-based workout tracker. The product is a **web app / PWA** (`web/`). Log strength, cardio, and calisthenics, then use analytics, friends, and leaderboards.
 
-A production-ready, day-based fitness tracking application built as a monorepo. Track workouts across strength training, cardio, and calisthenics with detailed analytics, rest day support, and workout templates.
+The native Expo client in `expo-app/` is an **archived artifact**. It is not shipped. Keep it in the repo so that code is not lost; do not market it as the app.
 
-## 🏗️ Architecture
+## Layout
 
-- **`packages/shared/`** - Platform-agnostic business logic (analytics, Firestore services, preferences)
-- **`expo-app/`** - React Native mobile app (iOS/Android) using Expo Router
-- **`web/`** - Next.js web app (PWA) using App Router
-- **`scripts/`** - Data migration scripts
+```
+web/                 Next.js PWA (the product)
+packages/shared/     Firestore services, analytics, units, insights
+expo-app/            Archived React Native client
+scripts/migrations/  One-shot historical migrations (already applied)
+firestore.rules
+firestore.indexes.json
+```
 
-## 🚀 Quick Start
+Primary log surface: `/day/today`. Weights and distances are stored as **pounds and miles**; convert at the form edge when the user prefers metric.
+
+## Run the web app
 
 ```bash
-# Install dependencies
 npm install
-
-# Run mobile app
-cd expo-app && npm start
-
-# Run web app
-cd web && npm run dev
-
-# Type check all packages
-npm run typecheck
-
-# Lint all packages
-npm run lint
+cd web
+cp .env.example .env.local   # then fill in Firebase keys
+npm run dev
 ```
 
-## ⚙️ Setup
+Open [http://localhost:3000](http://localhost:3000).
 
-1. **Firebase Configuration**
-   - Create a Firebase project and enable Authentication (Email/Password) and Firestore
-   - Add environment variables:
-     - `expo-app/.env.local`: `EXPO_PUBLIC_FIREBASE_API_KEY`, `EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN`
-     - `web/.env.local`: `NEXT_PUBLIC_FIREBASE_API_KEY`, `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`, `NEXT_PUBLIC_BASE_URL`
+Typecheck: `cd web && npm run type-check`
 
-2. **Firestore Setup**
-   - Deploy security rules: `npm run deploy:firestore:rules`
-   - Deploy indexes: `npm run deploy:firestore:indexes`
-   - See `DEPLOY_FIRESTORE.md` for detailed instructions
+## Firebase
 
-3. **Data Migration** (if migrating existing data)
-   - See `MIGRATION.md` for instructions
-   - Run: `npx tsx scripts/migrations/002-workouts-to-days-admin.ts --dry-run`
+Project: `lift-ledger-8f627`
 
-## ✨ Key Features
+Auth: email/password. Firestore is the database.
 
-### Day-Based Tracking
-- Navigate between days with date picker
-- Add multiple exercises per day
-- Mark days as rest days
-- Load workout templates into any day
-
-### Analytics
-- **Streaks:** Health-aligned streaks that include rest days
-- **PRs:** Personal records for tracked exercises
-- **Volume Analytics:** Strength volume, cardio distance, calisthenics reps
-- **Time Periods:** Filter by week/month/year/all
-- **Progress Insights:** Automatic AI-powered insights when logging exercises (8+ sessions or new PRs)
-
-### Social Features (v2)
-- **Friends System:** Send/accept friend requests by email
-- **Leaderboards:** Compete with friends on volume, cardio distance, and consistency
-- **Usernames:** Set and display usernames instead of emails
-- **Account Settings:** Manage username and profile
-
-### Workout Templates
-- Create templates from existing workouts
-- Load templates into any day
-- Manage templates in settings
-
-### Cross-Platform
-- **Web:** Full-featured PWA with offline support
-- **Mobile:** Native iOS/Android app via Expo
-- **Sync:** Real-time sync across devices
-
-### Production Features
-- Loading skeletons
-- Error boundaries
-- Sync status indicators
-- PWA install prompts
-- Service worker updates
-- Progress insights via LiftLedger Insights Service
-
-## 📊 Data Model
-
-### Primary: Days Collection
-- **Format:** `days/{userId}_{YYYY-MM-DD}`
-- Each day can have multiple exercises
-- Supports rest days for streak tracking
-- Date normalization uses local timezone (not UTC)
-
-### Legacy: Workouts Collection
-- Still exists for backward compatibility
-- Used for some PR calculations
-- Will be deprecated in future
-
-## 🗂️ Project Structure
-
-```
-liftledger/
-├── packages/shared/        # Shared business logic
-│   ├── analytics/          # Streak & analytics calculations
-│   ├── firestore/         # Days, workouts, exercises, templates
-│   └── preferences/       # User preferences service
-├── expo-app/              # React Native app
-├── web/                    # Next.js web app
-│   └── lib/insights/      # LiftLedger Insights integration
-│       ├── api.ts         # Insights API client
-│       ├── utils.ts       # History extraction & PR detection
-│       └── cache.ts       # Caching layer
-└── scripts/migrations/     # Data migration scripts
+```bash
+npx firebase login
+npm run deploy:firestore:rules     # security rules
+npm run deploy:firestore:indexes   # composite indexes
+npm run deploy:firestore           # both
 ```
 
-## 📖 Documentation
+Rules take effect immediately. Indexes can sit in “Building” for a few minutes.
 
-- **`OVERVIEW.md`** - Comprehensive codebase and app overview
-- **`MIGRATION.md`** - Data migration instructions
-- **`.cursor/plans/`** - Development plan and progress
+`emailIndex/{email}` may only be written when the document id matches the signed-in user’s auth email. `usernameIndex/{username}` is first-claim; update/delete require that you already own the doc.
 
-## 🚢 Deployment
+## Collections
 
-### Web App
-- **Platform:** Netlify (configured)
-- **Build:** `cd web && npm run build`
-- **PWA:** Fully configured with manifest
+| Collection | Role |
+|---|---|
+| `days/{userId}_{YYYY-MM-DD}` | Workouts and rest days (local calendar date, not UTC) |
+| `workoutTemplates` | User templates |
+| `exercises` | Global catalog (public read) |
+| `accounts` | Profile, username, favorites |
+| `emailIndex` | Friend lookup by email |
+| `usernameIndex` | Friend lookup by username |
+| `friends` | Bidirectional friendship |
+| `friendRequests` | Pending / accepted / rejected |
+| `workouts` | Legacy. Do not write. Analytics read `days` only. |
 
-### Mobile App
-- **Platform:** Expo EAS
-- **Build:** `cd expo-app && eas build`
+## Deploy the PWA
 
-### Firebase
-- **Rules:** Deploy via `npx firebase deploy --only firestore:rules`
-- **Indexes:** Auto-created or via Firebase Console
+Netlify uses the root `netlify.toml` (`npm run build:web`, Node 22, Next plugin). Set `NEXT_PUBLIC_FIREBASE_API_KEY`, `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`, and `NEXT_PUBLIC_BASE_URL` in the host.
 
-## 🔒 Security
+## Archived Expo app
 
-- Firestore security rules enforce user data isolation
-- Day IDs validated via pattern matching
-- All exercises cleaned before saving (removes undefined values)
-- User authentication required for all data access
+See [expo-app/README.md](./expo-app/README.md). Root scripts `npm run android` / `npm run ios` exist only to run that artifact.
 
-## 📝 License
+## Historical migrations
 
-Private - All rights reserved
-
----
-
-For detailed information, see [OVERVIEW.md](./OVERVIEW.md)
+See [scripts/migrations/README.md](./scripts/migrations/README.md). Do not re-run them against production unless you know why.

@@ -3,6 +3,7 @@
 import React from "react";
 import { Plus, X } from "lucide-react";
 import { usePreferences } from "../lib/hooks/usePreferences";
+import { formatWeightInput } from "../lib/utils/units";
 
 export interface StrengthSet {
   reps: string;
@@ -12,6 +13,7 @@ export interface StrengthSet {
 interface StrengthSetInputProps {
   sets: StrengthSet[];
   onSetsChange: (sets: StrengthSet[]) => void;
+  onAddedSet?: () => void;
 }
 
 const sanitizeValue = (field: keyof StrengthSet, value: string) => {
@@ -33,13 +35,14 @@ const sanitizeValue = (field: keyof StrengthSet, value: string) => {
   return value;
 };
 
-export default function StrengthSetInput({ sets, onSetsChange }: StrengthSetInputProps) {
+export default function StrengthSetInput({ sets, onSetsChange, onAddedSet }: StrengthSetInputProps) {
   const { units } = usePreferences();
   const weightUnit = units === "metric" ? "kg" : "lb";
 
   const addSet = () => {
     const lastSet = sets[sets.length - 1];
-    onSetsChange([...sets, lastSet ? { ...lastSet } : { reps: "10", weight: "135" }]);
+    onSetsChange([...sets, lastSet ? { ...lastSet } : { reps: "10", weight: formatWeightInput(135, units) }]);
+    onAddedSet?.();
   };
 
   const removeSet = (idx: number) => {
@@ -62,7 +65,7 @@ export default function StrengthSetInput({ sets, onSetsChange }: StrengthSetInpu
           <input
             type="text"
             inputMode="numeric"
-            className="w-20 flex-none rounded-lg bg-gray-100 px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 outline-none transition-all focus:bg-white focus:ring-2 focus:ring-black"
+            className="min-h-[48px] w-20 flex-none rounded-lg bg-gray-100 px-3 py-3 text-base text-gray-900 placeholder:text-gray-400 outline-none transition-all focus:bg-white focus:ring-2 focus:ring-black"
             value={set.reps}
             onChange={(e) => updateSet(idx, "reps", e.target.value)}
             placeholder="Reps"
@@ -75,7 +78,7 @@ export default function StrengthSetInput({ sets, onSetsChange }: StrengthSetInpu
             <input
               type="text"
               inputMode="decimal"
-              className="w-full rounded-lg bg-gray-100 px-3 py-2.5 pr-16 text-sm text-gray-900 placeholder:text-gray-400 outline-none transition-all focus:bg-white focus:ring-2 focus:ring-black"
+              className="min-h-[48px] w-full rounded-lg bg-gray-100 px-3 py-3 pr-16 text-base text-gray-900 placeholder:text-gray-400 outline-none transition-all focus:bg-white focus:ring-2 focus:ring-black"
               value={set.weight}
               onChange={(e) => updateSet(idx, "weight", e.target.value)}
               placeholder={`Weight (${weightUnit})`}
@@ -102,7 +105,7 @@ export default function StrengthSetInput({ sets, onSetsChange }: StrengthSetInpu
       <button
         type="button"
         onClick={addSet}
-        className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-gray-200 px-4 py-2.5 text-sm font-medium text-gray-800 transition-colors hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-black"
+        className="mt-2 flex min-h-[48px] w-full items-center justify-center gap-2 rounded-lg bg-gray-200 px-4 py-3 text-sm font-medium text-gray-800 transition-colors hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-black"
       >
         <Plus className="h-4 w-4" />
         Add Set

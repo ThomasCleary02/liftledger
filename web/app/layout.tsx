@@ -8,6 +8,9 @@ import { ToastContainer } from "../components/ToastContainer";
 import { KeyboardShortcuts } from "../components/KeyboardShortcuts";
 import { PWAInstallPrompt } from "../components/PWAInstallPrompt";
 import { ServiceWorkerUpdate } from "../components/ServiceWorkerUpdate";
+import { SafeAreaInsets } from "../components/SafeAreaInsets";
+import { ThemeSync } from "../components/ThemeSync";
+import Script from "next/script";
 import React from "react";
 
 const inter = Inter({ 
@@ -56,6 +59,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
+  viewportFit: "cover",
   themeColor: "#000000",
 };
 
@@ -67,9 +71,14 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
+        <Script id="ios-safe-area" strategy="beforeInteractive">
+          {`(function(){try{var n=window.navigator;var ios=/iPad|iPhone|iPod/.test(n.userAgent)||(n.platform==="MacIntel"&&n.maxTouchPoints>1);var standalone=n.standalone===true||window.matchMedia("(display-mode: standalone)").matches;if(ios&&standalone){var r=document.documentElement;r.classList.add("ios-standalone");r.style.setProperty("--safe-area-top-floor","47px");r.style.setProperty("--safe-area-bottom-floor","34px");}var theme="system";try{var raw=localStorage.getItem("@liftledger:preferences");if(raw){var p=JSON.parse(raw);if(p&&p.theme)theme=p.theme;}}catch(e){}var dark=theme==="dark"||(theme==="system"&&window.matchMedia("(prefers-color-scheme: dark)").matches);if(dark)document.documentElement.classList.add("dark");}catch(e){}})();`}
+        </Script>
         <ErrorBoundary>
           <AuthProvider>
             <PreferencesProvider>
+              <SafeAreaInsets />
+              <ThemeSync />
               <KeyboardShortcuts />
               {children}
               <ToastContainer />

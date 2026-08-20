@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { format, parseISO, isValid, differenceInDays } from "date-fns";
+import { format, parseISO, isValid, differenceInDays, addDays, subDays } from "date-fns";
 import { useAuth } from "../../../../providers/Auth";
 import {
   getDayByDate,
   createDay,
   updateDay,
+  listDays,
+  getDaysInRange,
   Day,
 } from "../../../../lib/firestore/days";
 import type { Exercise } from "../../../../lib/firestore/workouts";
@@ -18,13 +20,20 @@ import CardioInput, { CardioData } from "../../../../components/CardioInput";
 import DayNavigation from "../../../../components/DayNavigation";
 import { Trash2, Dumbbell, Heart, Activity, Pencil, Plus, Moon, FileText, X, ChevronRight } from "lucide-react";
 import { usePreferences } from "../../../../lib/hooks/usePreferences";
-import { formatWeight, formatDistance } from "../../../../lib/utils/units";
+import { formatWeight, formatDistance, formatCardioDuration, formatWeightInput, formatDistanceInput, toStoredWeight, toStoredDistance } from "../../../../lib/utils/units";
 import { toast, removeToast } from "../../../../lib/toast";
 import { logger } from "../../../../lib/logger";
-import { listDays } from "../../../../lib/firestore/days";
 import { DayNavigationSkeleton, ExerciseListSkeleton } from "../../../../components/LoadingSkeleton";
 import { SyncStatusIndicator, useSyncStatus } from "../../../../components/SyncStatus";
 import { listTemplates, type WorkoutTemplate } from "../../../../lib/firestore/workoutTemplates";
+import { RestTimer } from "../../../../components/RestTimer";
+import {
+  rememberExercises,
+  rememberLastWorkout,
+  getCachedLastExercise,
+  getCachedLastWorkout,
+  hydrateCacheFromDays,
+} from "../../../../lib/lastExerciseCache";
 import {
   fetchProgressInsight,
   extractExerciseHistory,
@@ -34,6 +43,10 @@ import {
   getCachedInsight,
   setCachedInsight,
   clearCacheEntry,
+  inferCardioActivityType,
+  resolveCardioActivityType,
+  CARDIO_ACTIVITY_LABELS,
+  type CardioActivityType,
 } from "@liftledger/shared";
 
 type SelectedExercise = {
@@ -41,6 +54,28 @@ type SelectedExercise = {
   name: string;
   modality: "strength" | "cardio" | "calisthenics";
 };
+
+function formatLastHint(
+  exercise: Exercise | null,
+  units: "metric" | "imperial"
+): string | null {
+  if (!exercise) return null;
+  if (exercise.modality === "strength" && exercise.strengthSets && exercise.strengthSets.length > 0) {
+    const last = exercise.strengthSets[exercise.strengthSets.length - 1];
+    return `Last: ${exercise.strengthSets.length} set${exercise.strengthSets.length === 1 ? "" : "s"}, last ${last.reps} × ${formatWeight(last.weight, units)}`;
+  }
+  if (exercise.modality === "cardio" && exercise.cardioData) {
+    const dist = exercise.cardioData.distance
+      ? ` • ${formatDistance(exercise.cardioData.distance, units)}`
+      : "";
+    return `Last: ${formatCardioDuration(exercise.cardioData.duration)}${dist}`;
+  }
+  if (exercise.modality === "calisthenics" && exercise.calisthenicsSets && exercise.calisthenicsSets.length > 0) {
+    const last = exercise.calisthenicsSets[exercise.calisthenicsSets.length - 1];
+    return `Last: ${last.reps} reps`;
+  }
+  return null;
+}
 
 export default function DayView() {
   const params = useParams();
@@ -50,20 +85,60 @@ export default function DayView() {
   const [day, setDay] = useState<Day | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
+  const currentDateRef = useRef("");
 
   const [selectedExercise, setSelectedExercise] = useState<SelectedExercise | null>(null);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
   const [strengthSets, setStrengthSets] = useState<StrengthSet[]>([{ reps: "10", weight: "135" }]);
-  const [cardioData, setCardioData] = useState<CardioData>({ duration: "30", distance: "5" });
+  const [cardioData, setCardioData] = useState<CardioData>({ duration: "30", distance: "" });
+  const [cardioActivityType, setCardioActivityType] = useState<CardioActivityType>("other");
   const [calisthenicsSets, setCalisthenicsSets] = useState<CalisthenicsSet[]>([{ reps: "10" }]);
 
-  const { units } = usePreferences();
+  const { units, restTimerSeconds } = usePreferences();
   const { showSyncing } = useSyncStatus();
 
   const [allDays, setAllDays] = useState<Day[]>([]);
+  const [nearbyDays, setNearbyDays] = useState<Day[]>([]);
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
   const [templates, setTemplates] = useState<WorkoutTemplate[]>([]);
+  const [resting, setResting] = useState(false);
+  const [restKey, setRestKey] = useState(0);
+  const [lastHint, setLastHint] = useState<string | null>(null);
+
+  const startRest = () => {
+    if (restTimerSeconds <= 0) return;
+    setRestKey((key) => key + 1);
+    setResting(true);
+  };
+
+  const beginSave = () => {
+    if (savingRef.current) return false;
+    savingRef.current = true;
+    setSaving(true);
+    return true;
+  };
+
+  const endSave = () => {
+    savingRef.current = false;
+    setSaving(false);
+  };
+
+  const applyDayIfCurrent = (next: Day) => {
+    if (currentDateRef.current === next.date) setDay(next);
+  };
+
+  const resetComposer = () => {
+    setSelectedExercise(null);
+    setEditingIndex(null);
+    setLastHint(null);
+    setShowTemplateSelector(false);
+    setStrengthSets([{ reps: "10", weight: formatWeightInput(135, units) }]);
+    setCardioData({ duration: "30", distance: "" });
+    setCardioActivityType("other");
+    setCalisthenicsSets([{ reps: "10" }]);
+  };
 
   const loadTemplates = async () => {
     try {
@@ -100,6 +175,9 @@ export default function DayView() {
       if (ex.cardioData.pace !== undefined && ex.cardioData.pace !== null) {
         cleanCardio.pace = ex.cardioData.pace;
       }
+      if (ex.cardioData.activityType) {
+        cleanCardio.activityType = ex.cardioData.activityType;
+      }
       cleaned.cardioData = cleanCardio;
     }
     
@@ -122,8 +200,8 @@ export default function DayView() {
       toast.error("Template has no exercises");
       return;
     }
+    if (!beginSave()) return;
 
-    setSaving(true);
     showSyncing(true);
     try {
       const currentDay = await ensureDayExists();
@@ -133,7 +211,7 @@ export default function DayView() {
 
       if (currentDay.id) {
         await updateDay(currentDay.id, { exercises: nextExercises });
-        setDay({ ...currentDay, exercises: nextExercises });
+        applyDayIfCurrent({ ...currentDay, exercises: nextExercises });
         toast.success(`Loaded template: ${template.name}`);
       }
       setShowTemplateSelector(false);
@@ -143,7 +221,64 @@ export default function DayView() {
       toast.error("Failed to load template");
       showSyncing(false);
     } finally {
-      setSaving(false);
+      endSave();
+    }
+  };
+
+  const repeatLastWorkout = async () => {
+    if (!user) return;
+    if (!beginSave()) return;
+
+    const cached = getCachedLastWorkout(user.uid);
+    const fromRecent = allDays.find(
+      (item) => item.date !== currentDate && !item.isRestDay && item.exercises.length > 0
+    );
+    let source =
+      cached && cached.date !== currentDate && cached.exercises.length > 0
+        ? cached
+        : fromRecent
+          ? { date: fromRecent.date, exercises: fromRecent.exercises }
+          : null;
+
+    if (!source) {
+      try {
+        const older = await listDays({ limit: 180, order: "desc" });
+        const found = older.find(
+          (item) => item.date !== currentDate && !item.isRestDay && item.exercises.length > 0
+        );
+        if (found) source = { date: found.date, exercises: found.exercises };
+      } catch (error) {
+        logger.warn("Failed to search older workouts", error);
+      }
+    }
+
+    if (!source) {
+      toast.error("No previous workout to copy yet");
+      endSave();
+      return;
+    }
+
+    showSyncing(true);
+    try {
+      const currentDay = await ensureDayExists();
+      const nextExercises = [
+        ...(currentDay.exercises || []).map(cleanExercise),
+        ...source.exercises.map(cleanExercise),
+      ];
+      if (currentDay.id) {
+        await updateDay(currentDay.id, { exercises: nextExercises });
+        applyDayIfCurrent({ ...currentDay, exercises: nextExercises });
+        rememberExercises(user.uid, source.exercises);
+        rememberLastWorkout(user.uid, currentDay.date, nextExercises);
+        toast.success(`Copied workout from ${source.date}`);
+      }
+      showSyncing(false);
+    } catch (error) {
+      logger.error("Failed to repeat last workout", error);
+      toast.error("Failed to copy last workout");
+      showSyncing(false);
+    } finally {
+      endSave();
     }
   };
 
@@ -167,6 +302,7 @@ export default function DayView() {
   };
 
   const currentDate = getCurrentDate();
+  currentDateRef.current = currentDate;
 
   useEffect(() => {
     if (authLoading) return;
@@ -177,31 +313,44 @@ export default function DayView() {
     }
 
     let mounted = true;
+    setLoading(true);
+    setDay(null);
+    resetComposer();
     (async () => {
       try {
         const d = await getDayByDate(currentDate);
-        if (mounted) setDay(d);
+        if (mounted) {
+          setDay(d);
+          setLoading(false);
+        }
       } catch (error) {
         logger.error("Failed to load day", error);
         if (mounted) {
+          setDay(null);
           toast.error("Failed to load day. Please try again.");
+          setLoading(false);
         }
-      } finally {
-        if (mounted) setLoading(false);
+        return;
       }
-    })();
 
-    const loadDays = async () => {
-      try {
-        const days = await listDays({ limit: 500, order: "desc" });
-        setAllDays(days);
-      } catch (error) {
-        // Silently fail - exercise history is optional
-        // This will work once Firestore rules are deployed
-        console.warn("Failed to load days for exercise history (non-critical)", error);
-      }
-    };
-    loadDays();
+      const [recent, nearby] = await Promise.all([
+        listDays({ limit: 20, order: "desc" }).catch((error) => {
+          logger.warn("Failed to load recent days", error);
+          return [] as Day[];
+        }),
+        getDaysInRange(
+          format(subDays(parseISO(currentDate), 3), "yyyy-MM-dd"),
+          format(addDays(parseISO(currentDate), 3), "yyyy-MM-dd")
+        ).catch((error) => {
+          logger.warn("Failed to load nearby days", error);
+          return [] as Day[];
+        }),
+      ]);
+      if (!mounted) return;
+      setAllDays(recent);
+      setNearbyDays(nearby);
+      hydrateCacheFromDays(user.uid, recent, currentDate);
+    })();
 
     return () => {
       mounted = false;
@@ -251,8 +400,23 @@ export default function DayView() {
         return; // Invalid modality
       }
 
-      // Extract exercise history
-      const history = extractExerciseHistory(allDays, exerciseId, modality);
+      const hasDistance = modality === "cardio" && exercise.cardioData?.distance !== undefined && exercise.cardioData.distance > 0;
+      let historyDays = allDays;
+      try {
+        const deepHistory = await listDays({ limit: 200, order: "desc" });
+        const byId = new Map<string, Day>();
+        deepHistory.forEach((d) => byId.set(d.id || d.date, d));
+        allDays.forEach((d) => byId.set(d.id || d.date, d));
+        historyDays = Array.from(byId.values());
+      } catch (error) {
+        logger.warn("Could not load extra history for insights", error);
+      }
+      const history = extractExerciseHistory(
+        historyDays,
+        exerciseId,
+        modality,
+        modality === "cardio" ? { cardioMetric: hasDistance ? "distance" : "duration" } : undefined
+      );
 
       if (history.length === 0) {
         logger.warn(`[Insights] No history found for ${exercise.name} (id: ${exerciseId}, modality: ${modality})`);
@@ -279,8 +443,6 @@ export default function DayView() {
 
       logger.info(`[Insights] Fetching insight for ${exercise.name}: history=${history.length}, isPR=${isPR}`);
 
-      // Determine metric name
-      const hasDistance = modality === "cardio" && exercise.cardioData?.distance !== undefined && exercise.cardioData.distance > 0;
       const metric = getMetricName(modality, hasDistance);
 
       // Track loading toast ID so we can remove it when the real insight arrives
@@ -411,16 +573,27 @@ export default function DayView() {
   ) => {
     setSelectedExercise({ id: exerciseId, name, modality });
 
-    const lastExercise = getLastExerciseData(allDays, exerciseId);
+    const lastExercise =
+      (user ? getCachedLastExercise(user.uid, exerciseId) : null) ||
+      getLastExerciseData(allDays, exerciseId);
+
+    setLastHint(formatLastHint(lastExercise, units));
 
     if (modality === "cardio") {
+      setCardioActivityType(
+        lastExercise?.modality === "cardio"
+          ? resolveCardioActivityType(lastExercise.cardioData?.activityType, name, exerciseId)
+          : inferCardioActivityType(name, exerciseId)
+      );
       if (lastExercise?.modality === "cardio" && lastExercise.cardioData) {
         setCardioData({
           duration: String(Math.round(lastExercise.cardioData.duration / 60)),
-          distance: lastExercise.cardioData.distance ? String(lastExercise.cardioData.distance) : "5",
+          distance: lastExercise.cardioData.distance
+            ? formatDistanceInput(lastExercise.cardioData.distance, units)
+            : "",
         });
       } else {
-        setCardioData({ duration: "30", distance: "5" });
+        setCardioData({ duration: "30", distance: "" });
       }
     } else if (modality === "calisthenics") {
       if (lastExercise?.modality === "calisthenics" && lastExercise.calisthenicsSets && lastExercise.calisthenicsSets.length > 0) {
@@ -438,11 +611,11 @@ export default function DayView() {
         setStrengthSets(
           lastExercise.strengthSets.map((s) => ({
             reps: String(s.reps),
-            weight: String(s.weight),
+            weight: formatWeightInput(s.weight, units),
           }))
         );
       } else {
-        setStrengthSets([{ reps: "10", weight: "135" }]);
+        setStrengthSets([{ reps: "10", weight: formatWeightInput(135, units) }]);
       }
     }
   };
@@ -463,13 +636,14 @@ export default function DayView() {
       setStrengthSets(
         ex.strengthSets?.map((s) => ({
           reps: String(s.reps),
-          weight: String(s.weight),
-        })) ?? [{ reps: "10", weight: "135" }]
+          weight: formatWeightInput(s.weight, units),
+        })) ?? [{ reps: "10", weight: formatWeightInput(135, units) }]
       );
     } else if (ex.modality === "cardio") {
+      setCardioActivityType(resolveCardioActivityType(ex.cardioData?.activityType, ex.name, ex.exerciseId));
       setCardioData({
         duration: ex.cardioData ? String(Math.round(ex.cardioData.duration / 60)) : "",
-        distance: ex.cardioData?.distance != null ? String(ex.cardioData.distance) : "",
+        distance: ex.cardioData?.distance != null ? formatDistanceInput(ex.cardioData.distance, units) : "",
       });
     } else {
       setCalisthenicsSets(
@@ -482,15 +656,14 @@ export default function DayView() {
   };
 
   const ensureDayExists = async (): Promise<Day> => {
-    if (day) return day;
+    if (day && day.date === currentDate) return day;
 
-    // Create day if it doesn't exist
     const newDay = await createDay({
       date: currentDate,
       isRestDay: false,
       exercises: [],
     });
-    setDay(newDay);
+    applyDayIfCurrent(newDay);
     return newDay;
   };
 
@@ -502,15 +675,16 @@ export default function DayView() {
     if (selectedExercise.modality === "cardio") {
       const durationMinutes = Number(cardioData.duration);
       const duration = durationMinutes * 60;
-      const distance = cardioData.distance ? Number(cardioData.distance) : undefined;
+      const distanceDisplay = cardioData.distance ? Number(cardioData.distance) : undefined;
 
       if (!isFinite(durationMinutes) || durationMinutes <= 0) {
         toast.error("Duration must be a positive number of minutes.");
         return;
       }
 
-      const cardioDataObj: any = { duration };
-      if (distance && isFinite(distance) && distance > 0) {
+      const cardioDataObj: any = { duration, activityType: cardioActivityType };
+      if (distanceDisplay && isFinite(distanceDisplay) && distanceDisplay > 0) {
+        const distance = toStoredDistance(distanceDisplay, units);
         cardioDataObj.distance = distance;
         if (duration > 0) {
           cardioDataObj.pace = duration / distance;
@@ -554,7 +728,7 @@ export default function DayView() {
           const reps = Number(s.reps);
           const weight = Number(s.weight);
           if (!isFinite(reps) || reps <= 0 || !isFinite(weight) || weight < 0) return null;
-          return { reps, weight };
+          return { reps, weight: toStoredWeight(weight, units) };
         })
         .filter((s): s is { reps: number; weight: number } => s !== null);
 
@@ -571,7 +745,7 @@ export default function DayView() {
       };
     }
 
-    setSaving(true);
+    if (!beginSave()) return;
     showSyncing(true);
     try {
       const currentDay = await ensureDayExists();
@@ -583,15 +757,26 @@ export default function DayView() {
 
       if (currentDay.id) {
         await updateDay(currentDay.id, { exercises: nextExercises });
-        setDay({ ...currentDay, exercises: nextExercises });
+        applyDayIfCurrent({ ...currentDay, exercises: nextExercises });
+        if (user) {
+          rememberExercises(user.uid, [cleanedExercise]);
+          rememberLastWorkout(user.uid, currentDay.date, nextExercises);
+        }
       }
       setSelectedExercise(null);
       setEditingIndex(null);
-      setStrengthSets([{ reps: "10", weight: "135" }]);
-      setCardioData({ duration: "30", distance: "5" });
+      setLastHint(null);
+      setStrengthSets([{ reps: "10", weight: formatWeightInput(135, units) }]);
+      setCardioData({ duration: "30", distance: "" });
       setCalisthenicsSets([{ reps: "10" }]);
       toast.success(editingIndex !== null ? "Exercise updated" : "Exercise added successfully");
       showSyncing(false);
+      if (
+        restTimerSeconds > 0 &&
+        (selectedExercise.modality === "strength" || selectedExercise.modality === "calisthenics")
+      ) {
+        startRest();
+      }
 
       // Fetch and display insights asynchronously (non-blocking)
       // Build a complete list of days including the updated current day
@@ -647,18 +832,18 @@ export default function DayView() {
       toast.error(message);
       showSyncing(false);
     } finally {
-      setSaving(false);
+      endSave();
     }
   };
 
   const removeExercise = async (idx: number) => {
     if (!day) return;
-    setSaving(true);
+    if (!beginSave()) return;
     showSyncing(true);
     try {
       const next = day.exercises.filter((_, i: number) => i !== idx).map(cleanExercise);
       await updateDay(day.id, { exercises: next });
-      setDay({ ...day, exercises: next });
+      applyDayIfCurrent({ ...day, exercises: next });
       toast.success("Exercise removed");
       if (editingIndex === idx) {
         setSelectedExercise(null);
@@ -673,47 +858,34 @@ export default function DayView() {
       toast.error(message);
       showSyncing(false);
     } finally {
-      setSaving(false);
+      endSave();
     }
   };
 
   const toggleRestDay = async () => {
-    if (!day) {
-      // Create day as rest day
-      setSaving(true);
-      showSyncing(true);
-      try {
-        const newDay = await createDay({
-          date: currentDate,
-          isRestDay: true,
-          exercises: [],
-        });
-        setDay(newDay);
-        toast.success("Marked as rest day");
-        showSyncing(false);
-      } catch (error) {
-        logger.error("Failed to mark rest day", error);
-        toast.error("Failed to mark rest day");
-        showSyncing(false);
-      } finally {
-        setSaving(false);
-      }
-      return;
-    }
-
-    setSaving(true);
+    if (!beginSave()) return;
     showSyncing(true);
     try {
-      await updateDay(day.id, { isRestDay: !day.isRestDay });
-      setDay({ ...day, isRestDay: !day.isRestDay });
-      toast.success(day.isRestDay ? "Removed rest day" : "Marked as rest day");
+      const currentDay = day && day.date === currentDate
+        ? day
+        : await createDay({
+            date: currentDate,
+            isRestDay: true,
+            exercises: [],
+          });
+      const nextRest = currentDay === day ? !currentDay.isRestDay : true;
+      if (currentDay.isRestDay !== nextRest) {
+        await updateDay(currentDay.id, { isRestDay: nextRest });
+      }
+      applyDayIfCurrent({ ...currentDay, isRestDay: nextRest });
+      toast.success(nextRest ? "Marked as rest day" : "Removed rest day");
       showSyncing(false);
     } catch (error) {
       logger.error("Failed to toggle rest day", error);
       toast.error("Failed to toggle rest day");
       showSyncing(false);
     } finally {
-      setSaving(false);
+      endSave();
     }
   };
 
@@ -757,7 +929,7 @@ export default function DayView() {
   const isRestDay = day?.isRestDay ?? false;
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-gray-50">
+    <div className="flex h-full flex-col overflow-hidden bg-gray-50">
       <SyncStatusIndicator />
       {/* Fixed Header */}
       <header className="flex-shrink-0">
@@ -765,6 +937,8 @@ export default function DayView() {
         currentDate={currentDate}
         onDateChange={handleDateChange}
         onTodayClick={handleTodayClick}
+        loggedDates={new Set(nearbyDays.filter((d) => !d.isRestDay && d.exercises.length > 0).map((d) => d.date))}
+        restDates={new Set(nearbyDays.filter((d) => d.isRestDay).map((d) => d.date))}
       />
       </header>
 
@@ -786,7 +960,7 @@ export default function DayView() {
             <Moon className={`h-4 w-4 ${isRestDay ? "text-blue-600" : "text-gray-600"}`} />
             {isRestDay ? <span>Rest Day</span> : <span>Mark as Rest Day</span>}
           </button>
-          {!isRestDay && (
+          {!isRestDay && hasExercises && (
             <button
               onClick={() => {
                 setShowTemplateSelector(true);
@@ -800,7 +974,29 @@ export default function DayView() {
           )}
         </div>
 
-        {/* Add / Edit Exercise - Moved to Top */}
+        {!isRestDay && !hasExercises && !selectedExercise && (
+          <div className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={repeatLastWorkout}
+              disabled={saving}
+              className="flex min-h-[52px] items-center justify-center gap-2 rounded-lg bg-black px-4 py-3 text-sm font-semibold text-white"
+            >
+              Repeat last workout
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowTemplateSelector(true);
+                loadTemplates();
+              }}
+              className="flex min-h-[52px] items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-900"
+            >
+              <FileText className="h-4 w-4" />
+              Use template
+            </button>
+          </div>
+        )}
         {!isRestDay && (
           <div className="mb-6 rounded-lg border border-gray-200 bg-white px-4 py-5">
             <div className="mb-3 flex items-center justify-between">
@@ -827,11 +1023,15 @@ export default function DayView() {
                     >
                       {selectedExercise.modality}
                     </span>
+                    {lastHint && (
+                      <p className="mt-2 text-sm text-gray-500">{lastHint}</p>
+                    )}
                   </div>
                   <button
                     onClick={() => {
                       setSelectedExercise(null);
                       setEditingIndex(null);
+                      setLastHint(null);
                     }}
                     className="text-sm text-gray-600 transition-colors hover:text-gray-700"
                     aria-label="Change exercise"
@@ -841,11 +1041,20 @@ export default function DayView() {
                 </div>
 
                 {selectedExercise.modality === "strength" && (
-                  <StrengthSetInput sets={strengthSets} onSetsChange={setStrengthSets} />
+                  <StrengthSetInput
+                    sets={strengthSets}
+                    onSetsChange={setStrengthSets}
+                    onAddedSet={startRest}
+                  />
                 )}
 
                 {selectedExercise.modality === "cardio" && (
-                  <CardioInput data={cardioData} onDataChange={setCardioData} />
+                  <CardioInput
+                    data={cardioData}
+                    onDataChange={setCardioData}
+                    activityType={cardioActivityType}
+                    onActivityTypeChange={setCardioActivityType}
+                  />
                 )}
 
                 {selectedExercise.modality === "calisthenics" && (
@@ -853,6 +1062,7 @@ export default function DayView() {
                     sets={calisthenicsSets}
                     onSetsChange={setCalisthenicsSets}
                     showDuration={false}
+                    onAddedSet={startRest}
                   />
                 )}
 
@@ -873,10 +1083,9 @@ export default function DayView() {
         )}
 
         {/* Exercises List */}
-        {!isRestDay && (
+        {!isRestDay && hasExercises && (
           <div className="mb-6">
             <h2 className="mb-3 text-lg font-semibold text-gray-900">Exercises</h2>
-            {hasExercises ? (
               <div className="space-y-3">
                 {day!.exercises.map((ex: Exercise, idx: number) => {
                   const Icon = getModalityIcon(ex.modality);
@@ -890,7 +1099,11 @@ export default function DayView() {
                               ex.modality
                             )}`}
                           >
-                            {ex.modality}
+                            {ex.modality === "cardio"
+                              ? CARDIO_ACTIVITY_LABELS[
+                                  resolveCardioActivityType(ex.cardioData?.activityType, ex.name, ex.exerciseId)
+                                ]
+                              : ex.modality}
                           </span>
                         </div>
                         <div className="flex items-center gap-2">
@@ -922,7 +1135,7 @@ export default function DayView() {
                         {ex.modality === "cardio" && ex.cardioData && (
                           <div className="rounded bg-gray-100 px-3 py-1">
                             <span className="text-sm text-gray-700">
-                              {formatDuration(ex.cardioData.duration)}
+                              {formatCardioDuration(ex.cardioData.duration)}
                               {ex.cardioData.distance
                                 ? ` • ${formatDistance(ex.cardioData.distance, units)}`
                                 : null}
@@ -943,11 +1156,6 @@ export default function DayView() {
                   );
                 })}
               </div>
-            ) : (
-              <div className="rounded-lg border border-gray-200 bg-white p-8 text-center">
-                <p className="text-gray-500">No exercises logged for this day</p>
-              </div>
-            )}
           </div>
         )}
 
@@ -1007,6 +1215,14 @@ export default function DayView() {
         )}
         </div>
       </main>
+      {resting && restTimerSeconds > 0 && (
+        <RestTimer
+          key={restKey}
+          seconds={restTimerSeconds}
+          onDone={() => setResting(false)}
+          onSkip={() => setResting(false)}
+        />
+      )}
     </div>
   );
 }

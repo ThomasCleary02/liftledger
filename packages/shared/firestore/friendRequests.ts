@@ -14,9 +14,10 @@ import {
   SnapshotOptions,
 } from "firebase/firestore";
 import { createFriendsService } from "./friends";
+import { lookupUserIdByEmail } from "./emailIndex";
+import { lookupUserIdByUsername } from "./usernameIndex";
 
 const COLLECTION = "friendRequests";
-const ACCOUNTS_COLLECTION = "accounts";
 
 // --------- Types ---------
 export interface FriendRequest {
@@ -76,33 +77,29 @@ export function createFriendRequestsService(db: Firestore, auth: Auth) {
      * Send a friend request by email
      * Creates a pending request
      */
-    async sendFriendRequest(email: string): Promise<FriendRequest> {
+    async sendFriendRequest(identifier: string): Promise<FriendRequest> {
       const uid = auth.currentUser?.uid;
       if (!uid) throw new Error("Not signed in");
 
-      // Normalize email
-      const normalizedEmail = email.trim().toLowerCase();
-      if (!normalizedEmail.includes("@")) {
-        throw new Error("Invalid email address");
+      const trimmed = identifier.trim();
+      if (!trimmed) {
+        throw new Error("Enter an email or username");
       }
 
-      // Find user by email in accounts collection
-      // Note: Account documents may not have email field stored yet
-      // Try querying accounts collection first
-      const accountsCol = collection(db, ACCOUNTS_COLLECTION);
-      const accountsQuery = query(accountsCol, where("email", "==", normalizedEmail));
-      let accountsSnapshot = await getDocs(accountsQuery);
-
-      if (accountsSnapshot.empty) {
-        throw new Error(
-          "No user found with that email address. " +
-          "Make sure the user has signed up and has used the app at least once " +
-          "(the account document is created when they first interact with favorites or tracked exercises)."
-        );
+      let toUserId: string | null = null;
+      if (trimmed.includes("@")) {
+        toUserId = await lookupUserIdByEmail(db, trimmed);
+        if (!toUserId) {
+          throw new Error(
+            "No user found with that email address. Make sure they have signed in at least once."
+          );
+        }
+      } else {
+        toUserId = await lookupUserIdByUsername(db, trimmed);
+        if (!toUserId) {
+          throw new Error("No user found with that username.");
+        }
       }
-
-      const toUserAccount = accountsSnapshot.docs[0];
-      const toUserId = toUserAccount.id;
 
       // Prevent sending request to yourself
       if (toUserId === uid) {
