@@ -6,7 +6,8 @@ import { useAuth } from "../../../providers/Auth";
 import { friendsService, friendRequestsService, accountService } from "../../../lib/firebase";
 import type { Friend } from "@liftledger/shared/firestore/friends";
 import type { FriendRequest } from "@liftledger/shared/firestore/friendRequests";
-import { Users, Mail, Trash2, Plus, Trophy, ChevronRight, Check, X, Clock } from "lucide-react";
+import { Users, Mail, Trash2, Plus, Trophy, ChevronRight, Check, X } from "lucide-react";
+import { Avatar } from "../../../components/Avatar";
 import { toast } from "../../../lib/toast";
 import { logger } from "../../../lib/logger";
 
@@ -19,7 +20,7 @@ export default function Friends() {
   const [loading, setLoading] = useState(true);
   const [emailInput, setEmailInput] = useState("");
   const [sendingRequest, setSendingRequest] = useState(false);
-  const [usernames, setUsernames] = useState<Record<string, string>>({});
+  const [profiles, setProfiles] = useState<Record<string, { username: string | null; photoURL: string | null }>>({});
 
   useEffect(() => {
     if (authLoading) return;
@@ -58,21 +59,17 @@ export default function Friends() {
       incoming.forEach((r) => userIds.add(r.fromUserId));
       outgoing.forEach((r) => userIds.add(r.toUserId));
       
-      // Fetch usernames
-      const usernameMap: Record<string, string> = {};
+      const profileMap: Record<string, { username: string | null; photoURL: string | null }> = {};
       await Promise.all(
         Array.from(userIds).map(async (userId) => {
           try {
-            const username = await accountService.getUsernameForUser(userId);
-            if (username) {
-              usernameMap[userId] = username;
-            }
+            profileMap[userId] = await accountService.getProfileForUser(userId);
           } catch (error) {
-            console.error(`Error fetching username for ${userId}:`, error);
+            console.error(`Error fetching profile for ${userId}:`, error);
           }
         })
       );
-      setUsernames(usernameMap);
+      setProfiles(profileMap);
     } catch (error) {
       logger.error("Error loading friends", error);
       toast.error("Failed to load friends");
@@ -217,12 +214,14 @@ export default function Friends() {
                       className="flex items-center justify-between border-b border-gray-100 px-5 py-4 last:border-0"
                     >
                       <div className="flex flex-1 items-center gap-3">
-                        <div className="rounded-full bg-blue-100 p-2">
-                          <Users className="h-5 w-5 text-blue-600" />
-                        </div>
+                        <Avatar
+                          name={profiles[request.fromUserId]?.username}
+                          photoURL={profiles[request.fromUserId]?.photoURL}
+                          size={40}
+                        />
                         <div className="flex-1">
                           <p className="font-semibold text-gray-900">
-                            {usernames[request.fromUserId] || request.fromUserId.substring(0, 8)}
+                            {profiles[request.fromUserId]?.username || request.fromUserId.substring(0, 8)}
                           </p>
                           <p className="text-sm text-gray-500">Sent you a friend request</p>
                         </div>
@@ -262,12 +261,14 @@ export default function Friends() {
                       className="flex items-center justify-between border-b border-gray-100 px-5 py-4 last:border-0"
                     >
                       <div className="flex flex-1 items-center gap-3">
-                        <div className="rounded-full bg-yellow-100 p-2">
-                          <Clock className="h-5 w-5 text-yellow-600" />
-                        </div>
+                        <Avatar
+                          name={profiles[request.toUserId]?.username}
+                          photoURL={profiles[request.toUserId]?.photoURL}
+                          size={40}
+                        />
                         <div className="flex-1">
                           <p className="font-semibold text-gray-900">
-                            {usernames[request.toUserId] || request.toUserId.substring(0, 8)}
+                            {profiles[request.toUserId]?.username || request.toUserId.substring(0, 8)}
                           </p>
                           <p className="text-sm text-gray-500">Waiting for response</p>
                         </div>
@@ -351,17 +352,28 @@ export default function Friends() {
                       className="flex items-center justify-between border-b border-gray-100 px-5 py-4 last:border-0"
                     >
                       <div className="flex flex-1 items-center gap-3">
-                        <div className="rounded-full bg-gray-100 p-2">
-                          <Users className="h-5 w-5 text-gray-600" />
-                        </div>
+                        <Avatar
+                          name={(() => {
+                            const friendUserId = friend.userId === user?.uid
+                              ? friend.friendUserId
+                              : friend.userId;
+                            return profiles[friendUserId]?.username;
+                          })()}
+                          photoURL={(() => {
+                            const friendUserId = friend.userId === user?.uid
+                              ? friend.friendUserId
+                              : friend.userId;
+                            return profiles[friendUserId]?.photoURL;
+                          })()}
+                          size={40}
+                        />
                         <div className="flex-1">
                           <p className="font-semibold text-gray-900">
                             {(() => {
-                              // Get the other user's ID (not current user)
                               const friendUserId = friend.userId === user?.uid 
                                 ? friend.friendUserId 
                                 : friend.userId;
-                              return usernames[friendUserId] || friendUserId.substring(0, 8);
+                              return profiles[friendUserId]?.username || friendUserId.substring(0, 8);
                             })()}
                           </p>
                           <p className="text-sm text-gray-500">

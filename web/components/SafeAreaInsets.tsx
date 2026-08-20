@@ -26,8 +26,8 @@ export function SafeAreaInsets() {
 
     const root = document.documentElement;
     root.classList.add("ios-standalone");
-    root.style.setProperty("--safe-area-top-floor", "47px");
-    root.style.setProperty("--safe-area-bottom-floor", "34px");
+    root.style.setProperty("--safe-area-top-floor", "45px");
+    root.style.setProperty("--safe-area-bottom-floor", "32px");
 
     const syncViewportInset = () => {
       const vv = window.visualViewport;

@@ -12,13 +12,15 @@ import {
   getDaysInRange,
   Day,
 } from "../../../../lib/firestore/days";
+import { accountService } from "../../../../lib/firebase";
+import { isLoggedDay, type DayStatus } from "@liftledger/shared";
 import type { Exercise } from "../../../../lib/firestore/workouts";
 import ExerciseSearch from "../../../../components/ExerciseSearch";
 import StrengthSetInput, { StrengthSet } from "../../../../components/StrengthSetInput";
 import CalisthenicsSetInput, { CalisthenicsSet } from "../../../../components/CalisthenicsSetInput";
 import CardioInput, { CardioData } from "../../../../components/CardioInput";
 import DayNavigation from "../../../../components/DayNavigation";
-import { Trash2, Dumbbell, Heart, Activity, Pencil, Plus, Moon, FileText, X, ChevronRight } from "lucide-react";
+import { Trash2, Dumbbell, Heart, Activity, Pencil, Plus, Moon, FileText, X, ChevronRight, Upload, Link2 } from "lucide-react";
 import { usePreferences } from "../../../../lib/hooks/usePreferences";
 import { formatWeight, formatDistance, formatCardioDuration, formatWeightInput, formatDistanceInput, toStoredWeight, toStoredDistance } from "../../../../lib/utils/units";
 import { toast, removeToast } from "../../../../lib/toast";
@@ -157,11 +159,14 @@ export default function DayView() {
       name: ex.name,
       modality: ex.modality,
     };
+    if (ex.importId) cleaned.importId = ex.importId;
+    if (ex.supersetGroup) cleaned.supersetGroup = ex.supersetGroup;
     
     // Clean strength sets
     if (ex.strengthSets && Array.isArray(ex.strengthSets)) {
       cleaned.strengthSets = ex.strengthSets.map((set: any) => {
         const cleanSet: any = { reps: set.reps, weight: set.weight };
+        if (set.warmup) cleanSet.warmup = true;
         return cleanSet;
       });
     }
@@ -187,6 +192,9 @@ export default function DayView() {
         const cleanSet: any = { reps: set.reps };
         if (set.duration !== undefined && set.duration !== null) {
           cleanSet.duration = set.duration;
+        }
+        if (set.addedWeight !== undefined && set.addedWeight !== null) {
+          cleanSet.addedWeight = set.addedWeight;
         }
         return cleanSet;
       });
@@ -601,6 +609,7 @@ export default function DayView() {
           lastExercise.calisthenicsSets.map((s) => ({
             reps: String(s.reps),
             duration: s.duration ? String(s.duration) : "",
+            addedWeight: s.addedWeight ? formatWeightInput(s.addedWeight, units) : "",
           }))
         );
       } else {
@@ -612,6 +621,7 @@ export default function DayView() {
           lastExercise.strengthSets.map((s) => ({
             reps: String(s.reps),
             weight: formatWeightInput(s.weight, units),
+            warmup: Boolean(s.warmup),
           }))
         );
       } else {
@@ -637,6 +647,7 @@ export default function DayView() {
         ex.strengthSets?.map((s) => ({
           reps: String(s.reps),
           weight: formatWeightInput(s.weight, units),
+          warmup: Boolean(s.warmup),
         })) ?? [{ reps: "10", weight: formatWeightInput(135, units) }]
       );
     } else if (ex.modality === "cardio") {
@@ -650,6 +661,7 @@ export default function DayView() {
         ex.calisthenicsSets?.map((s) => ({
           reps: String(s.reps),
           duration: s.duration != null ? String(s.duration) : "",
+          addedWeight: s.addedWeight != null ? formatWeightInput(s.addedWeight, units) : "",
         })) ?? [{ reps: "10" }]
       );
     }
@@ -702,14 +714,18 @@ export default function DayView() {
         .map((s) => {
           const reps = Number(s.reps);
           const duration = s.duration ? Number(s.duration) : undefined;
+          const added = s.addedWeight ? Number(s.addedWeight) : undefined;
           if (!isFinite(reps) || reps <= 0) return null;
-          const setObj: { reps: number; duration?: number } = { reps };
+          const setObj: { reps: number; duration?: number; addedWeight?: number } = { reps };
           if (duration && isFinite(duration) && duration > 0) {
             setObj.duration = duration;
           }
+          if (added && isFinite(added) && added > 0) {
+            setObj.addedWeight = toStoredWeight(added, units);
+          }
           return setObj;
         })
-        .filter((s): s is { reps: number; duration?: number } => s !== null);
+        .filter((s): s is { reps: number; duration?: number; addedWeight?: number } => s !== null);
 
       if (sets.length === 0) {
         toast.error("Add at least one valid set with reps.");
@@ -728,9 +744,9 @@ export default function DayView() {
           const reps = Number(s.reps);
           const weight = Number(s.weight);
           if (!isFinite(reps) || reps <= 0 || !isFinite(weight) || weight < 0) return null;
-          return { reps, weight: toStoredWeight(weight, units) };
+          return { reps, weight: toStoredWeight(weight, units), ...(s.warmup ? { warmup: true as const } : {}) };
         })
-        .filter((s): s is { reps: number; weight: number } => s !== null);
+        .filter((s): s is { reps: number; weight: number; warmup?: true } => s !== null);
 
       if (sets.length === 0) {
         toast.error("Add at least one valid set.");
@@ -743,6 +759,12 @@ export default function DayView() {
         modality: "strength",
         strengthSets: sets,
       };
+    }
+
+    if (editingIndex !== null && day?.exercises[editingIndex]) {
+      const previous = day.exercises[editingIndex];
+      if (previous.importId) exercise.importId = previous.importId;
+      if (previous.supersetGroup) exercise.supersetGroup = previous.supersetGroup;
     }
 
     if (!beginSave()) return;
@@ -889,6 +911,37 @@ export default function DayView() {
     }
   };
 
+  const setDayStatus = async (status: DayStatus | null) => {
+    if (!beginSave()) return;
+    showSyncing(true);
+    try {
+      const currentDay = day && day.date === currentDate
+        ? day
+        : await createDay({ date: currentDate, isRestDay: false, exercises: [], status: status || undefined });
+      const next = currentDay.status === status ? null : status;
+      await updateDay(currentDay.id, { status: next });
+      applyDayIfCurrent({ ...currentDay, status: next || undefined });
+      toast.success(next === "deload" ? "Marked as deload" : next === "injured" ? "Marked as injury / skip" : "Cleared day flag");
+      showSyncing(false);
+    } catch (error) {
+      logger.error("Failed to update day status", error);
+      toast.error("Failed to update day");
+      showSyncing(false);
+    } finally {
+      endSave();
+    }
+  };
+
+  const pairSuperset = async (idx: number) => {
+    if (!day || idx < 1) return;
+    const group = day.exercises[idx - 1].supersetGroup || day.exercises[idx].supersetGroup || Date.now();
+    const next = day.exercises.map((item, i) =>
+      i === idx || i === idx - 1 ? { ...item, supersetGroup: group } : item
+    );
+    await updateDay(day.id, { exercises: next.map(cleanExercise) });
+    applyDayIfCurrent({ ...day, exercises: next.map(cleanExercise) });
+  };
+
   const formatDuration = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -937,8 +990,8 @@ export default function DayView() {
         currentDate={currentDate}
         onDateChange={handleDateChange}
         onTodayClick={handleTodayClick}
-        loggedDates={new Set(nearbyDays.filter((d) => !d.isRestDay && d.exercises.length > 0).map((d) => d.date))}
-        restDates={new Set(nearbyDays.filter((d) => d.isRestDay).map((d) => d.date))}
+        loggedDates={new Set(nearbyDays.filter((d) => isLoggedDay(d) && d.exercises.length > 0).map((d) => d.date))}
+        restDates={new Set(nearbyDays.filter((d) => d.isRestDay || d.status).map((d) => d.date))}
       />
       </header>
 
@@ -946,7 +999,7 @@ export default function DayView() {
       <main className="flex-1 overflow-y-auto">
         <div className="container mx-auto max-w-4xl px-4 py-6 md:px-8">
         {/* Header with Rest Day Toggle and Template Button */}
-        <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <button
             onClick={toggleRestDay}
             disabled={saving}
@@ -959,6 +1012,24 @@ export default function DayView() {
           >
             <Moon className={`h-4 w-4 ${isRestDay ? "text-blue-600" : "text-gray-600"}`} />
             {isRestDay ? <span>Rest Day</span> : <span>Mark as Rest Day</span>}
+          </button>
+          <button
+            onClick={() => setDayStatus("deload")}
+            disabled={saving}
+            className={`rounded-lg border px-3 py-2.5 text-sm font-medium ${
+              day?.status === "deload" ? "border-amber-500 bg-amber-50 text-amber-800" : "border-gray-200 bg-white text-gray-700"
+            }`}
+          >
+            Deload
+          </button>
+          <button
+            onClick={() => setDayStatus("injured")}
+            disabled={saving}
+            className={`rounded-lg border px-3 py-2.5 text-sm font-medium ${
+              day?.status === "injured" ? "border-rose-500 bg-rose-50 text-rose-800" : "border-gray-200 bg-white text-gray-700"
+            }`}
+          >
+            Injured
           </button>
           {!isRestDay && hasExercises && (
             <button
@@ -975,7 +1046,7 @@ export default function DayView() {
         </div>
 
         {!isRestDay && !hasExercises && !selectedExercise && (
-          <div className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <div className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
             <button
               type="button"
               onClick={repeatLastWorkout}
@@ -994,6 +1065,14 @@ export default function DayView() {
             >
               <FileText className="h-4 w-4" />
               Use template
+            </button>
+            <button
+              type="button"
+              onClick={() => router.push("/settings/import")}
+              className="flex min-h-[52px] items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-900"
+            >
+              <Upload className="h-4 w-4" />
+              Import log
             </button>
           </div>
         )}
@@ -1093,7 +1172,10 @@ export default function DayView() {
                     <div key={`${ex.name}-${idx}`} className="rounded-lg border border-gray-200 bg-white p-4">
                       <div className="mb-2 flex items-start justify-between">
                         <div className="flex-1">
-                          <h3 className="font-semibold text-gray-900">{ex.name}</h3>
+                          <h3 className="font-semibold text-gray-900">
+                            {ex.supersetGroup ? "⇄ " : ""}
+                            {ex.name}
+                          </h3>
                           <span
                             className={`mt-1 inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${getModalityColor(
                               ex.modality
@@ -1107,6 +1189,16 @@ export default function DayView() {
                           </span>
                         </div>
                         <div className="flex items-center gap-2">
+                          {idx > 0 && (
+                            <button
+                              onClick={() => pairSuperset(idx)}
+                              className="rounded-full bg-gray-100 p-2 text-gray-600 transition-colors hover:bg-gray-200"
+                              aria-label="Superset with previous"
+                              title="Superset with previous"
+                            >
+                              <Link2 className="h-4 w-4" />
+                            </button>
+                          )}
                           <button
                             onClick={() => startEditingExercise(idx)}
                             className="rounded-full bg-gray-100 p-2 text-gray-600 transition-colors hover:bg-gray-200"
@@ -1128,6 +1220,7 @@ export default function DayView() {
                           ex.strengthSets?.map((st: any, i: number) => (
                             <div key={i} className="rounded bg-gray-100 px-3 py-1">
                               <span className="text-sm text-gray-700">
+                                {st.warmup ? "W " : ""}
                                 {st.reps}×{formatWeight(st.weight, units)}
                               </span>
                             </div>
@@ -1147,6 +1240,7 @@ export default function DayView() {
                             <div key={i} className="rounded bg-gray-100 px-3 py-1">
                               <span className="text-sm text-gray-700">
                                 {st.reps} reps
+                                {st.addedWeight ? ` • +${formatWeight(st.addedWeight, units)}` : ""}
                                 {st.duration ? ` • ${formatDuration(st.duration)}` : null}
                               </span>
                             </div>
@@ -1185,7 +1279,14 @@ export default function DayView() {
                   <div className="py-8 text-center">
                     <FileText className="mx-auto mb-3 h-12 w-12 text-gray-300" />
                     <p className="text-gray-500">No templates found</p>
-                    <p className="mt-1 text-sm text-gray-400">Create templates in Settings</p>
+                    <p className="mt-1 text-sm text-gray-400">Create one in Settings, or import a starter program</p>
+                    <button
+                      type="button"
+                      onClick={() => router.push("/settings/import")}
+                      className="mt-4 text-sm font-semibold text-gray-900 underline"
+                    >
+                      Import or starter programs
+                    </button>
                   </div>
                 ) : (
                   <div className="space-y-2">

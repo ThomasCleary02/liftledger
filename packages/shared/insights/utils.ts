@@ -10,6 +10,7 @@
 import type { Day } from "../firestore/days";
 import type { Exercise } from "../firestore/workouts";
 import type { ProgressPoint } from "./api";
+import { maxWorkingWeight } from "../sets";
 import { parseISO, differenceInDays } from "date-fns";
 
 const MIN_SESSIONS = 8; // Minimum number of logs required
@@ -75,7 +76,7 @@ export function extractExerciseHistory(
 
     if (modality === "strength" && exercise.strengthSets && exercise.strengthSets.length > 0) {
       // Extract max weight from all sets for this day
-      value = Math.max(...exercise.strengthSets.map((set) => set.weight || 0));
+      value = maxWorkingWeight(exercise.strengthSets);
     } else if (modality === "cardio" && exercise.cardioData) {
       const metric = options?.cardioMetric;
       if (metric === "duration") {

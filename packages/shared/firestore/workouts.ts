@@ -42,6 +42,7 @@ export type { CardioActivityType } from "../cardio";
 export interface StrengthSetEntry {
   reps: number;
   weight: number;
+  warmup?: boolean;
 }
 
 export interface ListWorkoutsOptions {
@@ -59,12 +60,15 @@ export interface CardioEntry {
 export interface CalisthenicsSetEntry {
   reps: number;
   duration?: number; // for holds like planks (seconds)
+  addedWeight?: number; // extra load in lb
 }
 
 export interface Exercise {
   exerciseId?: string; // canonical id for analytics (e.g., "bench_press")
   name: string;        // display name (frozen at log time)
   modality: ExerciseModality; // CRITICAL: store this with each logged exercise
+  importId?: string;
+  supersetGroup?: number;
   
   // Only ONE of these should be populated based on modality:
   strengthSets?: StrengthSetEntry[];
@@ -142,9 +146,12 @@ function normalizeExercise(ex: any): Exercise {
           .filter((s: any) => s && typeof s.reps === "number")
           .map((s: any) => {
             // Only include duration if it's a valid number, otherwise omit it
-            const setObj: { reps: number; duration?: number } = { reps: s.reps };
+            const setObj: { reps: number; duration?: number; addedWeight?: number } = { reps: s.reps };
             if (typeof s.duration === "number" && s.duration > 0) {
               setObj.duration = s.duration;
+            }
+            if (typeof s.addedWeight === "number" && s.addedWeight > 0) {
+              setObj.addedWeight = s.addedWeight;
             }
             return setObj;
           })
@@ -158,7 +165,7 @@ function normalizeExercise(ex: any): Exercise {
         modality: "calisthenics",
         calisthenicsSets: ex.sets
           .filter((s: any) => s && typeof s.reps === "number")
-          .map((s: any) => ({ reps: s.reps }))
+          .map((s: any) => ({ reps: s.reps, ...(s.duration ? { duration: s.duration } : {}), ...(s.addedWeight ? { addedWeight: s.addedWeight } : {}) }))
       };
     }
     return { exerciseId: idIn, name: nameIn, modality: "calisthenics", calisthenicsSets: [] };
@@ -169,8 +176,12 @@ function normalizeExercise(ex: any): Exercise {
   if (Array.isArray(ex?.strengthSets)) {
     const sets = ex.strengthSets
       .filter((s: any) => s && typeof s.reps === "number" && typeof s.weight === "number")
-      .map((s: any) => ({ reps: s.reps, weight: s.weight }));
-    return { exerciseId: idIn, name: nameIn, modality: "strength", strengthSets: sets };
+      .map((s: any) => ({
+        reps: s.reps,
+        weight: s.weight,
+        ...(s.warmup ? { warmup: true } : {}),
+      }));
+    return { exerciseId: idIn, name: nameIn, modality: "strength", strengthSets: sets, importId: ex?.importId, supersetGroup: ex?.supersetGroup };
   }
 
   // Legacy: single set format (sets: number, reps: number, weight: number)

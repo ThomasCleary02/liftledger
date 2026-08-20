@@ -13,7 +13,8 @@ import {
 } from "@liftledger/shared/analytics/leaderboards";
 import { formatWeight, formatCardioDuration } from "../../../../lib/utils/units";
 import { usePreferences } from "../../../../lib/hooks/usePreferences";
-import { Trophy, ArrowLeft, BarChart3, Map as MapIcon, Calendar } from "lucide-react";
+import { Trophy, ArrowLeft } from "lucide-react";
+import { Avatar } from "../../../../components/Avatar";
 import { logger } from "../../../../lib/logger";
 import { accountService } from "../../../../lib/firebase";
 
@@ -27,7 +28,7 @@ export default function Leaderboards() {
   const [metric, setMetric] = useState<MetricType>("volume");
   const [timePeriod, setTimePeriod] = useState<LeaderboardTimePeriod>("7days");
   const [leaderboardData, setLeaderboardData] = useState<any[]>([]);
-  const [usernames, setUsernames] = useState<Record<string, string>>({});
+  const [profiles, setProfiles] = useState<Record<string, { username: string | null; photoURL: string | null }>>({});
 
   useEffect(() => {
     if (authLoading) return;
@@ -57,20 +58,17 @@ export default function Leaderboards() {
       
       // Fetch usernames for all users in the leaderboard
       const userIds = Array.from(new Set(data.map((entry) => entry.userId)));
-      const usernameMap: Record<string, string> = {};
+      const profileMap: Record<string, { username: string | null; photoURL: string | null }> = {};
       await Promise.all(
         userIds.map(async (userId) => {
           try {
-            const username = await accountService.getUsernameForUser(userId);
-            if (username) {
-              usernameMap[userId] = username;
-            }
+            profileMap[userId] = await accountService.getProfileForUser(userId);
           } catch (error) {
-            console.error(`Error fetching username for ${userId}:`, error);
+            console.error(`Error fetching profile for ${userId}:`, error);
           }
         })
       );
-      setUsernames(usernameMap);
+      setProfiles(profileMap);
     } catch (error) {
       logger.error("Error loading leaderboard", error);
     } finally {
@@ -170,7 +168,7 @@ export default function Leaderboards() {
             </div>
           ) : (
             <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
-              {leaderboardData.map((entry, index) => {
+              {leaderboardData.map((entry) => {
                 const isCurrentUser = entry.userId === user?.uid;
                 return (
                   <div
@@ -205,11 +203,16 @@ export default function Leaderboards() {
                           {entry.rank}
                         </span>
                       </div>
-                      <div className="flex-1">
+                      <Avatar
+                        name={isCurrentUser ? "You" : profiles[entry.userId]?.username}
+                        photoURL={profiles[entry.userId]?.photoURL}
+                        size={40}
+                      />
+                      <div className="ml-3 flex-1">
                         <p className={`font-semibold ${isCurrentUser ? "text-blue-700" : "text-gray-900"}`}>
-                          {isCurrentUser 
-                            ? "You" 
-                            : usernames[entry.userId] || entry.userId.substring(0, 8)}
+                          {isCurrentUser
+                            ? "You"
+                            : profiles[entry.userId]?.username || entry.userId.substring(0, 8)}
                         </p>
                         {isCurrentUser && (
                           <p className="text-xs text-blue-600 mt-0.5">Your rank</p>

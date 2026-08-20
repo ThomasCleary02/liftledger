@@ -1,4 +1,4 @@
-import { Day } from "../firestore/days";
+import { Day, isLoggedDay } from "../firestore/days";
 import { parseISO, isValid } from "date-fns";
 import {
   calculateTotalVolumeFromDays,
@@ -152,9 +152,7 @@ export function getConsistencyLeaderboard(
     const filteredDays = filterDaysByTimePeriod(days, timePeriod);
     
     // Count active days: days with exercises or marked as rest day
-    const activeDays = filteredDays.filter(
-      (day) => day.exercises.length > 0 || day.isRestDay
-    );
+    const activeDays = filteredDays.filter(isLoggedDay);
 
     entries.push({
       userId,

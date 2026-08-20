@@ -6,6 +6,7 @@ import { Plus, X } from "lucide-react";
 export interface CalisthenicsSet {
   reps: string;
   duration?: string;
+  addedWeight?: string;
 }
 
 interface CalisthenicsSetInputProps {
@@ -16,6 +17,12 @@ interface CalisthenicsSetInputProps {
 }
 
 const sanitizeValue = (value: string) => value.replace(/\D/g, "");
+const sanitizeDecimal = (value: string) => {
+  const cleaned = value.replace(/[^0-9.]/g, "");
+  const parts = cleaned.split(".");
+  if (parts.length > 2) return `${parts[0]}.${parts.slice(1).join("")}`;
+  return cleaned;
+};
 
 export default function CalisthenicsSetInput({
   sets,
@@ -34,7 +41,8 @@ export default function CalisthenicsSetInput({
   };
 
   const updateSet = (idx: number, field: keyof CalisthenicsSet, value: string) => {
-    const sanitized = field === "reps" || field === "duration" ? sanitizeValue(value) : value;
+    const sanitized =
+      field === "addedWeight" ? sanitizeDecimal(value) : field === "reps" || field === "duration" ? sanitizeValue(value) : value;
     onSetsChange(sets.map((s, i) => (i === idx ? { ...s, [field]: sanitized } : s)));
   };
 
@@ -54,6 +62,15 @@ export default function CalisthenicsSetInput({
               placeholder="Reps"
             />
             <span className="w-12 text-gray-600">reps</span>
+            <input
+              type="text"
+              inputMode="decimal"
+              className="ml-2 min-h-[48px] w-20 rounded-lg bg-gray-100 px-3 py-3 text-base text-gray-900 placeholder:text-gray-400 outline-none focus:bg-white focus:ring-2 focus:ring-black"
+              value={set.addedWeight || ""}
+              onChange={(e) => updateSet(idx, "addedWeight", e.target.value)}
+              placeholder="+wt"
+              aria-label={`Set ${idx + 1} added weight`}
+            />
             {sets.length > 1 && (
               <button
                 onClick={() => removeSet(idx)}

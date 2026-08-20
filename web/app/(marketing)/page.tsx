@@ -10,7 +10,8 @@ import {
   Trophy,
   Mail,
   ArrowRight,
-  Monitor
+  Monitor,
+  Upload
 } from "lucide-react";
 
 export default function Home() {
@@ -51,7 +52,7 @@ export default function Home() {
               Train Smarter. Track Better.
             </p>
             <p className="mx-auto mb-10 max-w-2xl text-lg text-gray-600 md:text-xl">
-              A web workout tracker you can install on your phone. Log strength, cardio, and calisthenics with analytics that stay in sync.
+              A web workout tracker you can install on your phone. Bring a Strong or Hevy export, or start logging today. Strength, cardio, and calisthenics stay in sync.
             </p>
             
             <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
@@ -85,8 +86,7 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
-            {/* Feature 1: Track Workouts */}
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
             <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm transition-all hover:shadow-md">
               <div className="mb-4 inline-flex rounded-xl bg-blue-100 p-3">
                 <Dumbbell className="h-6 w-6 text-blue-700" />
@@ -97,7 +97,16 @@ export default function Home() {
               </p>
             </div>
 
-            {/* Feature 2: Analytics */}
+            <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm transition-all hover:shadow-md">
+              <div className="mb-4 inline-flex rounded-xl bg-amber-100 p-3">
+                <Upload className="h-6 w-6 text-amber-800" />
+              </div>
+              <h3 className="mb-2 text-xl font-bold text-gray-900">Bring Your Log</h3>
+              <p className="text-gray-600">
+                Import a Strong or Hevy CSV, map a spreadsheet, paste a workout from Notes, or start from PPL, 5/3/1, or Starting Strength.
+              </p>
+            </div>
+
             <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm transition-all hover:shadow-md">
               <div className="mb-4 inline-flex rounded-xl bg-purple-100 p-3">
                 <BarChart3 className="h-6 w-6 text-purple-700" />
@@ -108,7 +117,6 @@ export default function Home() {
               </p>
             </div>
 
-            {/* Feature 3: Home screen */}
             <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm transition-all hover:shadow-md">
               <div className="mb-4 inline-flex rounded-xl bg-green-100 p-3">
                 <Smartphone className="h-6 w-6 text-green-700" />
@@ -119,7 +127,6 @@ export default function Home() {
               </p>
             </div>
 
-            {/* Feature 4: Day-based tracking */}
             <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm transition-all hover:shadow-md">
               <div className="mb-4 inline-flex rounded-xl bg-orange-100 p-3">
                 <Settings className="h-6 w-6 text-orange-700" />
@@ -127,6 +134,16 @@ export default function Home() {
               <h3 className="mb-2 text-xl font-bold text-gray-900">Day-Based Tracking</h3>
               <p className="text-gray-600">
                 Log multiple exercises per day, mark rest days, and keep streaks that include recovery.
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm transition-all hover:shadow-md">
+              <div className="mb-4 inline-flex rounded-xl bg-rose-100 p-3">
+                <Trophy className="h-6 w-6 text-rose-700" />
+              </div>
+              <h3 className="mb-2 text-xl font-bold text-gray-900">Friends and Photos</h3>
+              <p className="text-gray-600">
+                Add friends by username, put a face on the leaderboard, and compete on volume, cardio, and consistency.
               </p>
             </div>
           </div>
@@ -208,7 +225,7 @@ export default function Home() {
               Start Tracking Today
             </h2>
             <p className="mb-8 text-lg text-gray-300 md:text-xl">
-              Log your workouts, watch your PRs, and keep a streak that includes rest days.
+              Import an existing log or start fresh. Watch your PRs, and keep a streak that includes rest days.
             </p>
             <button
               onClick={() => router.push("/day/today")}

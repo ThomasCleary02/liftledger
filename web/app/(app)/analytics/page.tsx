@@ -28,11 +28,14 @@ import {
   Map as MapIcon,  // Rename this
   Clock,
   Gauge,
+  Share,
 } from "lucide-react";
 import { format, startOfWeek, eachDayOfInterval, addDays } from "date-fns";
 import { logger } from "../../../lib/logger";
 import { getTrackedExercises } from "../../../lib/firestore/account";
 import { CARDIO_ACTIVITY_LABELS, cardioPaceKind, type CardioActivityType } from "@liftledger/shared";
+import { downloadWeekSharePng } from "../../../lib/shareWeekPng";
+import { accountService } from "../../../lib/firebase";
 
 type TabType = "overview" | "strength" | "cardio" | "prs";
 
@@ -292,7 +295,20 @@ function OverviewView({
       <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
         <div className="mb-3 flex items-center justify-between">
           <p className="text-sm font-semibold text-gray-900">This week</p>
-          <p className="text-sm text-gray-500">{trainedThisWeek} of 7 days trained</p>
+          <div className="flex items-center gap-3">
+            <p className="text-sm text-gray-500">{trainedThisWeek} of 7 days trained</p>
+            <button
+              type="button"
+              className="flex items-center gap-1 text-sm font-semibold text-gray-800"
+              onClick={async () => {
+                const username = await accountService.getUsername();
+                downloadWeekSharePng(allDays, username);
+              }}
+            >
+              <Share className="h-4 w-4" />
+              Share
+            </button>
+          </div>
         </div>
         <div className="flex gap-2">
           {weekDates.map((date) => {

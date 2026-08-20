@@ -1,27 +1,12 @@
 import type { Firestore } from "firebase/firestore";
 import type { Auth } from "firebase/auth";
-import {
-  Timestamp,
-  collection,
-  getDoc,
-  getDocs,
-  updateDoc,
-  deleteDoc,
-  doc,
-  runTransaction,
-  orderBy,
-  where,
-  query,
-  limit as limitFn,
-  onSnapshot,
-  Unsubscribe,
-  QueryDocumentSnapshot,
-  SnapshotOptions,
-} from "firebase/firestore";
+import { Timestamp, collection, getDoc, getDocs, updateDoc, deleteDoc, doc, runTransaction, orderBy, where, query, limit as limitFn, onSnapshot, Unsubscribe, QueryDocumentSnapshot, SnapshotOptions, deleteField } from "firebase/firestore";
 import { format, parseISO } from "date-fns";
 import type { Exercise } from "./workouts";
 
 // --------- Types ---------
+export type DayStatus = "deload" | "injured";
+
 export interface Day {
   id: string; // dayId format: ${userId}_${YYYY-MM-DD}
   userId: string;
@@ -29,6 +14,8 @@ export interface Day {
   isRestDay: boolean;
   exercises: Exercise[];
   notes?: string;
+  status?: DayStatus;
+  importId?: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -38,12 +25,16 @@ export interface NewDayInput {
   isRestDay?: boolean;
   exercises?: Exercise[];
   notes?: string;
+  status?: DayStatus;
+  importId?: string;
 }
 
 export interface UpdateDayInput {
   isRestDay?: boolean;
   exercises?: Exercise[];
   notes?: string;
+  status?: DayStatus | null;
+  importId?: string | null;
 }
 
 export interface ListDaysOptions {
@@ -61,10 +52,16 @@ type DayDoc = {
   date: string; // YYYY-MM-DD
   isRestDay: boolean;
   exercises: Exercise[];
-  notes?: string; // Optional - only included if defined
+  notes?: string;
+  status?: DayStatus;
+  importId?: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 };
+
+export function isLoggedDay(day: Pick<Day, "exercises" | "isRestDay" | "status">): boolean {
+  return day.exercises.length > 0 || day.isRestDay || day.status === "deload" || day.status === "injured";
+}
 
 /**
  * Normalize a date to YYYY-MM-DD format using local timezone
@@ -114,6 +111,8 @@ export function createDayService(db: Firestore, auth: Auth) {
         isRestDay: typeof data?.isRestDay === "boolean" ? data.isRestDay : false,
         exercises: Array.isArray(data?.exercises) ? data.exercises : [],
         notes: typeof data?.notes === "string" ? data.notes : undefined,
+        status: data?.status === "deload" || data?.status === "injured" ? data.status : undefined,
+        importId: typeof data?.importId === "string" ? data.importId : undefined,
         createdAt: data?.createdAt instanceof Timestamp ? data.createdAt : Timestamp.now(),
         updatedAt: data?.updatedAt instanceof Timestamp ? data.updatedAt : Timestamp.now(),
       };
@@ -131,6 +130,8 @@ export function createDayService(db: Firestore, auth: Auth) {
     isRestDay: d.isRestDay,
     exercises: d.exercises,
     notes: d.notes,
+    status: d.status,
+    importId: d.importId,
     createdAt: d.createdAt,
     updatedAt: d.updatedAt,
   });
@@ -163,6 +164,8 @@ export function createDayService(db: Firestore, auth: Auth) {
         if (input.notes !== undefined && input.notes !== null) {
           payload.notes = input.notes;
         }
+        if (input.status) payload.status = input.status;
+        if (input.importId) payload.importId = input.importId;
         tx.set(ref, payload);
         return toDay(dayId, payload);
       });
@@ -171,17 +174,7 @@ export function createDayService(db: Firestore, auth: Auth) {
     async getDay(dayId: string): Promise<Day | null> {
       const s = await getDoc(dayDoc(dayId));
       if (!s.exists()) return null;
-      const d = s.data()!;
-      return {
-        id: s.id,
-        userId: d.userId,
-        date: d.date,
-        isRestDay: d.isRestDay,
-        exercises: d.exercises,
-        notes: d.notes,
-        createdAt: d.createdAt,
-        updatedAt: d.updatedAt,
-      };
+      return toDay(s.id, s.data()!);
     },
 
     /**
@@ -195,17 +188,7 @@ export function createDayService(db: Firestore, auth: Auth) {
       const dayId = generateDayId(uid, dateStr);
       const s = await getDoc(dayDoc(dayId));
       if (!s.exists()) return null;
-      const d = s.data()!;
-      return {
-        id: s.id,
-        userId: d.userId,
-        date: d.date,
-        isRestDay: d.isRestDay,
-        exercises: d.exercises,
-        notes: d.notes,
-        createdAt: d.createdAt,
-        updatedAt: d.updatedAt,
-      };
+      return toDay(s.id, s.data()!);
     },
 
     async updateDay(dayId: string, updates: UpdateDayInput): Promise<void> {
@@ -222,7 +205,7 @@ export function createDayService(db: Firestore, auth: Auth) {
         throw new Error("Not authorized");
       }
 
-      const payload: Partial<DayDoc> = {
+      const payload: Record<string, unknown> = {
         updatedAt: Timestamp.now(),
       };
 
@@ -234,6 +217,12 @@ export function createDayService(db: Firestore, auth: Auth) {
       }
       if (updates.notes !== undefined) {
         payload.notes = updates.notes;
+      }
+      if (updates.status !== undefined) {
+        payload.status = updates.status ? updates.status : deleteField();
+      }
+      if (updates.importId !== undefined) {
+        payload.importId = updates.importId ? updates.importId : deleteField();
       }
 
       await updateDoc(dayDoc(dayId), payload);
@@ -277,19 +266,7 @@ export function createDayService(db: Firestore, auth: Auth) {
 
       const q = query(daysCol, ...constraints);
       const res = await getDocs(q);
-      return res.docs.map((d) => {
-        const data = d.data();
-        return {
-          id: d.id,
-          userId: data.userId,
-          date: data.date,
-          isRestDay: data.isRestDay,
-          exercises: data.exercises,
-          notes: data.notes,
-          createdAt: data.createdAt,
-          updatedAt: data.updatedAt,
-        };
-      });
+      return res.docs.map((d) => toDay(d.id, d.data()));
     },
 
     /**
@@ -311,19 +288,7 @@ export function createDayService(db: Firestore, auth: Auth) {
 
       const q = query(daysCol, ...constraints);
       const res = await getDocs(q);
-      return res.docs.map((d) => {
-        const data = d.data();
-        return {
-          id: d.id,
-          userId: data.userId,
-          date: data.date,
-          isRestDay: data.isRestDay,
-          exercises: data.exercises,
-          notes: data.notes,
-          createdAt: data.createdAt,
-          updatedAt: data.updatedAt,
-        };
-      });
+      return res.docs.map((d) => toDay(d.id, d.data()));
     },
 
     subscribeToDays(
@@ -357,19 +322,7 @@ export function createDayService(db: Firestore, auth: Auth) {
         q,
         (snapshot) => {
           onChange(
-            snapshot.docs.map((d) => {
-              const data = d.data();
-              return {
-                id: d.id,
-                userId: data.userId,
-                date: data.date,
-                isRestDay: data.isRestDay,
-                exercises: data.exercises,
-                notes: data.notes,
-                createdAt: data.createdAt,
-                updatedAt: data.updatedAt,
-              };
-            })
+            snapshot.docs.map((d) => toDay(d.id, d.data()))
           );
         },
         (e) => (onError ? onError(e as Error) : console.error("subscribeToDays error:", e))

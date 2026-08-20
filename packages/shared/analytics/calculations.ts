@@ -1,8 +1,9 @@
 import { Workout, Exercise } from "../firestore/workouts";
-import { Day } from "../firestore/days";
+import { Day, isLoggedDay } from "../firestore/days";
 import { ExerciseDoc } from "../firestore/exercises";
 import { AnalyticsSummary, ExercisePR, VolumeDataPoint, MuscleGroupStats, TimePeriod } from "./types";
 import { parseISO } from "date-fns";
+import { strengthVolume, workingStrengthSets, maxWorkingWeight } from "../sets";
 import {
   CARDIO_ACTIVITY_TYPES,
   type CardioActivityType,
@@ -52,7 +53,7 @@ export function calculateCurrentStreakFromDays(days: Day[]): number {
   if (days.length === 0) return 0;
   
   // Filter to only active days (has exercises or is rest day)
-  const activeDays = days.filter(day => day.exercises.length > 0 || day.isRestDay);
+  const activeDays = days.filter(isLoggedDay);
   if (activeDays.length === 0) return 0;
   
   // Parse dates and sort (most recent first)
@@ -93,7 +94,7 @@ export function calculateLongestStreakFromDays(days: Day[]): number {
   if (days.length === 0) return 0;
   
   // Filter to only active days (has exercises or is rest day)
-  const activeDays = days.filter(day => day.exercises.length > 0 || day.isRestDay);
+  const activeDays = days.filter(isLoggedDay);
   if (activeDays.length === 0) return 0;
   
   // Parse dates and sort (oldest to newest)
@@ -287,7 +288,7 @@ export function calculateTotalVolumeFromDays(days: Day[]): number {
       // It uses: ex.strengthSets?.reduce((sum, s) => sum + (s.reps * s.weight), 0) || 0
       if (ex.modality === "strength" && ex.strengthSets) {
         // Use EXACT same pattern as line 835 (volumeByMuscleGroup) which works
-        const volume = ex.strengthSets.reduce((s, set) => s + (set.reps * set.weight), 0) || 0;
+        const volume = strengthVolume(ex.strengthSets);
         return daySum + volume;
       }
       return daySum;
@@ -466,7 +467,7 @@ export function getVolumeDataPoints(days: Day[], period: TimePeriod = "month"): 
     // Calculate volume from day's exercises
     const dayVolume = day.exercises.reduce((sum, ex) => {
       if (ex.modality === "strength" && Array.isArray(ex.strengthSets)) {
-        return sum + ex.strengthSets.reduce((s, st) => s + (st.reps || 0) * (st.weight || 0), 0);
+        return sum + strengthVolume(ex.strengthSets);
       }
       return sum;
     }, 0);
@@ -575,7 +576,7 @@ export function findAllPRs(days: Day[], trackedExerciseIds?: string[]): Exercise
 
       if (ex.modality === "strength" && ex.strengthSets) {
         const current = strengthPRs.get(exerciseId) || { name: ex.name };
-        ex.strengthSets.forEach(set => {
+        workingStrengthSets(ex.strengthSets).forEach(set => {
           current.maxWeight = betterHigh(current.maxWeight, set.weight || 0, dayDate, day.id);
           current.maxVolume = betterHigh(current.maxVolume, (set.reps || 0) * (set.weight || 0), dayDate, day.id);
         });
@@ -660,11 +661,7 @@ export function getStrengthAnalytics(days: Day[], exercises: Map<string, Exercis
   const maxVolumeWorkout = Math.max(...days.map(day => {
     return day.exercises.reduce((sum, ex) => {
       if (ex.modality === "strength" && Array.isArray(ex.strengthSets)) {
-        return sum + ex.strengthSets.reduce((s, st) => {
-          // Use same logic as calculateTotalVolumeFromDays
-          if (!st) return s;
-          return s + ((st.reps || 0) * (st.weight || 0));
-        }, 0);
+        return sum + strengthVolume(ex.strengthSets);
       }
       return sum;
     }, 0);
@@ -680,10 +677,7 @@ export function getStrengthAnalytics(days: Day[], exercises: Map<string, Exercis
         const key = ex.exerciseId || ex.name;
         const current = exerciseMap.get(key) || { name: ex.name, count: 0, maxWeight: 0 };
         
-        const maxWeight = Math.max(
-          ...(ex.strengthSets?.map(s => s.weight) || [0]),
-          current.maxWeight
-        );
+        const maxWeight = Math.max(maxWorkingWeight(ex.strengthSets), current.maxWeight);
         
         exerciseMap.set(key, {
           name: ex.name,
@@ -706,7 +700,7 @@ export function getStrengthAnalytics(days: Day[], exercises: Map<string, Exercis
       .forEach(ex => {
         const exerciseDoc = exercises.get(ex.exerciseId || "");
         const muscleGroup = exerciseDoc?.muscleGroup || "unknown";
-        const volume = ex.strengthSets?.reduce((sum, s) => sum + (s.reps * s.weight), 0) || 0;
+        const volume = strengthVolume(ex.strengthSets);
         
         const current = muscleGroupMap.get(muscleGroup);
         

@@ -4,9 +4,10 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "../../../providers/Auth";
 import { deleteUserAccount } from "../../../lib/firestore/account";
+import { accountService, app } from "../../../lib/firebase";
+import { deleteAvatarFile } from "../../../lib/avatar";
 import { UnitSystem, DefaultChartView, ThemePreference, RestTimerSeconds } from "@liftledger/shared/preferences";
 import { usePreferences } from "../../../lib/hooks/usePreferences";
-import { accountService } from "../../../lib/firebase";
 import {
   Scale,
   BarChart3,
@@ -24,6 +25,7 @@ import {
   Moon,
   Clock,
   Download,
+  Upload,
 } from "lucide-react";
 import { toast } from "../../../lib/toast";
 import { logger } from "../../../lib/logger";
@@ -121,7 +123,10 @@ export default function Settings() {
 
   const handleDeleteAccountConfirm = () => {
     setDeleteAccountConfirmOpen(false);
-    deleteUserAccount()
+    const uid = user?.uid;
+    const remove = uid ? deleteAvatarFile(app, uid).catch(() => undefined) : Promise.resolve();
+    remove
+      .then(() => deleteUserAccount())
       .then(() => {
         toast.success("Account deleted successfully");
       })
@@ -403,6 +408,12 @@ export default function Settings() {
                 title="Export workouts"
                 subtitle="Download a CSV of your training log"
                 onClick={handleExportCsv}
+              />
+              <SettingItem
+                icon={Upload}
+                title="Import workouts"
+                subtitle="Strong, Hevy, spreadsheet, paste, or starter programs"
+                onClick={() => router.push("/settings/import")}
               />
               <SettingItem
                 icon={Star}
@@ -1110,7 +1121,7 @@ function TemplateEditorModal({
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [allExercises, setAllExercises] = useState<ExerciseDoc[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [strengthSets, setStrengthSets] = useState<{ reps: string; weight: string }[]>([{ reps: "10", weight: formatWeightInput(135, units) }]);
+  const [strengthSets, setStrengthSets] = useState<{ reps: string; weight: string; warmup?: boolean }[]>([{ reps: "10", weight: formatWeightInput(135, units) }]);
   const [cardioData, setCardioData] = useState<CardioData>({ duration: "30", distance: "" });
   const [cardioActivityType, setCardioActivityType] = useState<CardioActivityType>("other");
   const [calisthenicsSets, setCalisthenicsSets] = useState<{ reps: string; duration?: string }[]>([{ reps: "10" }]);
@@ -1158,6 +1169,7 @@ function TemplateEditorModal({
         ex.strengthSets?.map((s) => ({
           reps: String(s.reps),
           weight: formatWeightInput(s.weight, units),
+          warmup: Boolean(s.warmup),
         })) ?? [{ reps: "10", weight: formatWeightInput(135, units) }]
       );
     } else if (ex.modality === "cardio") {
@@ -1232,9 +1244,9 @@ function TemplateEditorModal({
           const reps = Number(s.reps);
           const weight = Number(s.weight);
           if (!isFinite(reps) || reps <= 0 || !isFinite(weight) || weight < 0) return null;
-          return { reps, weight: toStoredWeight(weight, units) };
+          return { reps, weight: toStoredWeight(weight, units), ...(s.warmup ? { warmup: true as const } : {}) };
         })
-        .filter((s): s is { reps: number; weight: number } => s !== null);
+        .filter((s): s is { reps: number; weight: number; warmup?: true } => s !== null);
 
       if (sets.length === 0) {
         toast.error("Add at least one valid set.");

@@ -7,6 +7,7 @@ import {
   memoryLocalCache,
 } from "firebase/firestore";
 import { getAuth, setPersistence, browserLocalPersistence } from "firebase/auth";
+import { getStorage } from "firebase/storage";
 import { createWorkoutService } from "@liftledger/shared/firestore/workouts";
 import { createExerciseService } from "@liftledger/shared/firestore/exercises";
 import { createAccountService } from "@liftledger/shared/firestore/account";
@@ -86,7 +87,8 @@ import { createFriendRequestsService } from "@liftledger/shared/firestore/friend
 import { createPreferencesService } from "@liftledger/shared/preferences";
 import { webPreferencesStorage } from "./preferences/storage";
 
-export { db, auth };
+export { db, auth, app };
+export const storage = getStorage(app);
 export const workoutService = createWorkoutService(db, auth);
 export const exerciseService = createExerciseService(db);
 export const accountService = createAccountService(db, auth);

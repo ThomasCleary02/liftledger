@@ -12,6 +12,13 @@ const TEMPLATES_COLLECTION = "workoutTemplates";
 const FRIENDS_COLLECTION = "friends";
 const FRIEND_REQUESTS_COLLECTION = "friendRequests";
 
+export type LastImport = {
+  id: string;
+  at: string;
+  dates: string[];
+  createdDates: string[];
+};
+
 async function deleteMatching(
   db: Firestore,
   collectionName: string,
@@ -47,6 +54,23 @@ export function createAccountService(db: Firestore, auth: Auth) {
           );
         }
       }
+    }
+  };
+
+  const readProfile = async (
+    userId: string
+  ): Promise<{ username: string | null; photoURL: string | null }> => {
+    try {
+      const accountDoc = await getDoc(doc(db, ACCOUNTS_COLLECTION, userId));
+      if (!accountDoc.exists()) return { username: null, photoURL: null };
+      const data = accountDoc.data();
+      return {
+        username: typeof data.username === "string" ? data.username : null,
+        photoURL: typeof data.photoURL === "string" ? data.photoURL : null,
+      };
+    } catch (error) {
+      console.error("Error getting profile for user:", error);
+      return { username: null, photoURL: null };
     }
   };
 
@@ -317,19 +341,82 @@ export function createAccountService(db: Firestore, auth: Auth) {
     },
 
     async getUsernameForUser(userId: string): Promise<string | null> {
-      try {
-        const accountRef = doc(db, ACCOUNTS_COLLECTION, userId);
-        const accountDoc = await getDoc(accountRef);
-        
-        if (accountDoc.exists()) {
-          const data = accountDoc.data();
-          return data.username || null;
-        }
-        return null;
-      } catch (error) {
-        console.error("Error getting username for user:", error);
-        return null;
-      }
+      const profile = await readProfile(userId);
+      return profile.username;
+    },
+
+    async getProfileForUser(userId: string): Promise<{ username: string | null; photoURL: string | null }> {
+      return readProfile(userId);
+    },
+
+    async getPhotoURL(): Promise<string | null> {
+      const user = auth.currentUser;
+      if (!user) return null;
+      const profile = await readProfile(user.uid);
+      return profile.photoURL;
+    },
+
+    async setPhotoURL(photoURL: string | null): Promise<void> {
+      const user = auth.currentUser;
+      if (!user) throw new Error("No user signed in");
+      await setDoc(
+        doc(db, ACCOUNTS_COLLECTION, user.uid),
+        {
+          photoURL: photoURL ? photoURL : deleteField(),
+          updatedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      );
+    },
+
+    async getBodyweightLbs(): Promise<number | null> {
+      const user = auth.currentUser;
+      if (!user) return null;
+      const snap = await getDoc(doc(db, ACCOUNTS_COLLECTION, user.uid));
+      const value = snap.exists() ? snap.data()?.bodyweightLbs : undefined;
+      return typeof value === "number" && value > 0 ? value : null;
+    },
+
+    async setBodyweightLbs(bodyweightLbs: number | null): Promise<void> {
+      const user = auth.currentUser;
+      if (!user) throw new Error("No user signed in");
+      await setDoc(
+        doc(db, ACCOUNTS_COLLECTION, user.uid),
+        {
+          bodyweightLbs: bodyweightLbs && bodyweightLbs > 0 ? bodyweightLbs : deleteField(),
+          updatedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      );
+    },
+
+    async getLastImport(): Promise<LastImport | null> {
+      const user = auth.currentUser;
+      if (!user) return null;
+      const snap = await getDoc(doc(db, ACCOUNTS_COLLECTION, user.uid));
+      const value = snap.exists() ? snap.data()?.lastImport : undefined;
+      if (!value || typeof value.id !== "string" || !Array.isArray(value.dates)) return null;
+      return {
+        id: value.id,
+        at: typeof value.at === "string" ? value.at : "",
+        dates: value.dates.filter((d: unknown) => typeof d === "string"),
+        createdDates: Array.isArray(value.createdDates)
+          ? value.createdDates.filter((d: unknown) => typeof d === "string")
+          : [],
+      };
+    },
+
+    async setLastImport(lastImport: LastImport | null): Promise<void> {
+      const user = auth.currentUser;
+      if (!user) throw new Error("No user signed in");
+      await setDoc(
+        doc(db, ACCOUNTS_COLLECTION, user.uid),
+        {
+          lastImport: lastImport ? lastImport : deleteField(),
+          updatedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      );
     },
   };
 }
