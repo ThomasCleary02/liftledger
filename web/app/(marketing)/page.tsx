@@ -1,7 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useAuth } from "../../providers/Auth";
+import Link from "next/link";
 import { 
   Dumbbell, 
   BarChart3, 
@@ -15,20 +14,6 @@ import {
 } from "lucide-react";
 
 export default function Home() {
-  const router = useRouter();
-  const { loading } = useAuth();
-
-  // Show loading while checking auth
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-black"></div>
-          <p className="mt-4 text-sm text-gray-500">Loading...</p>
-        </div>
-      </div>
-    );
-  }
 
   const scrollToFeatures = () => {
     document.getElementById("features")?.scrollIntoView({ behavior: "smooth" });
@@ -56,13 +41,14 @@ export default function Home() {
             </p>
             
             <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
-              <button
-                onClick={() => router.push("/day/today")}
+              <Link
+                href="/day/today"
+                prefetch
                 className="group flex w-full items-center justify-center gap-2 rounded-xl bg-black px-8 py-4 text-base font-bold text-white shadow-lg transition-all hover:opacity-90 active:scale-95 sm:w-auto"
               >
                 Open App
                 <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
-              </button>
+              </Link>
               <button
                 onClick={scrollToFeatures}
                 className="w-full rounded-xl border-2 border-gray-300 bg-white px-8 py-4 text-base font-semibold text-gray-900 transition-all hover:border-gray-400 active:scale-95 sm:w-auto"
@@ -176,12 +162,13 @@ export default function Home() {
               <p className="mb-6 text-gray-600">
                 Full workout logging, analytics, friends, and settings from any modern browser. Your data syncs across devices.
               </p>
-              <button
-                onClick={() => router.push("/day/today")}
-                className="w-full rounded-xl bg-black px-6 py-3 text-base font-semibold text-white transition-all hover:opacity-90 active:scale-95"
+              <Link
+                href="/day/today"
+                prefetch
+                className="block w-full rounded-xl bg-black px-6 py-3 text-center text-base font-semibold text-white transition-all hover:opacity-90 active:scale-95"
               >
                 Open LiftLedger
-              </button>
+              </Link>
             </div>
 
             <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-lg">
@@ -205,12 +192,13 @@ export default function Home() {
                   <span className="font-semibold text-gray-900">Android:</span> Chrome menu → Install app
                 </li>
               </ul>
-              <button
-                onClick={() => router.push("/day/today")}
-                className="w-full rounded-xl border-2 border-gray-300 bg-white px-6 py-3 text-base font-semibold text-gray-900 transition-all hover:border-gray-400 active:scale-95"
+              <Link
+                href="/day/today"
+                prefetch
+                className="block w-full rounded-xl border-2 border-gray-300 bg-white px-6 py-3 text-center text-base font-semibold text-gray-900 transition-all hover:border-gray-400 active:scale-95"
               >
                 Get started
-              </button>
+              </Link>
             </div>
           </div>
         </div>
@@ -227,13 +215,14 @@ export default function Home() {
             <p className="mb-8 text-lg text-gray-300 md:text-xl">
               Import an existing log or start fresh. Watch your PRs, and keep a streak that includes rest days.
             </p>
-            <button
-              onClick={() => router.push("/day/today")}
+            <Link
+              href="/day/today"
+              prefetch
               className="group inline-flex items-center gap-2 rounded-xl bg-white px-8 py-4 text-base font-bold text-black shadow-lg transition-all hover:bg-gray-100 active:scale-95"
             >
               Get Started
               <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
-            </button>
+            </Link>
           </div>
         </div>
       </section>

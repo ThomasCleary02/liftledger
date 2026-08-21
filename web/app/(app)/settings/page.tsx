@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "../../../providers/Auth";
 import { deleteUserAccount } from "../../../lib/firestore/account";
@@ -31,8 +32,8 @@ import { Avatar } from "../../../components/Avatar";
 import { toast } from "../../../lib/toast";
 import { logger } from "../../../lib/logger";
 import { ConfirmDialog } from "../../../components/ConfirmDialog";
-import { getFavoriteExercises, toggleFavoriteExercise, getTrackedExercises, setTrackedExercises } from "../../../lib/firestore/account";
-import { getExercise, type ExerciseDoc } from "../../../lib/firestore/exercises";
+import { getFavoriteExercises, toggleFavoriteExercise, getTrackedExercises, setTrackedExercises, getAccountSummary } from "../../../lib/firestore/account";
+import { type ExerciseDoc } from "../../../lib/firestore/exercises";
 import { FavoritesModal } from "../../../components/FavoritesModal";
 import { getAllExercises } from "../../../lib/firestore/exercises";
 import {
@@ -95,20 +96,27 @@ export default function Settings() {
   const [templateName, setTemplateName] = useState("");
   const [profileName, setProfileName] = useState<string | null>(null);
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
+  const [favoriteCount, setFavoriteCount] = useState(0);
+  const [trackedCount, setTrackedCount] = useState(0);
 
   useEffect(() => {
-    // Wait for auth to finish loading
     if (authLoading) return;
     
     if (!user) {
       router.replace("/login");
-    } else {
-      loadFavorites();
-      loadTrackedExercises();
-      loadTemplates();
-      accountService.getUsername().then(setProfileName).catch(() => setProfileName(null));
-      accountService.getPhotoURL().then(setProfilePhoto).catch(() => setProfilePhoto(null));
+      return;
     }
+    getAccountSummary()
+      .then((summary) => {
+        setProfileName(summary.username);
+        setProfilePhoto(summary.photoURL);
+        setFavoriteCount(summary.favoriteExercises.length);
+        setTrackedCount(summary.trackedExercises.length);
+      })
+      .catch(() => {
+        setProfileName(null);
+        setProfilePhoto(null);
+      });
   }, [user, router, authLoading]);
 
   const handleSignOut = () => {
@@ -161,11 +169,11 @@ export default function Settings() {
     setLoadingFavorites(true);
     try {
       const favIds = await getFavoriteExercises();
-      const exercises = await Promise.all(
-        favIds.map(id => getExercise(id))
-      );
-      const validExercises = exercises.filter(Boolean) as ExerciseDoc[];
+      const catalog = await getAllExercises();
+      const byId = new Map(catalog.map((ex) => [ex.id, ex]));
+      const validExercises = favIds.map((id) => byId.get(id)).filter(Boolean) as ExerciseDoc[];
       setFavoriteExercises(validExercises);
+      setFavoriteCount(validExercises.length);
     } catch (error) {
       console.error("Failed to load favorites", error);
       toast.error("Failed to load favorites");
@@ -184,6 +192,7 @@ export default function Settings() {
         getAllExercises()
       ]);
       setTrackedExercises(tracked);
+      setTrackedCount(tracked.length);
       setAllExercises(all);
     } catch (error) {
       console.error("Failed to load exercises", error);
@@ -344,16 +353,26 @@ export default function Settings() {
     }
   };
 
-  useEffect(() => {
-    if (user && !authLoading) {
-      loadFavorites();
-      loadTrackedExercises(); // Add this
-      loadTemplates(); // Add this
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, authLoading, loadFavorites, loadTrackedExercises, loadTemplates]);
-
-  if (authLoading || !user) return null;
+  if (authLoading || !user) {
+    return (
+      <div className="flex h-full flex-col overflow-hidden bg-gray-50">
+        <header className="flex-shrink-0 border-b border-gray-200 bg-white">
+          <div className="px-4 py-4 md:px-8 md:py-6">
+            <div className="mx-auto max-w-4xl">
+              <h1 className="mb-2 text-2xl font-bold text-gray-900 md:text-3xl">Settings</h1>
+              <p className="text-sm text-gray-500">Manage your account and preferences</p>
+            </div>
+          </div>
+        </header>
+        <main className="flex-1 overflow-y-auto">
+          <div className="container mx-auto space-y-4 px-4 py-6 md:max-w-4xl md:px-8">
+            <div className="h-24 animate-pulse rounded-2xl bg-gray-200" />
+            <div className="h-64 animate-pulse rounded-2xl bg-gray-200" />
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-gray-50">
@@ -375,8 +394,9 @@ export default function Settings() {
           <section>
             <h2 className="mb-3 text-lg font-semibold text-gray-900">Account</h2>
             <div className="rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden">
-              <button
-                onClick={() => router.push("/settings/account")}
+              <Link
+                href="/settings/account"
+                prefetch
                 className="w-full px-5 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
               >
               <div className="flex min-w-0 items-center">
@@ -389,7 +409,7 @@ export default function Settings() {
                 </div>
               </div>
                 <ChevronRight className="h-5 w-5 text-gray-400" />
-              </button>
+              </Link>
             </div>
           </section>
 
@@ -431,12 +451,12 @@ export default function Settings() {
                 icon={Upload}
                 title="Import workouts"
                 subtitle="CSV, paste, or starters. Undo lives on the import screen."
-                onClick={() => router.push("/settings/import")}
+                href="/settings/import"
               />
               <SettingItem
                 icon={Star}
                 title="Favorite Exercises"
-                subtitle={`${favoriteExercises.length} favorited`}
+                subtitle={`${favoriteExercises.length || favoriteCount} favorited`}
                 onClick={() => {
                   setFavoritesOpen(true);
                   loadFavorites();
@@ -445,7 +465,7 @@ export default function Settings() {
               <SettingItem
                 icon={List}
                 title="My Exercises"
-                subtitle={`${trackedExercises.length} exercises tracked for PRs`}
+                subtitle={`${trackedExercises.length || trackedCount} exercises tracked for PRs`}
                 onClick={() => {
                   setMyExercisesOpen(true);
                   loadTrackedExercises();
@@ -607,21 +627,21 @@ function SettingItem({
   title,
   subtitle,
   onClick,
+  href,
   danger = false,
 }: {
   icon: any;
   title: string;
   subtitle: string;
-  onClick: () => void;
+  onClick?: () => void;
+  href?: string;
   danger?: boolean;
 }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`flex w-full items-center px-5 py-4 transition-colors hover:bg-gray-50 ${
-        danger ? "text-red-600" : ""
-      }`}
-    >
+  const className = `flex w-full items-center px-5 py-4 transition-colors hover:bg-gray-50 ${
+    danger ? "text-red-600" : ""
+  }`;
+  const inner = (
+    <>
       <div className={`mr-4 rounded-full p-2 ${danger ? "bg-red-100" : "bg-gray-100"}`}>
         <Icon className={`h-5 w-5 ${danger ? "text-red-600" : "text-gray-700"}`} />
       </div>
@@ -630,6 +650,18 @@ function SettingItem({
         <p className="text-sm text-gray-500">{subtitle}</p>
       </div>
       <ChevronRight className="h-5 w-5 text-gray-400" />
+    </>
+  );
+  if (href) {
+    return (
+      <Link href={href} prefetch className={className}>
+        {inner}
+      </Link>
+    );
+  }
+  return (
+    <button onClick={onClick} className={className}>
+      {inner}
     </button>
   );
 }

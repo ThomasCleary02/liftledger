@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { format, parseISO, isValid, differenceInDays, addDays, subDays } from "date-fns";
 import { useAuth } from "../../../../providers/Auth";
@@ -37,6 +38,11 @@ import {
   getCachedLastWorkout,
   hydrateCacheFromDays,
 } from "../../../../lib/lastExerciseCache";
+import {
+  daysListCovers,
+  peekDay,
+  peekDaysArray,
+} from "../../../../lib/sessionCache";
 import {
   fetchProgressInsight,
   extractExerciseHistory,
@@ -323,43 +329,52 @@ export default function DayView() {
     }
 
     let mounted = true;
-    setLoading(true);
-    setDay(null);
     resetComposer();
+    const cached = peekDay(currentDate);
+    if (cached !== undefined) {
+      setDay(cached);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+
+    const today = format(new Date(), "yyyy-MM-dd");
+    [-1, 1, -2, 2].forEach((offset) => {
+      const neighbor = format(addDays(parseISO(currentDate), offset), "yyyy-MM-dd");
+      if (neighbor <= today) router.prefetch(`/day/${neighbor}`);
+    });
+
     (async () => {
+      const start = format(subDays(parseISO(currentDate), 3), "yyyy-MM-dd");
+      const end = format(addDays(parseISO(currentDate), 3), "yyyy-MM-dd");
+      const needRecent = peekDaysArray().length < 20;
       try {
-        const d = await getDayByDate(currentDate);
-        if (mounted) {
-          setDay(d);
-          setLoading(false);
-        }
+        const [d, nearby, recent] = await Promise.all([
+          getDayByDate(currentDate),
+          getDaysInRange(start, end).catch((error) => {
+            logger.warn("Failed to load nearby days", error);
+            return [] as Day[];
+          }),
+          needRecent
+            ? listDays({ limit: 20, order: "desc" }).catch((error) => {
+                logger.warn("Failed to load recent days", error);
+                return [] as Day[];
+              })
+            : Promise.resolve(peekDaysArray().slice(0, 20)),
+        ]);
+        if (!mounted) return;
+        setDay(d);
+        setNearbyDays(nearby);
+        setAllDays(recent);
+        setLoading(false);
+        hydrateCacheFromDays(user.uid, recent, currentDate);
       } catch (error) {
         logger.error("Failed to load day", error);
         if (mounted) {
-          setDay(null);
           toast.error("Failed to load day. Please try again.");
           setLoading(false);
         }
-        return;
       }
-
-      const [recent, nearby] = await Promise.all([
-        listDays({ limit: 20, order: "desc" }).catch((error) => {
-          logger.warn("Failed to load recent days", error);
-          return [] as Day[];
-        }),
-        getDaysInRange(
-          format(subDays(parseISO(currentDate), 3), "yyyy-MM-dd"),
-          format(addDays(parseISO(currentDate), 3), "yyyy-MM-dd")
-        ).catch((error) => {
-          logger.warn("Failed to load nearby days", error);
-          return [] as Day[];
-        }),
-      ]);
-      if (!mounted) return;
-      setAllDays(recent);
-      setNearbyDays(nearby);
-      hydrateCacheFromDays(user.uid, recent, currentDate);
     })();
 
     return () => {
@@ -412,14 +427,22 @@ export default function DayView() {
 
       const hasDistance = modality === "cardio" && exercise.cardioData?.distance !== undefined && exercise.cardioData.distance > 0;
       let historyDays = allDays;
-      try {
-        const deepHistory = await listDays({ limit: 200, order: "desc" });
+      const cachedHistory = peekDaysArray();
+      if (daysListCovers(200) || cachedHistory.length >= 200) {
         const byId = new Map<string, Day>();
-        deepHistory.forEach((d) => byId.set(d.id || d.date, d));
+        cachedHistory.forEach((d) => byId.set(d.id || d.date, d));
         allDays.forEach((d) => byId.set(d.id || d.date, d));
         historyDays = Array.from(byId.values());
-      } catch (error) {
-        logger.warn("Could not load extra history for insights", error);
+      } else {
+        try {
+          const deepHistory = await listDays({ limit: 200, order: "desc" });
+          const byId = new Map<string, Day>();
+          deepHistory.forEach((d) => byId.set(d.id || d.date, d));
+          allDays.forEach((d) => byId.set(d.id || d.date, d));
+          historyDays = Array.from(byId.values());
+        } catch (error) {
+          logger.warn("Could not load extra history for insights", error);
+        }
       }
       const history = extractExerciseHistory(
         historyDays,
@@ -992,7 +1015,7 @@ export default function DayView() {
     return Activity;
   };
 
-  if (authLoading || loading) {
+  if (authLoading && !user) {
     return (
       <div className="min-h-screen bg-gray-50">
         <DayNavigationSkeleton />
@@ -1008,8 +1031,10 @@ export default function DayView() {
     return null;
   }
 
-  const hasExercises = day && day.exercises.length > 0;
-  const isRestDay = day?.isRestDay ?? false;
+  const visibleDay = day && day.date === currentDate ? day : null;
+  const showBodySkeleton = loading && !visibleDay;
+  const hasExercises = visibleDay && visibleDay.exercises.length > 0;
+  const isRestDay = visibleDay?.isRestDay ?? false;
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-gray-50">
@@ -1029,6 +1054,13 @@ export default function DayView() {
       {/* Scrollable Content */}
       <main className="flex-1 overflow-y-auto">
         <div className="container mx-auto max-w-4xl px-4 py-6 md:px-8">
+        {showBodySkeleton ? (
+          <>
+            <div className="mb-6 h-12 w-full rounded-lg bg-gray-200 animate-pulse"></div>
+            <ExerciseListSkeleton />
+          </>
+        ) : (
+        <>
         {/* Header with Rest Day Toggle and Template Button */}
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <button
@@ -1048,7 +1080,7 @@ export default function DayView() {
             onClick={() => setDayStatus("injured")}
             disabled={saving}
             className={`rounded-lg border px-3 py-2.5 text-sm font-medium ${
-              day?.status === "injured" ? "border-rose-500 bg-rose-50 text-rose-800" : "border-gray-200 bg-white text-gray-700"
+              visibleDay?.status === "injured" ? "border-rose-500 bg-rose-50 text-rose-800" : "border-gray-200 bg-white text-gray-700"
             }`}
           >
             Injured
@@ -1067,7 +1099,7 @@ export default function DayView() {
           )}
         </div>
 
-        {day?.status === "injured" && (
+        {visibleDay?.status === "injured" && (
           <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
             Injury / skip. This day does not count toward your streak. You can still log modified work.
           </div>
@@ -1093,14 +1125,14 @@ export default function DayView() {
               <FileText className="h-4 w-4" />
               Use template
             </button>
-            <button
-              type="button"
-              onClick={() => router.push(`/settings/import?tab=file&date=${currentDate}`)}
+            <Link
+              href={`/settings/import?tab=file&date=${currentDate}`}
+              prefetch
               className="flex min-h-[52px] items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-900"
             >
               <Upload className="h-4 w-4" />
               Import log
-            </button>
+            </Link>
           </div>
         )}
         {(!isRestDay || hasExercises) && (
@@ -1323,13 +1355,13 @@ export default function DayView() {
                     <FileText className="mx-auto mb-3 h-12 w-12 text-gray-300" />
                     <p className="text-gray-500">No templates found</p>
                     <p className="mt-1 text-sm text-gray-400">Create one in Settings, or import a starter program</p>
-                    <button
-                      type="button"
-                      onClick={() => router.push("/settings/import")}
-                      className="mt-4 text-sm font-semibold text-gray-900 underline"
+                    <Link
+                      href="/settings/import"
+                      prefetch
+                      className="mt-4 inline-block text-sm font-semibold text-gray-900 underline"
                     >
                       Import or starter programs
-                    </button>
+                    </Link>
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -1356,6 +1388,8 @@ export default function DayView() {
               </div>
             </div>
           </div>
+        )}
+        </>
         )}
         </div>
       </main>

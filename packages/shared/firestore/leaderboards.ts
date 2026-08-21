@@ -52,58 +52,51 @@ export async function fetchDaysForLeaderboard(
     daysByUser[friendId] = [];
   });
 
-  // Fetch current user's days using dayService (handles conversion properly)
-  try {
-    const currentUserDays = await dayService.listDays({ limit: 1000, order: "desc" });
-    daysByUser[currentUserId] = currentUserDays;
-  } catch (error) {
-    console.warn(`Could not fetch days for current user:`, error);
-    // Keep empty array
-  }
-
-  // For friends, query directly
   const daysCol = collection(db, "days");
 
-  for (const userId of Array.from(friendUserIds)) {
-    try {
-      // Query days for this friend
-      const q = query(
-        daysCol,
-        where("userId", "==", userId),
-        orderBy("date", "desc"),
-        limitFn(1000)
-      );
-      
-      const snapshot = await getDocs(q);
-      const days: Day[] = snapshot.docs.map((doc) => {
-        const data = doc.data();
-        // Convert date to YYYY-MM-DD string if it's a Timestamp or Date
-        const dateStr = typeof data.date === "string" 
-          ? data.date 
+  const mapFriendDays = (snapshot: Awaited<ReturnType<typeof getDocs>>): Day[] =>
+    snapshot.docs.map((docSnap) => {
+      const data: any = docSnap.data();
+      const dateStr =
+        typeof data.date === "string"
+          ? data.date
           : normalizeDateToYYYYMMDD(data.date || new Date());
-        
-        return {
-          id: doc.id,
-          userId: data.userId,
-          date: dateStr,
-          isRestDay: data.isRestDay,
-          exercises: Array.isArray(data.exercises) ? data.exercises : [],
-          notes: data.notes,
-          status: data.status === "injured" ? "injured" : undefined,
-          importId: typeof data.importId === "string" ? data.importId : undefined,
-          createdAt: data.createdAt instanceof Timestamp ? data.createdAt : Timestamp.now(),
-          updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt : Timestamp.now(),
-        };
-      });
 
-      daysByUser[userId] = days;
+      return {
+        id: docSnap.id,
+        userId: data.userId,
+        date: dateStr,
+        isRestDay: data.isRestDay,
+        exercises: Array.isArray(data.exercises) ? data.exercises : [],
+        notes: data.notes,
+        status: data.status === "injured" ? "injured" : undefined,
+        importId: typeof data.importId === "string" ? data.importId : undefined,
+        createdAt: data.createdAt instanceof Timestamp ? data.createdAt : Timestamp.now(),
+        updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt : Timestamp.now(),
+      };
+    });
+
+  const currentUserPromise = dayService
+    .listDays({ limit: 1000, order: "desc" })
+    .then((days) => {
+      daysByUser[currentUserId] = days;
+    })
+    .catch((error) => {
+      console.warn(`Could not fetch days for current user:`, error);
+    });
+
+  const friendPromises = Array.from(friendUserIds).map(async (userId) => {
+    try {
+      const snapshot = await getDocs(
+        query(daysCol, where("userId", "==", userId), orderBy("date", "desc"), limitFn(1000))
+      );
+      daysByUser[userId] = mapFriendDays(snapshot);
     } catch (error) {
-      // If we can't read a friend's days (permissions), keep empty array
       console.warn(`Could not fetch days for user ${userId}:`, error);
-      // daysByUser[userId] is already initialized as []
     }
-  }
+  });
 
+  await Promise.all([currentUserPromise, ...friendPromises]);
   return daysByUser;
 }
 

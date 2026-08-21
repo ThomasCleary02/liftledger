@@ -80,11 +80,8 @@ export function createFriendsService(db: Firestore, auth: Auth) {
 
       // Query where current user is the owner
       const q1 = query(friendsCol, where("userId", "==", uid));
-      const res1 = await getDocs(q1);
-      
-      // Query where current user is the friend (bidirectional)
       const q2 = query(friendsCol, where("friendUserId", "==", uid));
-      const res2 = await getDocs(q2);
+      const [res1, res2] = await Promise.all([getDocs(q1), getDocs(q2)]);
 
       // Combine and deduplicate (shouldn't be duplicates, but just in case)
       const friendMap = new Map<string, Friend>();

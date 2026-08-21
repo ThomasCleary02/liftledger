@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../../../providers/Auth";
 import { db, auth } from "../../../../lib/firebase";
@@ -17,6 +18,8 @@ import { Trophy, ArrowLeft } from "lucide-react";
 import { Avatar } from "../../../../components/Avatar";
 import { logger } from "../../../../lib/logger";
 import { accountService } from "../../../../lib/firebase";
+import { rememberDays } from "../../../../lib/sessionCache";
+import type { Day } from "../../../../lib/firestore/days";
 
 type MetricType = "volume" | "cardio" | "consistency";
 
@@ -27,39 +30,33 @@ export default function Leaderboards() {
   const [loading, setLoading] = useState(true);
   const [metric, setMetric] = useState<MetricType>("volume");
   const [timePeriod, setTimePeriod] = useState<LeaderboardTimePeriod>("7days");
-  const [leaderboardData, setLeaderboardData] = useState<any[]>([]);
+  const [daysByUser, setDaysByUser] = useState<Record<string, Day[]> | null>(null);
   const [profiles, setProfiles] = useState<Record<string, { username: string | null; photoURL: string | null }>>({});
   const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     if (authLoading) return;
-    
+
     if (!user) {
       router.replace("/login");
       return;
     }
-    loadLeaderboard();
-  }, [user, router, authLoading, metric, timePeriod]);
+    loadDays();
+  }, [user, router, authLoading]);
 
-  const loadLeaderboard = async () => {
+  const loadDays = async () => {
     try {
       setLoading(true);
       setLoadError(false);
-      const daysByUser = await fetchDaysForLeaderboard(db, auth);
-
-      let data: any[] = [];
-      if (metric === "volume") {
-        data = getVolumeLeaderboard(daysByUser, timePeriod);
-      } else if (metric === "cardio") {
-        data = getCardioDistanceLeaderboard(daysByUser, timePeriod);
-      } else {
-        data = getConsistencyLeaderboard(daysByUser, timePeriod);
+      const fetched = await fetchDaysForLeaderboard(db, auth);
+      setDaysByUser(fetched);
+      if (user?.uid && fetched[user.uid]) {
+        rememberDays(fetched[user.uid], {
+          listComplete: fetched[user.uid].length < 1000,
+          listLimit: 1000,
+        });
       }
-
-      setLeaderboardData(data);
-      
-      // Fetch usernames for all users in the leaderboard
-      const userIds = Array.from(new Set(data.map((entry) => entry.userId)));
+      const userIds = Object.keys(fetched);
       const profileMap: Record<string, { username: string | null; photoURL: string | null }> = {};
       await Promise.all(
         userIds.map(async (userId) => {
@@ -79,45 +76,43 @@ export default function Leaderboards() {
     }
   };
 
+  const leaderboardData = useMemo(() => {
+    if (!daysByUser) return [];
+    if (metric === "volume") return getVolumeLeaderboard(daysByUser, timePeriod);
+    if (metric === "cardio") return getCardioDistanceLeaderboard(daysByUser, timePeriod);
+    return getConsistencyLeaderboard(daysByUser, timePeriod);
+  }, [daysByUser, metric, timePeriod]);
+
   const formatValue = (value: number): string => {
     if (metric === "volume") {
       return formatWeight(value, units);
     } else if (metric === "cardio") {
       return formatCardioDuration(value);
-    } else {
-      return `${value} days`;
     }
+    return `${value} days`;
   };
 
-  if (authLoading || loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-black"></div>
-          <p className="mt-4 text-gray-500">Loading leaderboard...</p>
-        </div>
-      </div>
-    );
+  if (!authLoading && !user) {
+    return null;
   }
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-gray-50">
-      {/* Fixed Header */}
       <header className="flex-shrink-0 border-b border-gray-200 bg-white">
         <div className="px-4 py-4 md:px-8 md:py-6">
           <div className="mx-auto max-w-4xl">
-            <button
-              onClick={() => router.back()}
+            <Link
+              href="/friends"
+              prefetch
               className="mb-2 flex items-center gap-2 text-gray-600 hover:text-gray-900"
             >
               <ArrowLeft className="h-5 w-5" />
               <span className="text-sm">Back</span>
-            </button>
+            </Link>
             <h1 className="mb-2 text-2xl font-bold text-gray-900 md:text-3xl">Leaderboards</h1>
             <p className="text-sm text-gray-500">Compete with your friends</p>
           </div>
 
-          {/* Metric Selector */}
           <div className="mx-auto mt-4 max-w-4xl border-t border-gray-100 pt-4">
             <div className="flex gap-2">
               {(["volume", "cardio", "consistency"] as MetricType[]).map((m) => (
@@ -136,7 +131,6 @@ export default function Leaderboards() {
             </div>
           </div>
 
-          {/* Time Period Filter */}
           <div className="mx-auto mt-4 max-w-4xl border-t border-gray-100 pt-4">
             <div className="flex items-center justify-end">
               <div className="flex rounded-lg bg-gray-100 p-1">
@@ -159,16 +153,19 @@ export default function Leaderboards() {
         </div>
       </header>
 
-      {/* Scrollable Content */}
       <main className="flex-1 overflow-y-auto">
         <div className="container mx-auto px-4 py-6 md:px-8 md:max-w-4xl">
-          {loadError ? (
+          {loading || authLoading ? (
+            <div className="flex justify-center py-12">
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-black" />
+            </div>
+          ) : loadError ? (
             <div className="rounded-2xl border border-gray-100 bg-white p-12 text-center shadow-sm">
               <p className="font-medium text-gray-900">Could not load leaderboards</p>
               <p className="mt-2 text-sm text-gray-500">Check your connection and try again.</p>
               <button
                 type="button"
-                onClick={loadLeaderboard}
+                onClick={loadDays}
                 className="mt-4 rounded-lg bg-black px-4 py-2 text-sm font-semibold text-white"
               >
                 Retry

@@ -40,15 +40,9 @@
 }
 
 :root {
-  --safe-area-top-floor: 0px;
-  --safe-area-bottom-floor: 0px;
   --viewport-bottom-inset: 0px;
-  --safe-area-top: max(env(safe-area-inset-top, 0px), var(--safe-area-top-floor));
-  --safe-area-bottom: max(
-    env(safe-area-inset-bottom, 0px),
-    var(--viewport-bottom-inset),
-    var(--safe-area-bottom-floor)
-  );
+  --safe-area-top: env(safe-area-inset-top, 0px);
+  --safe-area-bottom: max(env(safe-area-inset-bottom, 0px), var(--viewport-bottom-inset));
   --app-nav-height: 4rem;
 }
 

@@ -1,8 +1,12 @@
 "use client";
 
+import { useEffect } from "react";
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Dumbbell, BarChart3, Users, Settings } from "lucide-react";
 import { useAuth } from "../providers/Auth";
+import { getAllExercises } from "../lib/firestore/exercises";
+import { listDays } from "../lib/firestore/days";
 
 type NavItem = {
   path: string;
@@ -23,6 +27,15 @@ export function Navigation() {
   const router = useRouter();
   const { user } = useAuth();
 
+  useEffect(() => {
+    if (!user) return;
+    navItems.forEach((item) => {
+      router.prefetch(item.path);
+    });
+    void getAllExercises().catch(() => undefined);
+    void listDays({ limit: 20, order: "desc" }).catch(() => undefined);
+  }, [user, router]);
+
   // Only show nav for authenticated users
   if (!user) {
     return null;
@@ -39,9 +52,10 @@ export function Navigation() {
                 ? pathname?.startsWith(item.matchPrefix)
                 : pathname === item.path || pathname?.startsWith(item.path + "/");
             return (
-              <button
+              <Link
                 key={item.path}
-                onClick={() => router.push(item.path)}
+                href={item.path}
+                prefetch
                 aria-current={isActive ? "page" : undefined}
                 className={`flex flex-col items-center justify-center gap-1 px-4 py-2 transition-colors ${
                   isActive ? "text-black" : "text-gray-500"
@@ -49,7 +63,7 @@ export function Navigation() {
               >
                 <Icon className={`h-6 w-6 ${isActive ? "fill-current" : ""}`} />
                 <span className="text-xs font-medium">{item.label}</span>
-              </button>
+              </Link>
             );
           })}
         </div>
@@ -72,9 +86,10 @@ export function Navigation() {
                 ? pathname?.startsWith(item.matchPrefix)
                 : pathname === item.path || pathname?.startsWith(item.path + "/");
             return (
-              <button
+              <Link
                 key={item.path}
-                onClick={() => router.push(item.path)}
+                href={item.path}
+                prefetch
                 aria-current={isActive ? "page" : undefined}
                 className={`flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left transition-colors ${
                   isActive
@@ -84,7 +99,7 @@ export function Navigation() {
               >
                 <Icon className={`h-5 w-5 ${isActive ? "fill-current" : ""}`} />
                 <span className="font-medium">{item.label}</span>
-              </button>
+              </Link>
             );
           })}
         </nav>

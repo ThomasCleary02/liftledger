@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../../providers/Auth";
 import { friendsService, friendRequestsService, accountService } from "../../../lib/firebase";
@@ -44,6 +45,7 @@ export default function Friends() {
       setFriends(friendList);
       setIncomingRequests(incoming);
       setOutgoingRequests(outgoing);
+      setLoading(false);
       
       // Fetch usernames for all friends and requests
       const userIds = new Set<string>();
@@ -157,15 +159,8 @@ export default function Friends() {
       });
   };
 
-  if (authLoading || loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-black"></div>
-          <p className="mt-4 text-gray-500">Loading friends...</p>
-        </div>
-      </div>
-    );
+  if (!authLoading && !user) {
+    return null;
   }
 
   return (
@@ -186,9 +181,10 @@ export default function Friends() {
           <div className="space-y-6">
             {/* Leaderboards Button */}
             <section>
-              <button
-                onClick={() => router.push("/friends/leaderboards")}
-                className="w-full rounded-2xl border border-gray-100 bg-black p-5 text-left shadow-sm transition-opacity hover:opacity-90"
+              <Link
+                href="/friends/leaderboards"
+                prefetch
+                className="block w-full rounded-2xl border border-gray-100 bg-black p-5 text-left shadow-sm transition-opacity hover:opacity-90"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -202,9 +198,17 @@ export default function Friends() {
                   </div>
                   <ChevronRight className="h-5 w-5 text-white" />
                 </div>
-              </button>
+              </Link>
             </section>
 
+            {(authLoading || loading) && (
+              <div className="flex justify-center py-12">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-black" />
+              </div>
+            )}
+
+            {!loading && !authLoading && (
+            <>
             {/* Pending Requests - Incoming */}
             {incomingRequests.length > 0 && (
               <section>
@@ -397,6 +401,8 @@ export default function Friends() {
                 </div>
               )}
             </section>
+            </>
+            )}
           </div>
         </div>
       </main>

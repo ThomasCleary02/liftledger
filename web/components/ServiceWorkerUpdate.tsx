@@ -22,23 +22,16 @@ export function ServiceWorkerUpdate() {
     navigator.serviceWorker.ready.then((reg) => {
       setRegistration(reg);
 
-      // Listen for updates
       reg.addEventListener("updatefound", () => {
         const newWorker = reg.installing;
         if (!newWorker) return;
 
         newWorker.addEventListener("statechange", () => {
           if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
-            // New service worker available
             setUpdateAvailable(true);
           }
         });
       });
-
-      // Check for updates periodically
-      setInterval(() => {
-        reg.update();
-      }, 60000); // Check every minute
     });
 
     // Handle controller change (update applied)

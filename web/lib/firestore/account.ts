@@ -6,5 +6,6 @@ export const {
   toggleFavoriteExercise,
   getTrackedExercises,
   setTrackedExercises,
-  toggleTrackedExercise
+  toggleTrackedExercise,
+  getAccountSummary,
 } = accountService;

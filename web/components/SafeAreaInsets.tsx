@@ -2,33 +2,10 @@
 
 import { useEffect } from "react";
 
-function isIOS() {
-  const ua = window.navigator.userAgent;
-  const iOSDevice = /iPad|iPhone|iPod/.test(ua);
-  const iPadOS = window.navigator.platform === "MacIntel" && window.navigator.maxTouchPoints > 1;
-  return iOSDevice || iPadOS;
-}
-
-function isStandalone() {
-  const nav = window.navigator as Navigator & { standalone?: boolean };
-  return nav.standalone === true || window.matchMedia("(display-mode: standalone)").matches;
-}
-
-/**
- * iOS 26 standalone PWAs often report env(safe-area-inset-*) as 0 and draw
- * Liquid Glass chrome over fixed UI. Floors plus visualViewport keep the
- * tab bar and toasts above that chrome.
- */
+/** Keep the tab bar above the on-screen keyboard via visualViewport. */
 export function SafeAreaInsets() {
   useEffect(() => {
-    const iosStandalone = isIOS() && isStandalone();
-    if (!iosStandalone) return;
-
     const root = document.documentElement;
-    root.classList.add("ios-standalone");
-    root.style.setProperty("--safe-area-top-floor", "45px");
-    root.style.setProperty("--safe-area-bottom-floor", "32px");
-
     const syncViewportInset = () => {
       const vv = window.visualViewport;
       if (!vv) return;

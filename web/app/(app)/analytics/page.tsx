@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../../providers/Auth";
 import { listDays, Day } from "../../../lib/firestore/days";
@@ -37,19 +38,27 @@ import { getTrackedExercises } from "../../../lib/firestore/account";
 import { CARDIO_ACTIVITY_LABELS, cardioPaceKind, type CardioActivityType } from "@liftledger/shared";
 import { downloadWeekSharePng } from "../../../lib/shareWeekPng";
 import { accountService } from "../../../lib/firebase";
+import { peekCatalog, peekDaysArray } from "../../../lib/sessionCache";
 
 type TabType = "overview" | "strength" | "cardio" | "prs";
+
+function catalogToMap(): Map<string, ExerciseDoc> {
+  const map = new Map<string, ExerciseDoc>();
+  const catalog = peekCatalog();
+  if (catalog) {
+    catalog.forEach((ex) => map.set(ex.id, ex));
+  }
+  return map;
+}
 
 export default function Analytics() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>("overview");
-  const [days, setDays] = useState<Day[]>([]);
-  const [exercises, setExercises] = useState<Map<string, ExerciseDoc>>(() => new Map<string, ExerciseDoc>());
-  const [loading, setLoading] = useState(true);
+  const [days, setDays] = useState<Day[]>(() => peekDaysArray());
+  const [exercises, setExercises] = useState<Map<string, ExerciseDoc>>(catalogToMap);
+  const [loading, setLoading] = useState(() => peekDaysArray().length === 0);
   const [timePeriod, setTimePeriod] = useState<TimePeriod>("all");
-  const [summary, setSummary] = useState<AnalyticsSummary | null>(null);
-  const [prs, setPRs] = useState<ExercisePR[]>([]);
   const { defaultChartView } = usePreferences();
   const [trackedExerciseIds, setTrackedExerciseIds] = useState<string[]>([]);
   const [hasInitializedPeriod, setHasInitializedPeriod] = useState(false);
@@ -67,7 +76,6 @@ export default function Analytics() {
   }, [user, router, authLoading]);
 
   useEffect(() => {
-    // Only set initial time period from preferences, don't override user selections
     if (!hasInitializedPeriod && defaultChartView) {
       setTimePeriod(defaultChartView);
       setHasInitializedPeriod(true);
@@ -75,26 +83,10 @@ export default function Analytics() {
   }, [defaultChartView, hasInitializedPeriod]);
 
   useEffect(() => {
-    if (days.length > 0) {
-      const filtered = filterDaysByPeriod(days, timePeriod);
-      const analyticsSummary = getAnalyticsSummaryFromDays(filtered, exercises);
-      setSummary(analyticsSummary);
-    }
-  }, [timePeriod, days, exercises]);
-
-  useEffect(() => {
     if (user) {
       getTrackedExercises().then(setTrackedExerciseIds);
     }
   }, [user]);
-
-  useEffect(() => {
-    if (days.length > 0) {
-      const filtered = filterDaysByPeriod(days, timePeriod);
-      const allPRs = findAllPRs(filtered, trackedExerciseIds.length > 0 ? trackedExerciseIds : undefined);
-      setPRs(allPRs);
-    }
-  }, [days, timePeriod, trackedExerciseIds]);
 
   const loadData = async () => {
     try {
@@ -109,9 +101,6 @@ export default function Analytics() {
       const exerciseMap = new Map<string, ExerciseDoc>();
       exerciseData.forEach((ex: ExerciseDoc) => exerciseMap.set(ex.id, ex));
       setExercises(exerciseMap);
-
-      const analyticsSummary = getAnalyticsSummaryFromDays(dayData, exerciseMap);
-      setSummary(analyticsSummary);
     } catch (error) {
       logger.error("Error loading analytics", error);
       setLoadError(true);
@@ -120,57 +109,18 @@ export default function Analytics() {
     }
   };
 
-  const filteredDays = filterDaysByPeriod(days, timePeriod);
+  const filteredDays = useMemo(() => filterDaysByPeriod(days, timePeriod), [days, timePeriod]);
+  const summary = useMemo(() => {
+    if (days.length === 0) return null;
+    return getAnalyticsSummaryFromDays(filteredDays, exercises);
+  }, [days.length, filteredDays, exercises]);
+  const prs = useMemo(() => {
+    if (activeTab !== "prs" || days.length === 0) return [];
+    return findAllPRs(filteredDays, trackedExerciseIds.length > 0 ? trackedExerciseIds : undefined);
+  }, [activeTab, days.length, filteredDays, trackedExerciseIds]);
 
-  if (authLoading || loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-black"></div>
-          <p className="mt-4 text-gray-500">Loading analytics...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (loadError) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
-        <div className="flex flex-col items-center px-6 text-center">
-          <h2 className="mb-2 text-2xl font-bold text-gray-900">Could not load analytics</h2>
-          <p className="mb-6 text-gray-500">Check your connection and try again.</p>
-          <button
-            onClick={() => {
-              setLoading(true);
-              loadData();
-            }}
-            className="rounded-xl bg-black px-6 py-3 font-semibold text-white"
-          >
-            Retry
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!summary || days.length === 0) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
-        <div className="flex flex-col items-center px-6 text-center">
-          <BarChart3 className="h-16 w-16 text-gray-300 mb-4" />
-          <h2 className="mb-2 text-2xl font-bold text-gray-900">No analytics data yet</h2>
-          <p className="mb-6 text-gray-500 max-w-md">
-            Start logging workouts to see your progress and analytics here.
-          </p>
-          <button
-            onClick={() => router.push("/day/today")}
-            className="rounded-xl bg-black px-6 py-3 font-semibold text-white transition-opacity hover:opacity-90"
-          >
-            Create Your First Workout
-          </button>
-        </div>
-      </div>
-    );
+  if (!authLoading && !user) {
+    return null;
   }
 
   const tabs = [
@@ -179,6 +129,9 @@ export default function Analytics() {
     { id: "cardio" as TabType, label: "Cardio", icon: Heart },
     { id: "prs" as TabType, label: "PRs", icon: Trophy },
   ];
+
+  const showSpinner = (authLoading || loading) && days.length === 0 && !loadError;
+  const showEmpty = !loading && !loadError && (!summary || days.length === 0);
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-gray-50">
@@ -240,16 +193,53 @@ export default function Analytics() {
       {/* Scrollable Content */}
       <main className="flex-1 overflow-y-auto">
         <div className="container mx-auto px-4 py-6 md:px-8 md:max-w-4xl">
-          {activeTab === "overview" && (
-            <OverviewView summary={summary} days={filteredDays} allDays={days} timePeriod={timePeriod} />
+          {showSpinner ? (
+            <div className="flex min-h-[40vh] items-center justify-center">
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-black" />
+            </div>
+          ) : loadError ? (
+            <div className="rounded-2xl border border-gray-100 bg-white p-12 text-center shadow-sm">
+              <h2 className="mb-2 text-2xl font-bold text-gray-900">Could not load analytics</h2>
+              <p className="mb-6 text-gray-500">Check your connection and try again.</p>
+              <button
+                onClick={() => {
+                  setLoading(true);
+                  loadData();
+                }}
+                className="rounded-xl bg-black px-6 py-3 font-semibold text-white"
+              >
+                Retry
+              </button>
+            </div>
+          ) : showEmpty || !summary ? (
+            <div className="flex flex-col items-center px-6 py-12 text-center">
+              <BarChart3 className="mb-4 h-16 w-16 text-gray-300" />
+              <h2 className="mb-2 text-2xl font-bold text-gray-900">No analytics data yet</h2>
+              <p className="mb-6 max-w-md text-gray-500">
+                Start logging workouts to see your progress and analytics here.
+              </p>
+              <Link
+                href="/day/today"
+                prefetch
+                className="rounded-xl bg-black px-6 py-3 font-semibold text-white transition-opacity hover:opacity-90"
+              >
+                Create Your First Workout
+              </Link>
+            </div>
+          ) : (
+            <>
+              {activeTab === "overview" && (
+                <OverviewView summary={summary} days={filteredDays} allDays={days} timePeriod={timePeriod} />
+              )}
+              {activeTab === "strength" && (
+                <StrengthView days={filteredDays} exercises={exercises} timePeriod={timePeriod} />
+              )}
+              {activeTab === "cardio" && (
+                <CardioView days={filteredDays} timePeriod={timePeriod} />
+              )}
+              {activeTab === "prs" && <PRsView prs={prs} trackedExerciseIds={trackedExerciseIds} />}
+            </>
           )}
-          {activeTab === "strength" && (
-            <StrengthView days={filteredDays} exercises={exercises} timePeriod={timePeriod} />
-          )}
-          {activeTab === "cardio" && (
-            <CardioView days={filteredDays} timePeriod={timePeriod} />
-          )}
-          {activeTab === "prs" && <PRsView prs={prs} trackedExerciseIds={trackedExerciseIds} />}
         </div>
       </main>
     </div>
@@ -269,7 +259,7 @@ function OverviewView({
   timePeriod: TimePeriod;
 }) {
   const { units } = usePreferences();
-  const cardio = getCardioAnalytics(days, timePeriod);
+  const cardio = useMemo(() => getCardioAnalytics(days, timePeriod), [days, timePeriod]);
   const cardioBreakdown = cardio.byType
     .filter((t) => t.sessions > 0)
     .map((t) => {
@@ -409,7 +399,10 @@ function StrengthView({
   exercises: Map<string, ExerciseDoc>;
   timePeriod: TimePeriod;
 }) {
-  const strengthAnalytics = getStrengthAnalytics(days, exercises, timePeriod);
+  const strengthAnalytics = useMemo(
+    () => getStrengthAnalytics(days, exercises, timePeriod),
+    [days, exercises, timePeriod]
+  );
   const { units } = usePreferences();
 
   if (strengthAnalytics.totalVolume === 0 && strengthAnalytics.exercisesByFrequency.length === 0) {
@@ -529,7 +522,7 @@ function CardioView({
   days: Day[];
   timePeriod: TimePeriod;
 }) {
-  const cardioAnalytics = getCardioAnalytics(days, timePeriod);
+  const cardioAnalytics = useMemo(() => getCardioAnalytics(days, timePeriod), [days, timePeriod]);
   const { units } = usePreferences();
   const [selectedType, setSelectedType] = useState<CardioActivityType | "all">("all");
 
@@ -759,7 +752,6 @@ function CardioTypeDetail({
 
 // PRs View Component
 function PRsView({ prs, trackedExerciseIds }: { prs: ExercisePR[]; trackedExerciseIds: string[] }) {
-  const router = useRouter();
   const { units } = usePreferences();
 
   const filteredPRs = useMemo(() => {
@@ -831,10 +823,11 @@ function PRsView({ prs, trackedExerciseIds }: { prs: ExercisePR[]; trackedExerci
           {sectionPRs.slice(0, 15).map((pr, idx) => {
             const dateStr = getDateFromDayId(pr.dayId);
             return (
-            <button
-              key={idx}
-              onClick={() => router.push(`/day/${dateStr}`)}
-              className={`w-full px-5 py-4 text-left transition-colors hover:bg-gray-50 ${
+            <Link
+              key={`${pr.dayId}-${pr.exerciseId}-${pr.prType}`}
+              href={`/day/${dateStr}`}
+              prefetch
+              className={`block w-full px-5 py-4 text-left transition-colors hover:bg-gray-50 ${
                 idx < sectionPRs.length - 1 ? "border-b border-gray-100" : ""
               }`}
             >
@@ -855,7 +848,7 @@ function PRsView({ prs, trackedExerciseIds }: { prs: ExercisePR[]; trackedExerci
                   <p className="text-xs text-gray-400">{pr.date.toLocaleDateString()}</p>
                 </div>
               </div>
-            </button>
+            </Link>
             );
           })}
         </div>

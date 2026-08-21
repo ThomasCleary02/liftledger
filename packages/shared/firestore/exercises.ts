@@ -183,6 +183,42 @@ function calculateRelevanceScore(
   return score;
 }
 
+export function searchExerciseCatalog(
+  allDocs: ExerciseDoc[],
+  queryText: string,
+  filters?: { muscleGroup?: MuscleGroup; modality?: ExerciseModality },
+  limitCount = 50
+): ExerciseDoc[] {
+  const qFold = foldName(queryText).trim();
+  const queryWords = qFold.split(/\s+/).filter((w) => w.length > 0);
+
+  let filtered = allDocs;
+  if (filters?.muscleGroup) {
+    filtered = filtered.filter((d) => d.muscleGroup === filters.muscleGroup);
+  }
+  if (filters?.modality) {
+    filtered = filtered.filter((d) => d.modality === filters.modality);
+  }
+
+  if (qFold) {
+    const scored = filtered.map((ex) => ({
+      exercise: ex,
+      score: calculateRelevanceScore(ex, queryText, queryWords),
+    }));
+    filtered = scored
+      .filter((item) => item.score > 0)
+      .sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        return a.exercise.nameFolded.localeCompare(b.exercise.nameFolded);
+      })
+      .map((item) => item.exercise);
+  } else {
+    filtered = [...filtered].sort((a, b) => a.nameFolded.localeCompare(b.nameFolded));
+  }
+
+  return filtered.slice(0, Math.max(1, Math.min(200, limitCount)));
+}
+
 export function createExerciseService(db: Firestore) {
   const converter = {
     toFirestore(d: ExerciseDoc) {
@@ -248,56 +284,15 @@ export function createExerciseService(db: Firestore) {
       filters?: { muscleGroup?: MuscleGroup; modality?: ExerciseModality },
       limitCount = 50
     ): Promise<ExerciseDoc[]> {
-      const qFold = foldName(queryText).trim();
-      const queryWords = qFold.split(/\s+/).filter(w => w.length > 0);
-
-      // Fetch all exercises (or filtered by muscle group if provided)
-      let allDocs: ExerciseDoc[];
-
-      if (filters?.muscleGroup) {
-        const res = await getDocs(
-          query(exercisesCol, where("muscleGroup", "==", filters.muscleGroup))
-        );
-        allDocs = res.docs.map(d => d.data());
-      } else {
-        const res = await getDocs(exercisesCol);
-        allDocs = res.docs.map(d => d.data());
-      }
-
-      // Filter in-memory
-      let filtered = allDocs;
-
-      // Modality filter
-      if (filters?.modality) {
-        filtered = filtered.filter(d => d.modality === filters.modality);
-      }
-
-      // Semantic search with scoring
-      if (qFold) {
-        // Calculate relevance scores
-        const scored = filtered.map(ex => ({
-          exercise: ex,
-          score: calculateRelevanceScore(ex, queryText, queryWords)
-        }));
-
-        // Filter out zero-score results and sort by score (descending)
-        filtered = scored
-          .filter(item => item.score > 0)
-          .sort((a, b) => {
-            // First by score
-            if (b.score !== a.score) {
-              return b.score - a.score;
-            }
-            // Then alphabetically for same score
-            return a.exercise.nameFolded.localeCompare(b.exercise.nameFolded);
-          })
-          .map(item => item.exercise);
-      } else {
-        // No query - just sort alphabetically
-        filtered.sort((a, b) => a.nameFolded.localeCompare(b.nameFolded));
-      }
-
-      return filtered.slice(0, Math.max(1, Math.min(200, limitCount)));
+      const res = filters?.muscleGroup
+        ? await getDocs(query(exercisesCol, where("muscleGroup", "==", filters.muscleGroup)))
+        : await getDocs(exercisesCol);
+      return searchExerciseCatalog(
+        res.docs.map((d) => d.data()),
+        queryText,
+        filters,
+        limitCount
+      );
     },
 
     async searchExercisesRemoteLegacy(

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { searchExercisesRemote, getExercise, type ExerciseDoc } from "../lib/firestore/exercises";
+import { searchExercisesRemote, getAllExercises, getExercise, type ExerciseDoc } from "../lib/firestore/exercises";
 import { getFavoriteExercises, toggleFavoriteExercise } from "../lib/firestore/account";
 import { useAuth } from "../providers/Auth";
 import { Search, Dumbbell, Heart, Activity, Star, X } from "lucide-react";
@@ -57,16 +57,11 @@ export default function ExerciseSearch({
   const loadFavorites = async () => {
     if (!user) return;
     try {
-      const favIds = await getFavoriteExercises();
+      const [favIds, catalog] = await Promise.all([getFavoriteExercises(), getAllExercises()]);
       setFavorites(new Set(favIds));
-      
-      // Load full exercise data for favorites
       if (favIds.length > 0) {
-        const exercises = await Promise.all(
-          favIds.map(id => getExercise(id))
-        );
-        const validExercises = exercises.filter(Boolean) as ExerciseDoc[];
-        setFavoriteExercises(validExercises);
+        const byId = new Map(catalog.map((ex) => [ex.id, ex]));
+        setFavoriteExercises(favIds.map((id) => byId.get(id)).filter(Boolean) as ExerciseDoc[]);
       }
     } catch (error) {
       console.error("Failed to load favorites", error);

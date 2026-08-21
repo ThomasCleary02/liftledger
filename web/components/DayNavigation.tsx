@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { format, parseISO, addDays, subDays } from "date-fns";
 import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -29,16 +30,8 @@ export default function DayNavigation({
   const today = format(new Date(), "yyyy-MM-dd");
   const isToday = today === currentDate;
   const weekDates = [-3, -2, -1, 0, 1, 2, 3].map((offset) => format(addDays(date, offset), "yyyy-MM-dd"));
-
-  const goToPreviousDay = () => {
-    onDateChange(format(subDays(date, 1), "yyyy-MM-dd"));
-  };
-
-  const goToNextDay = () => {
-    const next = format(addDays(date, 1), "yyyy-MM-dd");
-    if (next > today) return;
-    onDateChange(next);
-  };
+  const prevDate = format(subDays(date, 1), "yyyy-MM-dd");
+  const nextDate = format(addDays(date, 1), "yyyy-MM-dd");
 
   useEffect(() => {
     if (!showDatePicker) return;
@@ -69,13 +62,14 @@ export default function DayNavigation({
     <div className="relative border-b border-gray-200 bg-white px-4 py-3 md:px-8 md:py-4">
       <div className="flex items-center justify-between">
         <div className="flex min-w-0 flex-1 items-center gap-2 md:gap-3">
-          <button
-            onClick={goToPreviousDay}
+          <Link
+            href={`/day/${prevDate}`}
+            prefetch
             className="flex touch-target flex-shrink-0 items-center justify-center rounded-lg p-2 text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-black"
             aria-label="Previous day"
           >
             <ChevronLeft className="h-5 w-5" />
-          </button>
+          </Link>
 
           <button
             onClick={() => setShowDatePicker(!showDatePicker)}
@@ -96,14 +90,23 @@ export default function DayNavigation({
             </div>
           </button>
 
-          <button
-            onClick={goToNextDay}
-            disabled={isToday}
-            className="flex touch-target flex-shrink-0 items-center justify-center rounded-lg p-2 text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-black disabled:opacity-30"
-            aria-label="Next day"
-          >
-            <ChevronRight className="h-5 w-5" />
-          </button>
+          {isToday ? (
+            <span
+              className="flex touch-target flex-shrink-0 items-center justify-center rounded-lg p-2 text-gray-600 opacity-30"
+              aria-label="Next day"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </span>
+          ) : (
+            <Link
+              href={`/day/${nextDate}`}
+              prefetch
+              className="flex touch-target flex-shrink-0 items-center justify-center rounded-lg p-2 text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-black"
+              aria-label="Next day"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </Link>
+          )}
         </div>
       </div>
 
@@ -111,29 +114,34 @@ export default function DayNavigation({
         {weekDates.map((day) => {
           const selected = day === currentDate;
           const isFuture = day > today;
-          return (
-            <button
+          return isFuture ? (
+            <span
               key={day}
-              type="button"
-              disabled={isFuture}
-              onClick={() => {
-                onDateChange(day);
-                setShowDatePicker(false);
-              }}
+              aria-label={format(parseISO(day), "EEEE, MMMM d")}
+              className="flex min-h-[44px] flex-1 cursor-not-allowed flex-col items-center justify-center rounded-lg py-1 text-xs font-medium text-gray-400"
+            >
+              <span>{format(parseISO(day), "EEEEE")}</span>
+              <span className="text-sm font-semibold">{format(parseISO(day), "d")}</span>
+              <span className={`mt-0.5 h-1.5 w-1.5 rounded-full ${dotClass(day, selected)}`} />
+            </span>
+          ) : (
+            <Link
+              key={day}
+              href={`/day/${day}`}
+              prefetch
+              onClick={() => setShowDatePicker(false)}
               aria-label={format(parseISO(day), "EEEE, MMMM d")}
               aria-current={selected ? "date" : undefined}
               className={`flex min-h-[44px] flex-1 flex-col items-center justify-center rounded-lg py-1 text-xs font-medium ${
-                isFuture
-                  ? "cursor-not-allowed text-gray-400"
-                  : selected
-                    ? "bg-black text-white"
-                    : "text-gray-600 hover:bg-gray-100"
+                selected
+                  ? "bg-black text-white"
+                  : "text-gray-600 hover:bg-gray-100"
               }`}
             >
               <span>{format(parseISO(day), "EEEEE")}</span>
               <span className="text-sm font-semibold">{format(parseISO(day), "d")}</span>
               <span className={`mt-0.5 h-1.5 w-1.5 rounded-full ${dotClass(day, selected)}`} />
-            </button>
+            </Link>
           );
         })}
       </div>
