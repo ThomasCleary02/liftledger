@@ -10,7 +10,6 @@ interface DayNavigationProps {
   onTodayClick?: () => void;
   loggedDates?: Set<string>;
   restDates?: Set<string>;
-  deloadDates?: Set<string>;
   injuredDates?: Set<string>;
 }
 
@@ -20,7 +19,6 @@ export default function DayNavigation({
   onTodayClick,
   loggedDates,
   restDates,
-  deloadDates,
   injuredDates,
 }: DayNavigationProps) {
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -63,7 +61,6 @@ export default function DayNavigation({
   const dotClass = (day: string, selected: boolean) => {
     if (loggedDates?.has(day)) return selected ? "bg-[#ffffff]" : "bg-black";
     if (injuredDates?.has(day)) return selected ? "bg-[#fda4af]" : "bg-rose-400";
-    if (deloadDates?.has(day)) return selected ? "bg-[#fcd34d]" : "bg-amber-400";
     if (restDates?.has(day)) return selected ? "bg-[#93c5fd]" : "bg-blue-400";
     return "bg-transparent";
   };

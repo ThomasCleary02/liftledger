@@ -5,7 +5,7 @@ import { format, parseISO } from "date-fns";
 import type { Exercise } from "./workouts";
 
 // --------- Types ---------
-export type DayStatus = "deload" | "injured";
+export type DayStatus = "injured";
 
 export interface Day {
   id: string; // dayId format: ${userId}_${YYYY-MM-DD}
@@ -61,7 +61,7 @@ type DayDoc = {
 
 export function isLoggedDay(day: Pick<Day, "exercises" | "isRestDay" | "status">): boolean {
   if (day.status === "injured") return false;
-  return day.exercises.length > 0 || day.isRestDay || day.status === "deload";
+  return day.exercises.length > 0 || day.isRestDay;
 }
 
 /**
@@ -112,7 +112,7 @@ export function createDayService(db: Firestore, auth: Auth) {
         isRestDay: typeof data?.isRestDay === "boolean" ? data.isRestDay : false,
         exercises: Array.isArray(data?.exercises) ? data.exercises : [],
         notes: typeof data?.notes === "string" ? data.notes : undefined,
-        status: data?.status === "deload" || data?.status === "injured" ? data.status : undefined,
+        status: data?.status === "injured" ? "injured" : undefined,
         importId: typeof data?.importId === "string" ? data.importId : undefined,
         createdAt: data?.createdAt instanceof Timestamp ? data.createdAt : Timestamp.now(),
         updatedAt: data?.updatedAt instanceof Timestamp ? data.updatedAt : Timestamp.now(),

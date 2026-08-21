@@ -930,7 +930,7 @@ export default function DayView() {
         status: next || undefined,
         isRestDay: next ? false : currentDay.isRestDay,
       });
-      toast.success(next === "deload" ? "Marked as deload" : next === "injured" ? "Marked as injury / skip" : "Cleared day flag");
+      toast.success(next === "injured" ? "Marked as injury / skip" : "Cleared injury flag");
       showSyncing(false);
     } catch (error) {
       logger.error("Failed to update day status", error);
@@ -1022,7 +1022,6 @@ export default function DayView() {
         onTodayClick={handleTodayClick}
         loggedDates={new Set(nearbyDays.filter((d) => !d.isRestDay && d.exercises.length > 0).map((d) => d.date))}
         restDates={new Set(nearbyDays.filter((d) => d.isRestDay).map((d) => d.date))}
-        deloadDates={new Set(nearbyDays.filter((d) => d.status === "deload").map((d) => d.date))}
         injuredDates={new Set(nearbyDays.filter((d) => d.status === "injured").map((d) => d.date))}
       />
       </header>
@@ -1044,15 +1043,6 @@ export default function DayView() {
           >
             <Moon className={`h-4 w-4 ${isRestDay ? "text-blue-600" : "text-gray-600"}`} />
             {isRestDay ? <span>Rest Day</span> : <span>Mark as Rest Day</span>}
-          </button>
-          <button
-            onClick={() => setDayStatus("deload")}
-            disabled={saving}
-            className={`rounded-lg border px-3 py-2.5 text-sm font-medium ${
-              day?.status === "deload" ? "border-amber-500 bg-amber-50 text-amber-800" : "border-gray-200 bg-white text-gray-700"
-            }`}
-          >
-            Deload
           </button>
           <button
             onClick={() => setDayStatus("injured")}
@@ -1077,11 +1067,6 @@ export default function DayView() {
           )}
         </div>
 
-        {day?.status === "deload" && (
-          <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            Deload day. Lighter work still counts toward your streak.
-          </div>
-        )}
         {day?.status === "injured" && (
           <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
             Injury / skip. This day does not count toward your streak. You can still log modified work.

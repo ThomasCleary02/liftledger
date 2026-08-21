@@ -6,6 +6,7 @@ import { PreferencesProvider } from "../lib/hooks/usePreferences";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { ToastContainer } from "../components/ToastContainer";
 import { KeyboardShortcuts } from "../components/KeyboardShortcuts";
+import { KeepStandaloneNavigation } from "../components/KeepStandaloneNavigation";
 import { PWAInstallPrompt } from "../components/PWAInstallPrompt";
 import { ServiceWorkerUpdate } from "../components/ServiceWorkerUpdate";
 import { SafeAreaInsets } from "../components/SafeAreaInsets";
@@ -80,6 +81,7 @@ export default function RootLayout({
               <SafeAreaInsets />
               <ThemeSync />
               <KeyboardShortcuts />
+              <KeepStandaloneNavigation />
               {children}
               <ToastContainer />
               <PWAInstallPrompt />
