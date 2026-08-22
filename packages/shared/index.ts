@@ -16,7 +16,6 @@ export * from "./preferences";
 export * from "./hooks/usePreferences";
 export * from "./insights/api";
 export * from "./insights/utils";
-export * from "./insights/cache";
 export * from "./cardio";
 export * from "./import";
 export * from "./programs/starters";

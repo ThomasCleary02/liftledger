@@ -92,7 +92,7 @@ export function normalizeDateToYYYYMMDD(input: Date | string | Timestamp): strin
 /**
  * Generate day ID: ${userId}_${YYYY-MM-DD}
  */
-function generateDayId(userId: string, date: Date | string | Timestamp): string {
+export function generateDayId(userId: string, date: Date | string | Timestamp): string {
   const dateStr = normalizeDateToYYYYMMDD(date);
   return `${userId}_${dateStr}`;
 }
@@ -195,15 +195,8 @@ export function createDayService(db: Firestore, auth: Auth) {
     async updateDay(dayId: string, updates: UpdateDayInput): Promise<void> {
       const uid = auth.currentUser?.uid;
       if (!uid) throw new Error("Not signed in");
-
-      // Verify ownership
-      const existing = await getDoc(dayDoc(dayId));
-      if (!existing.exists()) {
-        throw new Error("Day not found");
-      }
-      const data = existing.data()!;
-      if (data.userId !== uid) {
-        throw new Error("Not authorized");
+      if (!dayId.startsWith(`${uid}_`)) {
+        throw new Error("Not authorized to update this day");
       }
 
       const payload: Record<string, unknown> = {
@@ -232,17 +225,9 @@ export function createDayService(db: Firestore, auth: Auth) {
     async deleteDay(dayId: string): Promise<void> {
       const uid = auth.currentUser?.uid;
       if (!uid) throw new Error("Not signed in");
-
-      // Verify ownership
-      const existing = await getDoc(dayDoc(dayId));
-      if (!existing.exists()) {
-        throw new Error("Day not found");
+      if (!dayId.startsWith(`${uid}_`)) {
+        throw new Error("Not authorized to delete this day");
       }
-      const data = existing.data()!;
-      if (data.userId !== uid) {
-        throw new Error("Not authorized");
-      }
-
       await deleteDoc(dayDoc(dayId));
     },
 

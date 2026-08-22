@@ -1,109 +1,92 @@
-/**
- * LiftLedger Insights API Client
- * 
- * Fetches progress insights from the LiftLedger Insights Service.
- * Insights are stateless, calculated in real-time, and returned as JSON.
- * 
- * Platform-agnostic implementation using standard fetch API.
- */
+import { format, parseISO, isValid } from "date-fns";
 
 export interface ProgressPoint {
-  date: string; // ISO 8601 format, e.g., "2025-03-16"
-  value: number; // Numeric value of the exercise metric
+  date: string; // ISO 8601 or YYYY-MM-DD
+  value: number;
 }
 
 export interface ProgressRequest {
-  exercise: string; // Exercise name, e.g., "Bench Press"
-  metric: string; // Metric name, e.g., "weight", "reps"
-  history: ProgressPoint[]; // Array of historical logs for this exercise
+  exercise: string;
+  metric: string;
+  history: ProgressPoint[];
 }
 
 export interface ProgressInsight {
-  isNewPR: boolean; // True if latest log is a personal record
-  delta: number; // LatestValue - FirstValue
-  percentChange: number; // Percentage change from first to latest
-  firstDate: string; // Date of first logged point
-  latestDate: string; // Date of latest logged point
-  insightText: string; // Human-readable insight message
+  isNewPR: boolean;
+  delta: number;
+  percentChange: number;
+  firstDate: string;
+  latestDate: string;
+  insightText: string;
 }
 
-const INSIGHTS_API_URL =
-  "https://liftledgerservices-e2bcfshcf6frfycb.centralus-01.azurewebsites.net/api/insights/progress";
+function monthName(dateStr: string): string {
+  const parsed = parseISO(dateStr);
+  if (!isValid(parsed)) return dateStr;
+  return format(parsed, "MMMM");
+}
 
-const REQUEST_TIMEOUT_MS = 10000; // 10 seconds
+function round1(value: number): number {
+  return Math.round(value * 10) / 10;
+}
 
 /**
- * Fetch progress insight for an exercise
- * 
- * @param request - Progress request with exercise name, metric, and history
- * @returns Promise resolving to progress insight
- * @throws Error on network failure, timeout, or invalid response
+ * Port of LiftLedger.Services.InsightsService.AnalyzeProgress.
+ * Runs on the client; no network.
  */
-export async function fetchProgressInsight(
-  request: ProgressRequest
-): Promise<ProgressInsight> {
-  // Validate request
+export function analyzeProgress(request: ProgressRequest): ProgressInsight {
   if (!request.exercise || !request.metric || !Array.isArray(request.history)) {
     throw new Error("Invalid request: exercise, metric, and history are required");
   }
-
   if (request.history.length === 0) {
     throw new Error("Invalid request: history array cannot be empty");
   }
 
-  // Create abort controller for timeout
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const sortedHistory = [...request.history].sort((a, b) => a.date.localeCompare(b.date));
 
-  try {
-    const response = await fetch(INSIGHTS_API_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(request),
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      if (response.status === 400) {
-        throw new Error(`Bad Request: ${response.statusText}`);
-      }
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-
-    // Validate response structure
-    if (
-      typeof data.isNewPR !== "boolean" ||
-      typeof data.delta !== "number" ||
-      typeof data.percentChange !== "number" ||
-      typeof data.firstDate !== "string" ||
-      typeof data.latestDate !== "string" ||
-      typeof data.insightText !== "string"
-    ) {
-      throw new Error("Invalid response structure from insights API");
-    }
-
-    return data as ProgressInsight;
-  } catch (error) {
-    clearTimeout(timeoutId);
-
-    if (error instanceof Error) {
-      if (error.name === "AbortError") {
-        throw new Error("Request timeout: Insights API did not respond in time");
-      }
-      // Handle CORS and network errors gracefully
-      if (error.message.includes("Failed to fetch") || error.message.includes("CORS")) {
-        throw new Error("Network error: Unable to reach insights service");
-      }
-      throw error;
-    }
-
-    throw new Error("Unknown error occurred while fetching insights");
+  if (sortedHistory.length === 1) {
+    const point = sortedHistory[0];
+    return {
+      isNewPR: false,
+      delta: 0,
+      percentChange: 0,
+      firstDate: point.date,
+      latestDate: point.date,
+      insightText: `First logged ${request.exercise}: ${point.value} ${request.metric}.`,
+    };
   }
-}
 
+  const first = sortedHistory[0];
+  const latest = sortedHistory[sortedHistory.length - 1];
+  const delta = latest.value - first.value;
+  const percentChange = first.value > 0 ? (delta / first.value) * 100 : 0;
+  const previousValues = sortedHistory.slice(0, -1).map((p) => p.value);
+  const isNewPR =
+    previousValues.length === 0 || latest.value > Math.max(...previousValues);
+
+  const allValuesSame = sortedHistory.every(
+    (h) => Math.abs(h.value - first.value) < 0.001
+  );
+
+  let insightText: string;
+  if (delta === 0 && sortedHistory.length <= 3 && allValuesSame) {
+    insightText = "Keep logging to see your progress!";
+  } else if (isNewPR && sortedHistory.length > 1) {
+    insightText = `New PR! You hit ${latest.value} ${request.metric} on ${request.exercise}.`;
+  } else if (delta > 0) {
+    insightText = `You've increased your ${request.exercise} by ${delta} ${request.metric} since ${monthName(first.date)}`;
+  } else if (delta === 0) {
+    insightText = `Your ${request.exercise} has stayed consistent since ${monthName(first.date)}`;
+  } else {
+    insightText = `Your ${request.exercise} is down ${Math.abs(delta)} ${request.metric} since ${monthName(first.date)}`;
+  }
+
+  return {
+    isNewPR,
+    delta,
+    percentChange: round1(percentChange),
+    firstDate: first.date,
+    latestDate: latest.date,
+    insightText,
+  };
+}

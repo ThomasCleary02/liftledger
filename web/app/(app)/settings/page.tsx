@@ -359,7 +359,8 @@ export default function Settings() {
         <header className="flex-shrink-0 border-b border-gray-200 bg-white">
           <div className="px-4 py-4 md:px-8 md:py-6">
             <div className="mx-auto max-w-4xl">
-              <h1 className="mb-2 text-2xl font-bold text-gray-900 md:text-3xl">Settings</h1>
+              <p className="kicker mb-1">The office</p>
+              <h1 className="mb-2 text-2xl font-semibold text-gray-900 md:text-3xl">Settings</h1>
               <p className="text-sm text-gray-500">Manage your account and preferences</p>
             </div>
           </div>
@@ -380,7 +381,8 @@ export default function Settings() {
       <header className="flex-shrink-0 border-b border-gray-200 bg-white">
         <div className="px-4 py-4 md:px-8 md:py-6">
         <div className="mx-auto max-w-4xl">
-          <h1 className="mb-2 text-2xl font-bold text-gray-900 md:text-3xl">Settings</h1>
+          <p className="kicker mb-1">The office</p>
+          <h1 className="mb-2 text-2xl font-semibold text-gray-900 md:text-3xl">Settings</h1>
           <p className="text-sm text-gray-500">Manage your account and preferences</p>
           </div>
         </div>
@@ -537,7 +539,7 @@ export default function Settings() {
 
           {/* App Info */}
           <div className="py-6 text-center">
-            <p className="text-sm text-gray-400">LiftLedger v2.2.0</p>
+            <p className="text-sm text-gray-400">LiftLedger v3.0.0</p>
           </div>
           </div>
         </div>
@@ -694,7 +696,7 @@ function UnitsModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end bg-black/50 md:items-center md:justify-center">
+    <div className="modal-backdrop fixed inset-0 z-50 flex items-end md:items-center md:justify-center">
       <div className="w-full rounded-t-3xl bg-white p-6 md:max-w-md md:rounded-2xl">
         <div className="mb-6 flex items-center justify-between">
           <h2 className="text-2xl font-bold text-gray-900">Units</h2>
@@ -710,17 +712,17 @@ function UnitsModal({
             onClick={() => setSelectedUnit("imperial")}
             className={`flex w-full items-center rounded-xl border-2 p-4 ${
               selectedUnit === "imperial"
-                ? "border-blue-500 bg-blue-50"
+                ? "border-brand bg-brand/10"
                 : "border-gray-200 bg-gray-50"
             }`}
           >
             <div
               className={`mr-3 h-6 w-6 rounded-full border-2 ${
-                selectedUnit === "imperial" ? "border-blue-500" : "border-gray-300"
+                selectedUnit === "imperial" ? "border-brand" : "border-gray-300"
               } flex items-center justify-center`}
             >
               {selectedUnit === "imperial" && (
-                <div className="h-3 w-3 rounded-full bg-blue-500"></div>
+                <div className="h-3 w-3 rounded-full bg-brand/100"></div>
               )}
             </div>
             <div className="flex-1 text-left">
@@ -733,17 +735,17 @@ function UnitsModal({
             onClick={() => setSelectedUnit("metric")}
             className={`flex w-full items-center rounded-xl border-2 p-4 ${
               selectedUnit === "metric"
-                ? "border-blue-500 bg-blue-50"
+                ? "border-brand bg-brand/10"
                 : "border-gray-200 bg-gray-50"
             }`}
           >
             <div
               className={`mr-3 h-6 w-6 rounded-full border-2 ${
-                selectedUnit === "metric" ? "border-blue-500" : "border-gray-300"
+                selectedUnit === "metric" ? "border-brand" : "border-gray-300"
               } flex items-center justify-center`}
             >
               {selectedUnit === "metric" && (
-                <div className="h-3 w-3 rounded-full bg-blue-500"></div>
+                <div className="h-3 w-3 rounded-full bg-brand/100"></div>
               )}
             </div>
             <div className="flex-1 text-left">
@@ -755,7 +757,7 @@ function UnitsModal({
 
         <button
           onClick={handleSave}
-          className="mt-6 w-full rounded-xl bg-black py-4 font-bold text-white transition-opacity hover:opacity-90"
+          className="mt-6 w-full btn-primary py-4 text-base"
         >
           Save
         </button>
@@ -797,7 +799,7 @@ function ChartViewModal({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end bg-black/50 md:items-center md:justify-center">
+    <div className="modal-backdrop fixed inset-0 z-50 flex items-end md:items-center md:justify-center">
       <div className="w-full rounded-t-3xl bg-white p-6 md:max-w-md md:rounded-2xl">
         <div className="mb-6 flex items-center justify-between">
           <h2 className="text-2xl font-bold text-gray-900">Default analytics period</h2>
@@ -815,17 +817,17 @@ function ChartViewModal({
               onClick={() => setSelectedView(option.value)}
               className={`flex w-full items-center rounded-xl border-2 p-4 ${
                 selectedView === option.value
-                  ? "border-blue-500 bg-blue-50"
+                  ? "border-brand bg-brand/10"
                   : "border-gray-200 bg-gray-50"
               }`}
             >
               <div
                 className={`mr-3 h-6 w-6 rounded-full border-2 ${
-                  selectedView === option.value ? "border-blue-500" : "border-gray-300"
+                  selectedView === option.value ? "border-brand" : "border-gray-300"
                 } flex items-center justify-center`}
               >
                 {selectedView === option.value && (
-                  <div className="h-3 w-3 rounded-full bg-blue-500"></div>
+                  <div className="h-3 w-3 rounded-full bg-brand/100"></div>
                 )}
               </div>
               <div className="flex-1 text-left">
@@ -838,7 +840,7 @@ function ChartViewModal({
 
         <button
           onClick={handleSave}
-          className="mt-6 w-full rounded-xl bg-black py-4 font-bold text-white transition-opacity hover:opacity-90"
+          className="mt-6 w-full btn-primary py-4 text-base"
         >
           Save
         </button>
@@ -873,7 +875,7 @@ function ChoiceModal<T extends string | number>({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end bg-black/50 md:items-center md:justify-center">
+    <div className="modal-backdrop fixed inset-0 z-50 flex items-end md:items-center md:justify-center">
       <div className="w-full rounded-t-3xl bg-white p-6 md:max-w-md md:rounded-2xl">
         <div className="mb-6 flex items-center justify-between">
           <h2 className="text-2xl font-bold text-gray-900">{title}</h2>
@@ -888,15 +890,15 @@ function ChoiceModal<T extends string | number>({
               key={String(option.value)}
               onClick={() => setSelected(option.value)}
               className={`flex w-full items-center rounded-xl border-2 p-4 ${
-                selected === option.value ? "border-blue-500 bg-blue-50" : "border-gray-200 bg-gray-50"
+                selected === option.value ? "border-brand bg-brand/10" : "border-gray-200 bg-gray-50"
               }`}
             >
               <div
                 className={`mr-3 flex h-6 w-6 items-center justify-center rounded-full border-2 ${
-                  selected === option.value ? "border-blue-500" : "border-gray-300"
+                  selected === option.value ? "border-brand" : "border-gray-300"
                 }`}
               >
-                {selected === option.value && <div className="h-3 w-3 rounded-full bg-blue-500" />}
+                {selected === option.value && <div className="h-3 w-3 rounded-full bg-brand/100" />}
               </div>
               <div className="flex-1 text-left">
                 <p className="font-semibold text-gray-900">{option.label}</p>
@@ -910,7 +912,7 @@ function ChoiceModal<T extends string | number>({
             onSave(selected);
             onClose();
           }}
-          className="mt-6 w-full rounded-xl bg-black py-4 font-bold text-white"
+          className="mt-6 w-full btn-primary py-4 text-base"
         >
           Save
         </button>
@@ -974,7 +976,7 @@ function MyExercisesModal({
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end bg-black/50 md:items-center md:justify-center">
+    <div className="modal-backdrop fixed inset-0 z-50 flex items-end md:items-center md:justify-center">
       <div className="w-full max-h-[80vh] rounded-t-3xl bg-white p-6 md:max-w-2xl md:rounded-2xl flex flex-col">
         <div className="mb-6 flex items-center justify-between">
           <h2 className="text-2xl font-bold text-gray-900">My Exercises</h2>
@@ -991,7 +993,7 @@ function MyExercisesModal({
           placeholder="Search exercises..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="mb-4 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-base outline-none focus:border-blue-500 focus:bg-white"
+          className="mb-4 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-base outline-none focus:border-brand focus:bg-white"
         />
 
         {/* Exercises list */}
@@ -1007,14 +1009,14 @@ function MyExercisesModal({
                 onClick={() => handleToggle(exercise.id)}
                 className={`flex w-full items-center justify-between rounded-xl border-2 p-4 transition-colors ${
                   selectedExercises.includes(exercise.id)
-                    ? "border-blue-500 bg-blue-50"
+                    ? "border-brand bg-brand/10"
                     : "border-gray-200 bg-gray-50 hover:bg-gray-100"
                 }`}
               >
                 <div className="flex items-center">
                   <div className={`mr-3 h-6 w-6 rounded-full border-2 flex items-center justify-center ${
                     selectedExercises.includes(exercise.id)
-                      ? "border-blue-500 bg-blue-500"
+                      ? "border-brand bg-brand/100"
                       : "border-gray-300"
                   }`}>
                     {selectedExercises.includes(exercise.id) && (
@@ -1033,7 +1035,7 @@ function MyExercisesModal({
 
         <button
           onClick={handleSave}
-          className="mt-6 w-full rounded-xl bg-black py-4 font-bold text-white transition-opacity hover:opacity-90"
+          className="mt-6 w-full btn-primary py-4 text-base"
         >
           Save
         </button>
@@ -1083,7 +1085,7 @@ function TemplatesModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end bg-black/50 md:items-center md:justify-center">
+    <div className="modal-backdrop fixed inset-0 z-50 flex items-end md:items-center md:justify-center">
       <div className="w-full max-h-[80vh] rounded-t-3xl bg-white p-6 md:max-w-2xl md:rounded-2xl flex flex-col">
         <div className="mb-6 flex items-center justify-between">
           <h2 className="text-2xl font-bold text-gray-900">Workout Templates</h2>
@@ -1096,7 +1098,7 @@ function TemplatesModal({
         <div className="mb-4">
           <button
             onClick={onCreate}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-black px-4 py-3 font-bold text-white transition-opacity hover:opacity-90"
+            className="btn-primary flex w-full items-center justify-center gap-2"
           >
             <Plus className="h-5 w-5" />
             Create New Template
@@ -1130,7 +1132,7 @@ function TemplatesModal({
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => onEdit(template)}
-                      className="rounded-full bg-blue-50 p-2 text-blue-600 transition-colors hover:bg-blue-100"
+                      className="rounded-full bg-brand/10 p-2 text-blue-600 transition-colors hover:bg-blue-100"
                       title="Edit template"
                     >
                       <Pencil className="h-4 w-4" />
@@ -1367,7 +1369,7 @@ function TemplateEditorModal({
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+    <div className="modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="w-full max-w-4xl max-h-[90vh] rounded-2xl bg-white flex flex-col">
         <div className="flex items-center justify-between p-6 border-b">
           <h2 className="text-2xl font-bold text-gray-900">
@@ -1389,7 +1391,7 @@ function TemplateEditorModal({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g., Leg Day, Chest Day"
-              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-base outline-none focus:border-blue-500 focus:bg-white"
+              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-base outline-none focus:border-brand focus:bg-white"
             />
           </div>
 
@@ -1412,7 +1414,7 @@ function TemplateEditorModal({
                     <div className="flex gap-2">
                       <button
                         onClick={() => startEditingExercise(idx)}
-                        className="rounded-full bg-blue-50 p-2 text-blue-600 hover:bg-blue-100"
+                        className="rounded-full bg-brand/10 p-2 text-blue-600 hover:bg-blue-100"
                       >
                         <Pencil className="h-4 w-4" />
                       </button>
@@ -1440,14 +1442,14 @@ function TemplateEditorModal({
                   placeholder="Search exercises..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="mb-4 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-base outline-none focus:border-blue-500 focus:bg-white"
+                  className="mb-4 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-base outline-none focus:border-brand focus:bg-white"
                 />
                 <div className="max-h-60 overflow-y-auto space-y-2">
                   {filteredExercises.slice(0, 20).map((ex) => (
                     <button
                       key={ex.id}
                       onClick={() => handleExerciseSelect(ex.id, ex.name, ex.modality)}
-                      className="w-full text-left rounded-xl border border-gray-200 bg-white p-3 hover:border-blue-500 hover:bg-blue-50"
+                      className="w-full text-left rounded-xl border border-gray-200 bg-white p-3 hover:border-brand hover:bg-brand/10"
                     >
                       <p className="font-semibold text-gray-900">{ex.name}</p>
                       <p className="text-xs text-gray-500 capitalize">{ex.modality}</p>
@@ -1521,7 +1523,7 @@ function TemplateEditorModal({
 
                 <button
                   onClick={addExercise}
-                  className="mt-4 w-full rounded-xl bg-black px-4 py-3 font-bold text-white"
+                  className="btn-primary mt-4 w-full"
                 >
                   {editingIndex !== null ? "Update Exercise" : "Add Exercise"}
                 </button>
@@ -1539,7 +1541,7 @@ function TemplateEditorModal({
           </button>
           <button
             onClick={handleSave}
-            className="flex-1 rounded-xl bg-black px-4 py-3 font-bold text-white"
+            className="btn-primary flex-1"
           >
             Save Template
           </button>

@@ -19,11 +19,11 @@ type Props = {
 const getModalityConfig = (modality: string) => {
   switch (modality) {
     case "strength":
-      return { icon: Dumbbell, color: "bg-blue-100 text-blue-700 border-blue-200" };
+      return { icon: Dumbbell, color: "bg-brand/15 text-brand border-brand/20" };
     case "cardio":
-      return { icon: Heart, color: "bg-red-100 text-red-700 border-red-200" };
+      return { icon: Heart, color: "bg-info-muted text-info-fg border-info/30" };
     case "calisthenics":
-      return { icon: Activity, color: "bg-green-100 text-green-700 border-green-200" };
+      return { icon: Activity, color: "bg-success-muted text-success-fg border-success/30" };
     default:
       return { icon: Activity, color: "bg-gray-100 text-gray-700 border-gray-200" };
   }
@@ -31,7 +31,7 @@ const getModalityConfig = (modality: string) => {
 
 export default function ExerciseSearch({
   onSelect,
-  placeholder = "Search exercises...",
+  placeholder = "Search a lift...",
   maxResults = 8,
 }: Props) {
   const { user } = useAuth();
@@ -102,12 +102,17 @@ export default function ExerciseSearch({
       }
     };
 
-    const t = setTimeout(search, 300);
+    const t = setTimeout(search, 150);
     return () => {
       active = false;
       clearTimeout(t);
     };
   }, [query, maxResults, favorites]);
+
+  useEffect(() => {
+    if (!query.trim()) return;
+    inputRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+  }, [query]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (results.length === 0) return;
@@ -202,7 +207,7 @@ export default function ExerciseSearch({
           <input
             ref={inputRef}
             type="text"
-            className="w-full rounded-xl border border-gray-200 bg-white px-12 py-3.5 text-base outline-none transition-all placeholder:text-gray-400 focus:border-black focus:ring-2 focus:ring-black"
+            className="w-full rounded-xl border border-gray-200 bg-white px-12 py-3.5 text-base outline-none transition-all placeholder:text-gray-400 focus:border-brand focus:ring-2 focus:ring-brand"
             placeholder={placeholder}
             value={query}
             onChange={(e) => {
@@ -224,23 +229,20 @@ export default function ExerciseSearch({
               setQuery("");
               setSelectedIndex(-1);
             }}
-            className={`flex items-center gap-2 rounded-xl border px-4 py-3.5 transition-all ${
+            className={`flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border px-3 py-3.5 transition-all ${
               showFavorites
-                ? "border-black bg-black text-white"
+                ? "border-brand bg-brand text-brand-fg"
                 : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
             }`}
             aria-label="Show favorites"
           >
             <Star className={`h-5 w-5 ${showFavorites ? "fill-current" : ""}`} />
-            <span className="text-sm font-semibold">
-              {favorites.size > 0 && `(${favorites.size})`}
-            </span>
           </button>
         )}
       </div>
       {loading ? (
         <div className="flex items-center justify-center py-8">
-          <div className="h-5 w-5 animate-spin rounded-full border-2 border-gray-200 border-t-black"></div>
+          <div className="spinner-sm"></div>
         </div>
       ) : (
         <>
@@ -258,7 +260,7 @@ export default function ExerciseSearch({
             </div>
           )}
           {displayItems.length > 0 && (
-            <div ref={resultsRef} className="space-y-3">
+            <div ref={resultsRef} className="space-y-3 pb-8">
               {displayItems.map((item, idx) => {
                 const config = getModalityConfig(item.modality);
                 const Icon = config.icon;

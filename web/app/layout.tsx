@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "../providers/Auth";
 import { PreferencesProvider } from "../lib/hooks/usePreferences";
@@ -14,15 +14,30 @@ import { ThemeSync } from "../components/ThemeSync";
 import Script from "next/script";
 import React from "react";
 
-const inter = Inter({ 
+const plexSans = IBM_Plex_Sans({
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
   display: "swap",
   preload: true,
+  variable: "--font-sans",
+  fallback: ["system-ui", "Segoe UI", "sans-serif"],
+});
+
+const plexMono = IBM_Plex_Mono({
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
+  display: "swap",
+  variable: "--font-mono",
+  fallback: ["ui-monospace", "Menlo", "monospace"],
 });
 
 export const metadata: Metadata = {
-  title: "LiftLedger - Track Your Workouts, Achieve Your Goals",
-  description: "Track your workouts, achieve your goals. Log strength, cardio, and calisthenics with PRs, streaks, and weekly summaries.",
+  title: {
+    default: "LiftLedger — The training log",
+    template: "%s | LiftLedger",
+  },
+  description:
+    "A day-based workout ledger you can install on your phone. Log strength, cardio, and calisthenics. Import Strong or Hevy. PRs, streaks, and friends stay in sync.",
   manifest: "/manifest.json",
   metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"),
   icons: {
@@ -59,9 +74,8 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
   viewportFit: "cover",
-  themeColor: "#000000",
+  themeColor: "#14532d",
 };
 
 export default function RootLayout({
@@ -70,8 +84,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className={inter.className}>
+    <html lang="en" suppressHydrationWarning>
+      <body className={`${plexSans.className} ${plexSans.variable} ${plexMono.variable}`} suppressHydrationWarning>
         <Script id="ios-safe-area" strategy="beforeInteractive">
           {`(function(){try{var theme="system";try{var raw=localStorage.getItem("@liftledger:preferences");if(raw){var p=JSON.parse(raw);if(p&&p.theme)theme=p.theme;}}catch(e){}var dark=theme==="dark"||(theme==="system"&&window.matchMedia("(prefers-color-scheme: dark)").matches);if(dark)document.documentElement.classList.add("dark");}catch(e){}})();`}
         </Script>

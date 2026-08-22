@@ -57,7 +57,7 @@ export function RestTimer({
       </div>
       <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-100">
         <div
-          className="h-full bg-black transition-[width] duration-1000 ease-linear"
+          className="h-full bg-brand transition-[width] duration-1000 ease-linear"
           style={{ width: `${seconds > 0 ? Math.max(0, (remaining / seconds) * 100) : 0}%` }}
         />
       </div>

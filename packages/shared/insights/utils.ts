@@ -2,7 +2,7 @@
  * LiftLedger Insights Utilities
  * 
  * Helper functions for extracting exercise history and determining
- * when to fetch insights from the API.
+ * when to show a client-side progress insight.
  * 
  * Platform-agnostic implementation.
  */
@@ -158,7 +158,7 @@ export function isNewPR(history: ProgressPoint[]): boolean {
 }
 
 /**
- * Map exercise modality to metric name for the API
+ * Map exercise modality to metric name for insight copy
  * 
  * @param modality - Exercise modality
  * @param hasDistance - For cardio, whether distance is available

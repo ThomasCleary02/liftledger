@@ -1,4 +1,4 @@
-import { dayService } from "../firebase";
+import { auth, dayService } from "../firebase";
 import type {
   Day,
   NewDayInput,
@@ -18,9 +18,23 @@ import {
   rememberDay,
   rememberDays,
   rememberEmptyDate,
+  clearSessionCache,
 } from "../sessionCache";
 
-let listInflight: { limit: number; promise: Promise<Day[]> } | null = null;
+let listInflight: { uid: string; limit: number; promise: Promise<Day[]> } | null = null;
+
+export function clearDaysInflight(): void {
+  listInflight = null;
+}
+
+export function resetLocalUserData(): void {
+  clearDaysInflight();
+  clearSessionCache();
+}
+
+function signedInUid(): string | null {
+  return auth.currentUser?.uid ?? null;
+}
 
 function sortDays(days: Day[], order: "asc" | "desc"): Day[] {
   const copy = [...days];
@@ -31,10 +45,16 @@ function sortDays(days: Day[], order: "asc" | "desc"): Day[] {
 }
 
 async function refreshList(limit: number): Promise<Day[]> {
-  if (listInflight && listInflight.limit >= limit) return listInflight.promise;
+  const uid = signedInUid();
+  if (!uid) return [];
+  if (listInflight && listInflight.uid === uid && listInflight.limit >= limit) {
+    return listInflight.promise;
+  }
+  const startedUid = uid;
   const promise = dayService
     .listDays({ limit, order: "desc" })
     .then((days) => {
+      if (signedInUid() !== startedUid) return [];
       rememberDays(days, { listComplete: days.length < limit, listLimit: limit });
       if (listInflight?.promise === promise) listInflight = null;
       return peekDaysArray();
@@ -43,7 +63,7 @@ async function refreshList(limit: number): Promise<Day[]> {
       if (listInflight?.promise === promise) listInflight = null;
       throw error;
     });
-  listInflight = { limit, promise };
+  listInflight = { uid: startedUid, limit, promise };
   return promise;
 }
 
@@ -51,14 +71,16 @@ export async function listDays(options: ListDaysOptions = {}): Promise<Day[]> {
   const limit = options.limit ?? 1000;
   const order = options.order ?? "desc";
   if (options.startDate || options.endDate) {
+    const startedUid = signedInUid();
     const days = await dayService.listDays(options);
+    if (signedInUid() !== startedUid) return [];
     rememberDays(days);
     return days;
   }
 
   if (daysListCovers(limit) && daysCacheIsUsable()) {
     if (!daysCacheIsFresh()) {
-      void refreshList(Math.max(limit, 1000)).catch(() => undefined);
+      void refreshList(limit).catch(() => undefined);
     }
     return sortDays(peekDaysArray(), order).slice(0, limit);
   }
@@ -71,7 +93,9 @@ export async function getDayByDate(date: Date | string): Promise<Day | null> {
   const dateStr = normalizeDateToYYYYMMDD(date);
   const cached = peekDay(dateStr);
   if (cached !== undefined) return cached;
+  const startedUid = signedInUid();
   const day = await dayService.getDayByDate(dateStr);
+  if (signedInUid() !== startedUid) return null;
   if (day) rememberDay(day);
   else rememberEmptyDate(dateStr);
   return day;
@@ -85,7 +109,9 @@ export async function getDaysInRange(
   const end = normalizeDateToYYYYMMDD(endDate);
   const fromCache = daysRangeFromCache(start, end);
   if (fromCache) return fromCache.sort((a, b) => a.date.localeCompare(b.date));
+  const startedUid = signedInUid();
   const days = await dayService.getDaysInRange(start, end);
+  if (signedInUid() !== startedUid) return [];
   rememberDays(days);
   return days;
 }

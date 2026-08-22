@@ -10,6 +10,10 @@
     "install:all": "npm install",
     "build:shared": "cd packages/shared && npm run build",
     "build:web": "cd web && npm run build",
+    "test": "npm run test --workspaces --if-present && npm run test:rules",
+    "test:rules": "npx --yes firebase-tools@13.35.1 emulators:exec --only firestore --project demo-liftledger \"npm run test:rules -w @liftledger/shared\"",
+    "test:e2e": "npm run test:e2e -w liftledger-web",
+    "prepare": "husky",
     "lint": "pnpm --filter '*' lint",
     "typecheck": "pnpm --filter '*' type-check",
     "type-check": "npm run type-check --workspaces",
@@ -24,7 +28,7 @@
     "react": "19.1.9",
     "react-dom": "19.1.9"
   },
-  "version": "2.2.0",
+  "version": "3.0.0",
   "dependencies": {
     "@opentelemetry/api": "^1.9.0",
     "date-fns": "^4.1.0",
@@ -33,5 +37,9 @@
     "firebase-tools": "^15.0.0",
     "react": "19.1.9",
     "react-native": "0.81.5"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "vitest": "^4.1.11"
   }
 }

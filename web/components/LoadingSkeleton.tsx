@@ -27,11 +27,15 @@ export function StatCardSkeleton() {
 
 export function DayNavigationSkeleton() {
   return (
-    <div className="animate-pulse border-b border-gray-200 bg-white px-4 py-4 md:px-8">
-      <div className="mx-auto flex max-w-4xl items-center justify-between">
+    <div className="animate-pulse border-b border-gray-200 bg-white px-3 py-2 md:px-8">
+      <div className="flex items-center justify-between">
+        <div className="h-6 w-36 rounded bg-gray-200"></div>
         <div className="h-10 w-10 rounded-lg bg-gray-200"></div>
-        <div className="h-8 w-48 rounded bg-gray-200"></div>
-        <div className="h-10 w-10 rounded-lg bg-gray-200"></div>
+      </div>
+      <div className="mt-2 flex gap-1">
+        {Array.from({ length: 7 }).map((_, i) => (
+          <div key={i} className="h-10 flex-1 rounded-md bg-gray-200"></div>
+        ))}
       </div>
     </div>
   );

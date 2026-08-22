@@ -13,7 +13,6 @@ import {
   QueryDocumentSnapshot,
   SnapshotOptions,
 } from "firebase/firestore";
-import { lookupUserIdByEmail } from "./emailIndex";
 
 const COLLECTION = "friends";
 
@@ -112,75 +111,8 @@ export function createFriendsService(db: Firestore, auth: Auth) {
       return Array.from(friendMap.values());
     },
 
-    /**
-     * Add a friend by email address
-     * Looks up the user by email in the accounts collection
-     */
-    async addFriendByEmail(email: string): Promise<Friend> {
-      const uid = auth.currentUser?.uid;
-      if (!uid) throw new Error("Not signed in");
-
-      // Normalize email
-      const normalizedEmail = email.trim().toLowerCase();
-      if (!normalizedEmail.includes("@")) {
-        throw new Error("Invalid email address");
-      }
-
-      const friendUserId = await lookupUserIdByEmail(db, normalizedEmail);
-      if (!friendUserId) {
-        throw new Error("No user found with that email address");
-      }
-
-      // Prevent adding yourself as a friend
-      if (friendUserId === uid) {
-        throw new Error("Cannot add yourself as a friend");
-      }
-
-      // Check if friendship already exists using queries (rule-safe)
-      const q1 = query(
-        friendsCol,
-        where("userId", "==", uid),
-        where("friendUserId", "==", friendUserId)
-      );
-      const q2 = query(
-        friendsCol,
-        where("userId", "==", friendUserId),
-        where("friendUserId", "==", uid)
-      );
-      const [snapshot1, snapshot2] = await Promise.all([
-        getDocs(q1),
-        getDocs(q2),
-      ]);
-      if (!snapshot1.empty || !snapshot2.empty) {
-        throw new Error("This user is already your friend");
-      }
-
-      // Create friend relationship
-      // Generate friend ID using sorted IDs (ensures uniqueness)
-      const friendId = generateFriendId(uid, friendUserId);
-      const now = Timestamp.now();
-
-      const payload: FriendDoc = {
-        userId: uid,
-        friendUserId: friendUserId,
-        createdAt: now,
-      };
-
-      await setDoc(friendDoc(friendId), payload);
-
-      // Return the created friend
-      const created = await getDoc(friendDoc(friendId));
-      if (!created.exists()) {
-        throw new Error("Failed to create friend relationship");
-      }
-
-      const data = created.data()!;
-      return {
-        id: created.id,
-        userId: data.userId,
-        friendUserId: data.friendUserId,
-        createdAt: data.createdAt,
-      };
+    async addFriendByEmail(): Promise<Friend> {
+      throw new Error("Use a friend request. Direct add is not allowed.");
     },
 
     /**

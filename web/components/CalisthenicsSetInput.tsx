@@ -15,7 +15,7 @@ interface CalisthenicsSetInputProps {
   sets: CalisthenicsSet[];
   onSetsChange: (sets: CalisthenicsSet[]) => void;
   showDuration?: boolean;
-  onAddedSet?: () => void;
+  onAddedSet?: (sets: CalisthenicsSet[]) => void;
 }
 
 const sanitizeValue = (value: string) => value.replace(/\D/g, "");
@@ -36,8 +36,9 @@ export default function CalisthenicsSetInput({
   const weightUnit = getWeightUnit(units);
   const addSet = () => {
     const lastSet = sets[sets.length - 1];
-    onSetsChange([...sets, lastSet ? { ...lastSet } : { reps: "10" }]);
-    onAddedSet?.();
+    const next = [...sets, lastSet ? { ...lastSet } : { reps: "10" }];
+    onSetsChange(next);
+    onAddedSet?.(next);
   };
 
   const removeSet = (idx: number) => {
@@ -60,20 +61,28 @@ export default function CalisthenicsSetInput({
             <input
               type="text"
               inputMode="numeric"
-              className="mr-2 min-h-[48px] flex-1 rounded-lg bg-gray-100 px-3 py-3 text-base text-gray-900 placeholder:text-gray-400 outline-none focus:bg-white focus:ring-2 focus:ring-black"
+              className="mr-2 min-h-[48px] flex-1 rounded-lg bg-gray-100 px-3 py-3 text-base tabular-nums text-gray-900 placeholder:text-gray-400 outline-none focus:bg-white focus:ring-2 focus:ring-brand"
               value={set.reps}
               onChange={(e) => updateSet(idx, "reps", e.target.value)}
               placeholder="Reps"
+              enterKeyHint="next"
               aria-label={`Set ${idx + 1} reps`}
             />
             <span className="w-12 text-gray-600">reps</span>
             <input
               type="text"
               inputMode="decimal"
-              className="ml-2 min-h-[48px] w-20 rounded-lg bg-gray-100 px-3 py-3 text-base text-gray-900 placeholder:text-gray-400 outline-none focus:bg-white focus:ring-2 focus:ring-black"
+              className="ml-2 min-h-[48px] w-20 rounded-lg bg-gray-100 px-3 py-3 text-base tabular-nums text-gray-900 placeholder:text-gray-400 outline-none focus:bg-white focus:ring-2 focus:ring-brand"
               value={set.addedWeight || ""}
               onChange={(e) => updateSet(idx, "addedWeight", e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  addSet();
+                }
+              }}
               placeholder={`+${weightUnit}`}
+              enterKeyHint="done"
               aria-label={`Set ${idx + 1} added weight in ${weightUnit}`}
             />
             {sets.length > 1 && (
@@ -92,7 +101,7 @@ export default function CalisthenicsSetInput({
               <input
                 type="text"
                 inputMode="numeric"
-                className="mr-2 min-h-[48px] flex-1 rounded-lg bg-gray-100 px-3 py-3 text-base text-gray-900 placeholder:text-gray-400 outline-none focus:bg-white focus:ring-2 focus:ring-black"
+                className="mr-2 min-h-[48px] flex-1 rounded-lg bg-gray-100 px-3 py-3 text-base tabular-nums text-gray-900 placeholder:text-gray-400 outline-none focus:bg-white focus:ring-2 focus:ring-brand"
                 value={set.duration || ""}
                 onChange={(e) => updateSet(idx, "duration", e.target.value)}
                 placeholder="Hold time (seconds)"

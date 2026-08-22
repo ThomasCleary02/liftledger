@@ -1,4 +1,10 @@
+export const MAX_IMPORT_CHARS = 4_000_000;
+export const MAX_IMPORT_ROWS = 20_000;
+
 export function parseCsv(text: string): string[][] {
+  if (text.length > MAX_IMPORT_CHARS) {
+    throw new Error("File is too large (max 4 MB).");
+  }
   const rows: string[][] = [];
   let row: string[] = [];
   let cell = "";
@@ -27,7 +33,12 @@ export function parseCsv(text: string): string[][] {
     } else if (ch === "\n" || (ch === "\r" && next === "\n")) {
       if (ch === "\r") i++;
       row.push(cell);
-      if (row.some((value) => value.trim() !== "")) rows.push(row);
+      if (row.some((value) => value.trim() !== "")) {
+        rows.push(row);
+        if (rows.length > MAX_IMPORT_ROWS) {
+          throw new Error("File has too many rows (max 20,000).");
+        }
+      }
       row = [];
       cell = "";
     } else if (ch !== "\r") {
@@ -61,10 +72,10 @@ export function normalizeHeader(header: string): string {
 
 export function headerUnit(header: string): "lb" | "kg" | "mi" | "km" | undefined {
   const lower = header.toLowerCase();
-  if (/\(kg\)|_kg\b|kilogram/.test(lower)) return "kg";
-  if (/\(lbs?\)|_lb\b|pound/.test(lower)) return "lb";
-  if (/\(km\)|_km\b|kilomet/.test(lower)) return "km";
-  if (/\(mi\)|_mi\b|mile/.test(lower)) return "mi";
+  if (/\(kg\)|_kgs?\b|kilogram/.test(lower)) return "kg";
+  if (/\(lbs?\)|_lbs?\b|pound/.test(lower)) return "lb";
+  if (/\(km\)|_kms?\b|kilomet/.test(lower)) return "km";
+  if (/\(mi\)|_mi\b|_miles?\b|mile/.test(lower)) return "mi";
   return undefined;
 }
 

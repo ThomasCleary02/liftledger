@@ -20,6 +20,20 @@ type AuthCtx = {
 
 const Ctx = createContext<AuthCtx | undefined>(undefined);
 
+function isExpectedAuthFailure(error: unknown): boolean {
+  const code =
+    typeof error === "object" && error && "code" in error
+      ? String((error as { code?: string }).code)
+      : "";
+  const message = error instanceof Error ? error.message : String(error);
+  return (
+    code.startsWith("auth/") &&
+    /invalid-credential|wrong-password|user-not-found|email-already-in-use|weak-password|invalid-email|too-many-requests/.test(
+      `${code} ${message}`
+    )
+  );
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -40,6 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           });
         } else {
           logger.info("User signed out");
+          void import("../lib/firestore/days").then((mod) => mod.resetLocalUserData());
         }
       },
       (error) => {
@@ -57,7 +72,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Auth state will be updated automatically by onAuthStateChanged
       logger.info("Sign in successful");
     } catch (error) {
-      logger.error("Sign in failed", error);
+      if (isExpectedAuthFailure(error)) {
+        logger.warn("Sign in failed", error);
+      } else {
+        logger.error("Sign in failed", error);
+      }
       throw error;
     }
   }, []);
@@ -77,13 +96,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Auth state will be updated automatically by onAuthStateChanged
       logger.info("Sign up successful");
     } catch (error) {
-      logger.error("Sign up failed", error);
+      if (isExpectedAuthFailure(error)) {
+        logger.warn("Sign up failed", error);
+      } else {
+        logger.error("Sign up failed", error);
+      }
       throw error;
     }
   }, []);
   
   const signOutUser = useCallback(async () => {
     try {
+      const { resetLocalUserData } = await import("../lib/firestore/days");
+      resetLocalUserData();
       await signOut(auth);
       // Auth state will be updated automatically by onAuthStateChanged
       logger.info("Sign out successful");

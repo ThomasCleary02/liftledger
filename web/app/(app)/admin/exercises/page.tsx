@@ -4,15 +4,16 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../../../../providers/Auth";
 import { seedExercises, getAllExercises } from "../../../../lib/firestore/exercises";
 import { ExerciseDoc } from "../../../../lib/firestore/exercises";
-import { Plus, Trash2, Upload } from "lucide-react";
+import { Upload } from "lucide-react";
+import { isAdminEmail } from "../../../../lib/admin";
+import { toast } from "../../../../lib/toast";
 
 export default function ExerciseAdmin() {
   const { user } = useAuth();
   const [exercises, setExercises] = useState<ExerciseDoc[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Only allow admin users (you can check user email or add an admin role)
-  const isAdmin = user?.email === "thomcleary15@gmail.com"; // Replace with your admin email
+  const isAdmin = isAdminEmail(user?.email);
 
   useEffect(() => {
     if (isAdmin) {
@@ -35,6 +36,10 @@ export default function ExerciseAdmin() {
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("JSON must be under 2 MB");
+      return;
+    }
 
     const text = await file.text();
     const data = JSON.parse(text);
@@ -43,10 +48,10 @@ export default function ExerciseAdmin() {
     try {
       await seedExercises(data);
       await loadExercises();
-      alert(`Successfully seeded ${data.length} exercises`);
+      toast.success(`Seeded ${data.length} exercises`);
     } catch (error) {
       console.error("Failed to seed exercises", error);
-      alert("Failed to seed exercises");
+      toast.error("Failed to seed exercises");
     } finally {
       setLoading(false);
     }
@@ -65,7 +70,7 @@ export default function ExerciseAdmin() {
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-3xl font-bold">Exercise Management</h1>
         <div className="flex gap-4">
-          <label className="flex cursor-pointer items-center gap-2 rounded-xl bg-black px-6 py-3 text-white hover:opacity-90">
+          <label className="btn-primary flex cursor-pointer items-center gap-2 px-6">
             <Upload className="h-5 w-5" />
             Upload JSON
             <input

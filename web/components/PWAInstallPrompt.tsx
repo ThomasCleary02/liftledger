@@ -66,8 +66,8 @@ export function PWAInstallPrompt() {
   return (
     <div className="fixed-above-nav fixed left-4 z-50 max-w-sm rounded-lg border border-gray-200 bg-white p-4 shadow-xl">
       <div className="flex items-start gap-3">
-        <div className="rounded-full bg-black p-2">
-          <Download className="h-5 w-5 text-white" />
+        <div className="rounded-full bg-brand p-2">
+          <Download className="h-5 w-5 text-brand-fg" />
         </div>
         <div className="flex-1">
           <h3 className="mb-1 font-semibold text-gray-900">Install LiftLedger</h3>
@@ -77,7 +77,7 @@ export function PWAInstallPrompt() {
           <div className="flex gap-2">
             <button
               onClick={handleInstall}
-              className="flex-1 rounded-lg bg-black px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+              className="flex-1 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-brand-fg transition-opacity hover:opacity-90"
             >
               Install
             </button>

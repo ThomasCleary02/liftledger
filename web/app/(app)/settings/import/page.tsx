@@ -14,6 +14,7 @@ import {
   suggestMapping,
   toDisplayWeight,
   weightUnitFromHeaders,
+  MAX_IMPORT_CHARS,
   type ColumnMapping,
   type DateOrder,
   type DistanceUnit,
@@ -113,22 +114,31 @@ export default function ImportSettings() {
 
   const handleFile = async (file: File | undefined) => {
     if (!file) return;
-    const text = await file.text();
-    setFileText(text);
-    setUnitsConfirmed(false);
-    setMappingApplied(false);
-    const parsed = parseImportFile(text);
-    const fromHeaders = weightUnitFromHeaders(parsed.headers);
-    setWeightUnit(fromHeaders ?? (units === "metric" ? "kg" : "lb"));
-    setDistanceUnit(parsed.distanceUnitGuess);
-    if (parsed.dateOrder === "dmy") setDateOrder("dmy");
-    else setDateOrder("mdy");
-    setPreview(parsed);
-    if (parsed.format === "unknown") {
-      setMapping(suggestMapping(parsed.headers));
-    } else {
-      setMapping(null);
-      setMappingApplied(true);
+    if (file.size > MAX_IMPORT_CHARS) {
+      toast.error("File is too large (max 4 MB)");
+      return;
+    }
+    try {
+      const text = await file.text();
+      setFileText(text);
+      setUnitsConfirmed(false);
+      setMappingApplied(false);
+      const parsed = parseImportFile(text);
+      const fromHeaders = weightUnitFromHeaders(parsed.headers);
+      setWeightUnit(fromHeaders ?? (units === "metric" ? "kg" : "lb"));
+      setDistanceUnit(parsed.distanceUnitGuess);
+      if (parsed.dateOrder === "dmy") setDateOrder("dmy");
+      else setDateOrder("mdy");
+      setPreview(parsed);
+      if (parsed.format === "unknown") {
+        setMapping(suggestMapping(parsed.headers));
+      } else {
+        setMapping(null);
+        setMappingApplied(true);
+      }
+    } catch (error) {
+      logger.error("Import parse failed", error);
+      toast.error(error instanceof Error ? error.message : "Could not read that file");
     }
   };
 
@@ -234,7 +244,8 @@ export default function ImportSettings() {
               <ArrowLeft className="h-5 w-5" />
               <span className="text-sm">Back</span>
             </button>
-            <h1 className="mb-2 text-2xl font-bold text-gray-900 md:text-3xl">Import</h1>
+            <p className="kicker mb-1">Bring a log</p>
+            <h1 className="mb-2 text-2xl font-semibold text-gray-900 md:text-3xl">Import</h1>
             <p className="text-sm text-gray-500">Bring a Strong, Hevy, or spreadsheet log into LiftLedger</p>
           </div>
           <div className="mx-auto mt-4 flex max-w-4xl gap-2">
@@ -243,7 +254,7 @@ export default function ImportSettings() {
                 key={item}
                 onClick={() => setTab(item)}
                 className={`flex-1 rounded-lg py-2 text-sm font-semibold ${
-                  tab === item ? "bg-black text-white" : "bg-gray-100 text-gray-600"
+                  tab === item ? "bg-brand text-brand-fg" : "bg-gray-100 text-gray-600"
                 }`}
               >
                 {item === "file" ? "File" : item === "paste" ? "Paste" : "Programs"}
@@ -478,7 +489,7 @@ export default function ImportSettings() {
                       type="button"
                       disabled={!canImportFile}
                       onClick={handleFileImport}
-                      className="mt-4 rounded-lg bg-black px-4 py-2 text-sm font-semibold text-white disabled:bg-gray-300"
+                      className="btn-primary mt-4 disabled:bg-gray-300"
                     >
                       {busy ? progress || "Saving…" : "Import into my log"}
                     </button>
@@ -559,7 +570,7 @@ export default function ImportSettings() {
                 type="button"
                 disabled={busy || !pasteText.trim()}
                 onClick={handlePasteImport}
-                className="rounded-lg bg-black px-4 py-2 text-sm font-semibold text-white disabled:bg-gray-300"
+                className="btn-primary disabled:bg-gray-300"
               >
                 {busy ? "Saving…" : "Save workout"}
               </button>
@@ -591,7 +602,7 @@ export default function ImportSettings() {
                     <button
                       type="button"
                       disabled={busy}
-                      className="rounded-lg bg-black px-3 py-2 text-sm font-semibold text-white"
+                      className="btn-primary px-3 py-2"
                       onClick={async () => {
                         if (busy) return;
                         setBusy(true);

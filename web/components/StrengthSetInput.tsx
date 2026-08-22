@@ -15,7 +15,7 @@ export interface StrengthSet {
 interface StrengthSetInputProps {
   sets: StrengthSet[];
   onSetsChange: (sets: StrengthSet[]) => void;
-  onAddedSet?: () => void;
+  onAddedSet?: (sets: StrengthSet[]) => void;
   exerciseName?: string;
 }
 
@@ -44,13 +44,14 @@ export default function StrengthSetInput({ sets, onSetsChange, onAddedSet, exerc
 
   const addSet = () => {
     const lastSet = sets[sets.length - 1];
-    onSetsChange([
+    const next = [
       ...sets,
       lastSet
         ? { ...lastSet, warmup: false }
         : { reps: "10", weight: formatWeightInput(135, units), warmup: false },
-    ]);
-    onAddedSet?.();
+    ];
+    onSetsChange(next);
+    onAddedSet?.(next);
   };
 
   const removeSet = (idx: number) => {
@@ -84,7 +85,7 @@ export default function StrengthSetInput({ sets, onSetsChange, onAddedSet, exerc
                 type="button"
                 onClick={() => updateSet(idx, "warmup", !set.warmup)}
                 className={`min-h-[48px] rounded-lg px-2 text-xs font-semibold ${
-                  set.warmup ? "bg-amber-100 text-amber-800" : "bg-gray-100 text-gray-500"
+                  set.warmup ? "bg-warning-muted text-warning-fg" : "bg-gray-100 text-gray-500"
                 }`}
                 aria-pressed={Boolean(set.warmup)}
                 aria-label={set.warmup ? "Warmup set on" : "Mark as warmup"}
@@ -95,10 +96,11 @@ export default function StrengthSetInput({ sets, onSetsChange, onAddedSet, exerc
               <input
                 type="text"
                 inputMode="numeric"
-                className="min-h-[48px] w-16 flex-none rounded-lg bg-gray-100 px-3 py-3 text-base text-gray-900 placeholder:text-gray-400 outline-none transition-all focus:bg-white focus:ring-2 focus:ring-black"
+                className="min-h-[48px] w-16 flex-none rounded-lg bg-gray-100 px-3 py-3 text-base tabular-nums text-gray-900 placeholder:text-gray-400 outline-none transition-all focus:bg-white focus:ring-2 focus:ring-brand"
                 value={set.reps}
                 onChange={(e) => updateSet(idx, "reps", e.target.value)}
                 placeholder="Reps"
+                enterKeyHint="next"
                 aria-label={`Set ${idx + 1} reps`}
               />
               <span className="text-gray-400">×</span>
@@ -106,10 +108,17 @@ export default function StrengthSetInput({ sets, onSetsChange, onAddedSet, exerc
                 <input
                   type="text"
                   inputMode="decimal"
-                  className="min-h-[48px] w-full rounded-lg bg-gray-100 px-3 py-3 pr-16 text-base text-gray-900 placeholder:text-gray-400 outline-none transition-all focus:bg-white focus:ring-2 focus:ring-black"
+                  className="min-h-[48px] w-full rounded-lg bg-gray-100 px-3 py-3 pr-16 text-base tabular-nums text-gray-900 placeholder:text-gray-400 outline-none transition-all focus:bg-white focus:ring-2 focus:ring-brand"
                   value={set.weight}
                   onChange={(e) => updateSet(idx, "weight", e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      addSet();
+                    }
+                  }}
                   placeholder={`Weight (${weightUnit})`}
+                  enterKeyHint={idx === sets.length - 1 ? "done" : "next"}
                   aria-label={`Set ${idx + 1} weight`}
                 />
                 <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-500">
@@ -120,7 +129,7 @@ export default function StrengthSetInput({ sets, onSetsChange, onAddedSet, exerc
                 <button
                   type="button"
                   onClick={() => removeSet(idx)}
-                  className="flex-none rounded-lg p-2 text-red-600 transition-colors hover:bg-red-50 hover:text-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+                  className="flex min-h-[44px] min-w-[44px] flex-none items-center justify-center rounded-lg p-2 text-danger transition-colors hover:bg-danger-muted focus:outline-none focus:ring-2 focus:ring-danger"
                   aria-label={`Remove set ${idx + 1}`}
                 >
                   <X className="h-5 w-5" />
@@ -137,7 +146,7 @@ export default function StrengthSetInput({ sets, onSetsChange, onAddedSet, exerc
       <button
         type="button"
         onClick={addSet}
-        className="mt-2 flex min-h-[48px] w-full items-center justify-center gap-2 rounded-lg bg-gray-200 px-4 py-3 text-sm font-medium text-gray-800 transition-colors hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-black"
+        className="mt-2 flex min-h-[48px] w-full items-center justify-center gap-2 rounded-lg bg-gray-200 px-4 py-3 text-sm font-medium text-gray-800 transition-colors hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-brand"
       >
         <Plus className="h-4 w-4" />
         Add Set

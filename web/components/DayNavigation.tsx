@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { format, parseISO, addDays, subDays } from "date-fns";
-import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { format, parseISO, addDays } from "date-fns";
+import { Calendar } from "lucide-react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 interface DayNavigationProps {
   currentDate: string;
@@ -12,6 +12,7 @@ interface DayNavigationProps {
   loggedDates?: Set<string>;
   restDates?: Set<string>;
   injuredDates?: Set<string>;
+  trailing?: ReactNode;
 }
 
 export default function DayNavigation({
@@ -21,17 +22,21 @@ export default function DayNavigation({
   loggedDates,
   restDates,
   injuredDates,
+  trailing,
 }: DayNavigationProps) {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
+  const [today, setToday] = useState<string | null>(null);
+
+  useEffect(() => {
+    setToday(format(new Date(), "yyyy-MM-dd"));
+  }, []);
 
   const date = parseISO(currentDate);
-  const formattedDate = format(date, "EEEE, MMMM d, yyyy");
-  const today = format(new Date(), "yyyy-MM-dd");
+  const shortDate = format(date, "EEE, MMM d");
+  const longDate = format(date, "EEEE, MMMM d, yyyy");
   const isToday = today === currentDate;
   const weekDates = [-3, -2, -1, 0, 1, 2, 3].map((offset) => format(addDays(date, offset), "yyyy-MM-dd"));
-  const prevDate = format(subDays(date, 1), "yyyy-MM-dd");
-  const nextDate = format(addDays(date, 1), "yyyy-MM-dd");
 
   useEffect(() => {
     if (!showDatePicker) return;
@@ -52,77 +57,52 @@ export default function DayNavigation({
   }, [showDatePicker]);
 
   const dotClass = (day: string, selected: boolean) => {
-    if (loggedDates?.has(day)) return selected ? "bg-[#ffffff]" : "bg-black";
+    if (loggedDates?.has(day)) return selected ? "bg-brand-fg" : "bg-brand";
     if (injuredDates?.has(day)) return selected ? "bg-[#fda4af]" : "bg-rose-400";
     if (restDates?.has(day)) return selected ? "bg-[#93c5fd]" : "bg-blue-400";
     return "bg-transparent";
   };
 
+  const pillClass = (day: string, selected: boolean, future: boolean) => {
+    if (future) return "flex min-h-[40px] flex-1 cursor-not-allowed flex-col items-center justify-center rounded-md py-0.5 text-[11px] font-medium text-gray-400";
+    return `flex min-h-[40px] flex-1 flex-col items-center justify-center rounded-md py-0.5 text-[11px] font-medium ${
+      selected ? "bg-brand text-brand-fg" : "text-gray-600 hover:bg-gray-100"
+    }`;
+  };
+
   return (
-    <div className="relative border-b border-gray-200 bg-white px-4 py-3 md:px-8 md:py-4">
-      <div className="flex items-center justify-between">
-        <div className="flex min-w-0 flex-1 items-center gap-2 md:gap-3">
-          <Link
-            href={`/day/${prevDate}`}
-            prefetch
-            className="flex touch-target flex-shrink-0 items-center justify-center rounded-lg p-2 text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-black"
-            aria-label="Previous day"
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </Link>
-
-          <button
-            onClick={() => setShowDatePicker(!showDatePicker)}
-            aria-expanded={showDatePicker}
-            aria-label="Choose date"
-            className="min-w-0 flex-1 rounded-lg px-2 py-1 text-left focus:outline-none focus:ring-2 focus:ring-black"
-          >
-            <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 flex-shrink-0 text-gray-500" />
-              <div className="min-w-0 flex-1">
-                <h1 className="truncate text-lg font-bold text-gray-900 md:text-xl">
-                  {formattedDate}
-                </h1>
-                {isToday && (
-                  <p className="mt-0.5 text-xs text-gray-500">Today</p>
-                )}
-              </div>
-            </div>
-          </button>
-
-          {isToday ? (
-            <span
-              className="flex touch-target flex-shrink-0 items-center justify-center rounded-lg p-2 text-gray-600 opacity-30"
-              aria-label="Next day"
-            >
-              <ChevronRight className="h-5 w-5" />
-            </span>
-          ) : (
-            <Link
-              href={`/day/${nextDate}`}
-              prefetch
-              className="flex touch-target flex-shrink-0 items-center justify-center rounded-lg p-2 text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-black"
-              aria-label="Next day"
-            >
-              <ChevronRight className="h-5 w-5" />
-            </Link>
-          )}
-        </div>
+    <div className="relative border-b border-gray-200 bg-white px-3 py-2 md:px-8 md:py-3">
+      <div className="flex items-center gap-1">
+        <button
+          onClick={() => setShowDatePicker(!showDatePicker)}
+          aria-expanded={showDatePicker}
+          aria-label="Choose date"
+          className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-1 py-1 text-left focus:outline-none focus:ring-2 focus:ring-brand"
+        >
+          <Calendar className="h-4 w-4 flex-shrink-0 text-gray-500" />
+          <h1 className="min-w-0 truncate font-semibold text-gray-900">
+            <span className="md:hidden">{shortDate}</span>
+            <span className="hidden md:inline">{longDate}</span>
+          </h1>
+        </button>
+        {trailing}
       </div>
 
-      <div className="mt-3 flex items-center justify-between gap-1">
+      <div className="mt-1.5 flex items-center justify-between gap-0.5">
         {weekDates.map((day) => {
           const selected = day === currentDate;
-          const isFuture = day > today;
-          return isFuture ? (
-            <span
-              key={day}
-              aria-label={format(parseISO(day), "EEEE, MMMM d")}
-              className="flex min-h-[44px] flex-1 cursor-not-allowed flex-col items-center justify-center rounded-lg py-1 text-xs font-medium text-gray-400"
-            >
+          const isFuture = Boolean(today && day > today);
+          const label = format(parseISO(day), "EEEE, MMMM d");
+          const inner = (
+            <>
               <span>{format(parseISO(day), "EEEEE")}</span>
-              <span className="text-sm font-semibold">{format(parseISO(day), "d")}</span>
-              <span className={`mt-0.5 h-1.5 w-1.5 rounded-full ${dotClass(day, selected)}`} />
+              <span className="text-sm font-semibold leading-none">{format(parseISO(day), "d")}</span>
+              <span className={`mt-0.5 h-1 w-1 rounded-full ${dotClass(day, selected)}`} />
+            </>
+          );
+          return isFuture ? (
+            <span key={day} aria-label={label} className={pillClass(day, selected, true)}>
+              {inner}
             </span>
           ) : (
             <Link
@@ -130,17 +110,11 @@ export default function DayNavigation({
               href={`/day/${day}`}
               prefetch
               onClick={() => setShowDatePicker(false)}
-              aria-label={format(parseISO(day), "EEEE, MMMM d")}
+              aria-label={label}
               aria-current={selected ? "date" : undefined}
-              className={`flex min-h-[44px] flex-1 flex-col items-center justify-center rounded-lg py-1 text-xs font-medium ${
-                selected
-                  ? "bg-black text-white"
-                  : "text-gray-600 hover:bg-gray-100"
-              }`}
+              className={pillClass(day, selected, false)}
             >
-              <span>{format(parseISO(day), "EEEEE")}</span>
-              <span className="text-sm font-semibold">{format(parseISO(day), "d")}</span>
-              <span className={`mt-0.5 h-1.5 w-1.5 rounded-full ${dotClass(day, selected)}`} />
+              {inner}
             </Link>
           );
         })}
@@ -156,8 +130,8 @@ export default function DayNavigation({
                 onDateChange(e.target.value);
                 setShowDatePicker(false);
               }}
-              max={today}
-              className="w-full rounded-lg border border-gray-300 px-4 py-2 text-lg focus:border-black focus:outline-none focus:ring-2 focus:ring-black"
+              max={today ?? undefined}
+              className="w-full rounded-lg border border-gray-300 px-4 py-2 text-lg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand"
               autoFocus
             />
             {onTodayClick && !isToday && (
@@ -166,7 +140,7 @@ export default function DayNavigation({
                   onTodayClick();
                   setShowDatePicker(false);
                 }}
-                className="mt-2 w-full rounded-lg bg-black px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
+                className="mt-2 w-full rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-brand-fg hover:opacity-90"
               >
                 Jump to Today
               </button>

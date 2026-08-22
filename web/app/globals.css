@@ -4,21 +4,41 @@
 
 @layer base {
   * {
-    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2;
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2;
+  }
+
+  html {
+    scroll-behavior: auto;
+  }
+
+  body {
+    background-color: #efe6d8;
+    color: #1c1712;
+  }
+
+  button,
+  a,
+  [role="button"],
+  input,
+  select,
+  textarea {
+    touch-action: manipulation;
+  }
+
+  input[inputmode="numeric"],
+  input[inputmode="decimal"] {
+    font-family: var(--font-mono), ui-monospace, Menlo, monospace;
   }
   
   button:focus-visible,
   a:focus-visible {
-    @apply ring-offset-white;
+    @apply ring-offset-paper;
   }
   
   input:focus-visible,
   textarea:focus-visible,
   select:focus-visible {
     @apply ring-offset-1;
-  }
-  html {
-    scroll-behavior: smooth;
   }
 }
 
@@ -31,11 +51,72 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+
+  .cv-auto {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 8rem;
+  }
 }
 
 @layer components {
   .touch-target {
     @apply min-h-[44px] min-w-[44px];
+  }
+
+  .modal-backdrop {
+    background-color: rgb(0 0 0 / 0.55);
+  }
+
+  .btn-primary {
+    @apply rounded-md bg-brand px-4 py-3 text-sm font-semibold tracking-wide text-brand-fg transition-colors hover:bg-brand-deep disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-600;
+  }
+
+  .btn-secondary {
+    @apply rounded-md border border-brand-deep/40 bg-paper px-4 py-3 text-sm font-semibold text-brand-deep transition-colors hover:bg-brand-muted disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-danger {
+    @apply rounded-lg bg-danger px-4 py-3 text-sm font-semibold text-white transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-info {
+    @apply rounded-lg bg-info px-4 py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90;
+  }
+
+  .brand-panel {
+    background-color: #1c1712;
+    color: #f4ebe3;
+    background-image: repeating-linear-gradient(
+      to bottom,
+      transparent,
+      transparent 31px,
+      rgb(20 83 45 / 0.22) 31px,
+      rgb(20 83 45 / 0.22) 32px
+    );
+  }
+
+  .wordmark {
+    font-family: var(--font-mono), ui-monospace, Menlo, monospace;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .kicker {
+    font-family: var(--font-mono), ui-monospace, Menlo, monospace;
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: rgb(var(--ll-brand));
+  }
+
+  .spinner {
+    @apply h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-brand;
+  }
+
+  .spinner-sm {
+    @apply h-5 w-5 animate-spin rounded-full border-2 border-gray-200 border-t-brand;
   }
 }
 
@@ -44,23 +125,73 @@
   --safe-area-top: env(safe-area-inset-top, 0px);
   --safe-area-bottom: max(env(safe-area-inset-bottom, 0px), var(--viewport-bottom-inset));
   --app-nav-height: 4rem;
+  /* Bottle green on kraft — chalkboard and the books, not gym-startup copper */
+  --ll-brand: 20 83 45;
+  --ll-brand-fg: 255 249 240;
+  --ll-brand-deep: 6 60 38;
+  --ll-brand-muted: 214 228 204;
+  --ll-ink: 28 23 18;
+  --ll-paper: 255 249 240;
+  --ll-secondary: 20 83 45;
+  --ll-secondary-fg: 20 83 45;
+  --ll-info: 2 132 199;
+  --ll-info-muted: 224 242 254;
+  --ll-info-fg: 7 89 133;
+  --ll-success: 15 118 110;
+  --ll-success-muted: 204 251 241;
+  --ll-success-fg: 17 94 89;
+  --ll-warning: 217 119 6;
+  --ll-warning-muted: 254 243 199;
+  --ll-warning-fg: 146 64 14;
+  --ll-danger: 225 29 72;
+  --ll-danger-muted: 255 228 230;
+  --ll-danger-fg: 159 18 57;
 }
 
 html.dark {
   color-scheme: dark;
-  background-color: #0a0a0a;
+  background-color: #14110e;
+  --ll-brand: 125 186 138;
+  --ll-brand-fg: 16 28 22;
+  --ll-brand-deep: 74 140 98;
+  --ll-brand-muted: 28 48 36;
+  --ll-ink: 244 235 227;
+  --ll-paper: 28 25 21;
+  --ll-secondary: 163 201 168;
+  --ll-secondary-fg: 163 201 168;
+  --ll-info: 56 189 248;
+  --ll-info-muted: 12 74 110;
+  --ll-info-fg: 186 230 253;
+  --ll-success: 45 212 191;
+  --ll-success-muted: 17 94 89;
+  --ll-success-fg: 153 246 228;
+  --ll-warning: 251 191 36;
+  --ll-warning-muted: 120 53 15;
+  --ll-warning-fg: 253 230 138;
+  --ll-danger: 251 113 133;
+  --ll-danger-muted: 136 19 55;
+  --ll-danger-fg: 254 205 211;
 }
 
 html.dark body {
-  background-color: #0a0a0a;
-  color: #f5f5f5;
+  background-color: #14110e;
+  color: #f4ebe3;
 }
 
-html.dark .bg-white { background-color: #171717; }
-html.dark .bg-gray-50 { background-color: #0a0a0a; }
-html.dark .bg-gray-100 { background-color: #262626; }
-html.dark .bg-gray-200 { background-color: #404040; }
-html.dark .bg-gray-300 { background-color: #525252; }
+.bg-gray-50 { background-color: #efe6d8; }
+.bg-white,
+.md\:bg-white { background-color: #fff9f0; }
+.bg-gray-100 { background-color: #eadfcf; }
+.border-gray-100,
+.border-gray-200,
+.border-gray-300 { border-color: #e0d0bc; }
+
+html.dark .bg-white,
+html.dark .md\:bg-white { background-color: #1c1915; }
+html.dark .bg-gray-50 { background-color: #14110e; }
+html.dark .bg-gray-100 { background-color: #2a241e; }
+html.dark .bg-gray-200 { background-color: #3a322a; }
+html.dark .bg-gray-300 { background-color: #4a4036; }
 html.dark .hover\:bg-gray-50:hover { background-color: #262626; }
 html.dark .hover\:bg-gray-100:hover { background-color: #262626; }
 html.dark .hover\:bg-white:hover { background-color: #262626; }
@@ -75,7 +206,7 @@ html.dark .text-gray-500 { color: #a3a3a3; }
 html.dark .text-gray-400 { color: #737373; }
 html.dark .border-gray-100,
 html.dark .border-gray-200,
-html.dark .border-gray-300 { border-color: #262626; }
+html.dark .border-gray-300 { border-color: #3a322a; }
 html.dark .placeholder\:text-gray-400::placeholder { color: #737373; }
 html.dark .bg-blue-50 { background-color: rgb(30 58 138 / 0.35); }
 html.dark .bg-blue-100 { background-color: rgb(30 58 138 / 0.4); }
@@ -128,8 +259,28 @@ html.dark .bg-blue-400 { background-color: #60a5fa; }
 html.dark .bg-blue-600 { background-color: #2563eb; }
 html.dark .focus-visible\:ring-black:focus-visible { --tw-ring-color: #f5f5f5; }
 html.dark .ring-black { --tw-ring-color: #f5f5f5; }
+html.dark .brand-panel {
+  background-color: #111111;
+  color: #f5f5f5;
+}
 
-html.dark .md\:bg-white { background-color: #171717; }
+html.dark .text-blue-900 { color: #93c5fd; }
+html.dark .modal-backdrop,
+html.dark .bg-black.bg-opacity-50,
+html.dark .bg-black\/50 {
+  background-color: rgb(0 0 0 / 0.72) !important;
+}
+
+.app-tabbar {
+  background-color: rgb(var(--ll-paper));
+  box-shadow: 0 -3px 0 rgb(var(--ll-brand));
+}
+
+@media (min-width: 768px) {
+  aside.app-tabbar {
+    box-shadow: 3px 0 0 rgb(var(--ll-brand));
+  }
+}
 
 .app-shell {
   box-sizing: border-box;
@@ -137,6 +288,7 @@ html.dark .md\:bg-white { background-color: #171717; }
   flex-direction: column;
   height: 100dvh;
   overflow: hidden;
+  overscroll-behavior: none;
   padding-top: var(--safe-area-top);
   padding-bottom: calc(var(--app-nav-height) + var(--safe-area-bottom));
   padding-left: env(safe-area-inset-left, 0px);
@@ -147,6 +299,11 @@ html.dark .md\:bg-white { background-color: #171717; }
   flex: 1;
   min-height: 0;
   min-width: 0;
+}
+
+.app-shell main {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
 @media (min-width: 768px) {

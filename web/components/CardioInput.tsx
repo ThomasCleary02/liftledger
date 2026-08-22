@@ -58,7 +58,7 @@ export default function CardioInput({
                   onClick={() => onActivityTypeChange(type)}
                   className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
                     selected
-                      ? "bg-black text-white"
+                      ? "bg-brand text-brand-fg"
                       : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                   }`}
                 >
@@ -77,7 +77,7 @@ export default function CardioInput({
             type="text"
             inputMode="numeric"
             pattern="[0-9]*"
-            className="min-h-[48px] flex-1 rounded-lg bg-gray-100 px-3 py-3 text-base text-gray-900 placeholder:text-gray-400 outline-none transition-all focus:bg-white focus:ring-2 focus:ring-black"
+            className="min-h-[48px] flex-1 rounded-lg bg-gray-100 px-3 py-3 text-base tabular-nums text-gray-900 placeholder:text-gray-400 outline-none transition-all focus:bg-white focus:ring-2 focus:ring-brand"
             value={data.duration}
             onChange={(e) =>
               onDataChange({ ...data, duration: sanitizeValue(e.target.value, false) })
@@ -98,7 +98,7 @@ export default function CardioInput({
             type="text"
             inputMode="decimal"
             pattern="[0-9.]*"
-            className="min-h-[48px] flex-1 rounded-lg bg-gray-100 px-3 py-3 text-base text-gray-900 placeholder:text-gray-400 outline-none transition-all focus:bg-white focus:ring-2 focus:ring-black"
+            className="min-h-[48px] flex-1 rounded-lg bg-gray-100 px-3 py-3 text-base tabular-nums text-gray-900 placeholder:text-gray-400 outline-none transition-all focus:bg-white focus:ring-2 focus:ring-brand"
             value={data.distance}
             onChange={(e) =>
               onDataChange({ ...data, distance: sanitizeValue(e.target.value, true) })

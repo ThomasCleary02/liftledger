@@ -3,23 +3,24 @@ import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Terms of Service - LiftLedger",
+  title: "Terms of Service",
   description: "LiftLedger Terms of Service - Read our terms and conditions for using the app.",
 };
 
 export default function TermsOfService() {
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-gray-50">
       <div className="mx-auto max-w-4xl px-4 py-12 md:py-20">
         <Link
           href="/"
-          className="mb-8 inline-flex items-center gap-2 text-gray-600 hover:text-black transition-colors"
+          className="mb-8 inline-flex items-center gap-2 text-gray-600 transition-colors hover:text-brand"
         >
           <ArrowLeft className="h-4 w-4" />
-          <span>Back to Home</span>
+          <span className="font-mono text-sm uppercase tracking-[0.16em]">Back</span>
         </Link>
 
-        <h1 className="mb-4 text-4xl font-bold text-gray-900 md:text-5xl">
+        <p className="kicker mb-3">The fine print</p>
+        <h1 className="mb-4 text-4xl font-semibold text-gray-900 md:text-5xl">
           LiftLedger Terms of Service
         </h1>
         <p className="mb-12 text-gray-600">
@@ -69,7 +70,7 @@ export default function TermsOfService() {
               Questions about terms? Email us at{" "}
               <a
                 href="mailto:contact@liftledger.fit"
-                className="text-black underline hover:text-gray-700"
+                className="text-brand underline hover:opacity-80"
               >
                 contact@liftledger.fit
               </a>.

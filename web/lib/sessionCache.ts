@@ -132,6 +132,12 @@ export function daysListCovers(limit: number): boolean {
   return state.listComplete || state.maxListLimit >= limit || state.byDate.size >= limit;
 }
 
+export function daysListIsComplete(): boolean {
+  const state = daysState;
+  const uid = currentUid();
+  return Boolean(state && state.uid === uid && state.listComplete);
+}
+
 export function daysCacheAge(): number {
   if (!daysState || daysState.uid !== currentUid()) return Number.POSITIVE_INFINITY;
   return Date.now() - daysState.fetchedAt;
@@ -156,6 +162,12 @@ export function daysRangeFromCache(start: string, end: string): Day[] | null {
   }
   if (!state.listComplete && oldest > start) return null;
   return peekDaysArray().filter((day) => day.date >= start && day.date <= end);
+}
+
+export function clearSessionCache(): void {
+  daysState = null;
+  catalog = null;
+  catalogAt = 0;
 }
 
 export function rememberCatalog(docs: ExerciseDoc[]): void {

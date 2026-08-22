@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { format, parseISO, isValid, differenceInDays, addDays, subDays } from "date-fns";
@@ -16,21 +17,23 @@ import {
 import { accountService } from "../../../../lib/firebase";
 import { type DayStatus } from "@liftledger/shared";
 import type { Exercise } from "../../../../lib/firestore/workouts";
-import ExerciseSearch from "../../../../components/ExerciseSearch";
-import StrengthSetInput, { StrengthSet } from "../../../../components/StrengthSetInput";
-import CalisthenicsSetInput, { CalisthenicsSet } from "../../../../components/CalisthenicsSetInput";
-import CardioInput, { CardioData } from "../../../../components/CardioInput";
+import type { StrengthSet } from "../../../../components/StrengthSetInput";
+import type { CalisthenicsSet } from "../../../../components/CalisthenicsSetInput";
+import type { CardioData } from "../../../../components/CardioInput";
+import {
+  createTemplate,
+  cloneExercisesForTemplate,
+  listTemplates,
+  type WorkoutTemplate,
+} from "../../../../lib/firestore/workoutTemplates";
 import DayNavigation from "../../../../components/DayNavigation";
-import { Trash2, Dumbbell, Heart, Activity, Pencil, Plus, Moon, FileText, X, ChevronRight, Upload, Link2, Unlink } from "lucide-react";
+import { Trash2, Dumbbell, Heart, Activity, Pencil, Plus, Moon, FileText, Upload, Link2, Unlink, MoreHorizontal, X, Bandage, History } from "lucide-react";
 import { usePreferences } from "../../../../lib/hooks/usePreferences";
 import { formatWeight, formatDistance, formatCardioDuration, formatWeightInput, formatDistanceInput, toStoredWeight, toStoredDistance } from "../../../../lib/utils/units";
-import { toast, removeToast } from "../../../../lib/toast";
+import { toast } from "../../../../lib/toast";
 import { logger } from "../../../../lib/logger";
 import { DayNavigationSkeleton, ExerciseListSkeleton } from "../../../../components/LoadingSkeleton";
 import { SyncStatusIndicator, useSyncStatus } from "../../../../components/SyncStatus";
-import { listTemplates, type WorkoutTemplate } from "../../../../lib/firestore/workoutTemplates";
-import { ConfirmDialog } from "../../../../components/ConfirmDialog";
-import { RestTimer } from "../../../../components/RestTimer";
 import {
   rememberExercises,
   rememberLastWorkout,
@@ -44,19 +47,47 @@ import {
   peekDaysArray,
 } from "../../../../lib/sessionCache";
 import {
-  fetchProgressInsight,
+  analyzeProgress,
   extractExerciseHistory,
   shouldFetchInsight,
   isNewPR,
   getMetricName,
-  getCachedInsight,
-  setCachedInsight,
-  clearCacheEntry,
   inferCardioActivityType,
   resolveCardioActivityType,
   CARDIO_ACTIVITY_LABELS,
   type CardioActivityType,
 } from "@liftledger/shared";
+
+const composerFallback = () => <div className="h-24 animate-pulse rounded-xl bg-gray-100" />;
+
+const ExerciseSearch = dynamic(() => import("../../../../components/ExerciseSearch"), {
+  ssr: false,
+  loading: () => <div className="h-14 animate-pulse rounded-xl bg-gray-100" />,
+});
+const StrengthSetInput = dynamic(() => import("../../../../components/StrengthSetInput"), {
+  ssr: false,
+  loading: composerFallback,
+});
+const CalisthenicsSetInput = dynamic(() => import("../../../../components/CalisthenicsSetInput"), {
+  ssr: false,
+  loading: composerFallback,
+});
+const CardioInput = dynamic(() => import("../../../../components/CardioInput"), {
+  ssr: false,
+  loading: composerFallback,
+});
+const RestTimer = dynamic(
+  () => import("../../../../components/RestTimer").then((mod) => mod.RestTimer),
+  { ssr: false }
+);
+const ConfirmDialog = dynamic(
+  () => import("../../../../components/ConfirmDialog").then((mod) => mod.ConfirmDialog),
+  { ssr: false }
+);
+const TemplatePicker = dynamic(
+  () => import("../../../../components/TemplatePicker").then((mod) => mod.TemplatePicker),
+  { ssr: false }
+);
 
 type SelectedExercise = {
   id: string;
@@ -106,22 +137,47 @@ export default function DayView() {
   const [calisthenicsSets, setCalisthenicsSets] = useState<CalisthenicsSet[]>([{ reps: "10" }]);
 
   const { units, restTimerSeconds } = usePreferences();
+  const [localToday, setLocalToday] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLocalToday(format(new Date(), "yyyy-MM-dd"));
+  }, []);
   const { showSyncing } = useSyncStatus();
 
   const [allDays, setAllDays] = useState<Day[]>([]);
   const [nearbyDays, setNearbyDays] = useState<Day[]>([]);
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
+  const [showDayMenu, setShowDayMenu] = useState(false);
+  const [dayMenuPos, setDayMenuPos] = useState({ top: 0, right: 16 });
+  const dayMenuRef = useRef<HTMLDivElement>(null);
   const [templates, setTemplates] = useState<WorkoutTemplate[]>([]);
   const [resting, setResting] = useState(false);
   const [restKey, setRestKey] = useState(0);
   const [lastHint, setLastHint] = useState<string | null>(null);
   const [exerciseToRemove, setExerciseToRemove] = useState<number | null>(null);
+  const [addSheetOpen, setAddSheetOpen] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
+  const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const startRest = () => {
     if (restTimerSeconds <= 0) return;
     setRestKey((key) => key + 1);
     setResting(true);
   };
+
+  useEffect(() => {
+    return () => {
+      if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    const apply = () => setIsDesktop(mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
 
   const beginSave = () => {
     if (savingRef.current) return false;
@@ -159,6 +215,17 @@ export default function DayView() {
       toast.error("Failed to load templates");
     }
   };
+
+  useEffect(() => {
+    if (!showDayMenu) return;
+    const onPointer = (event: MouseEvent) => {
+      if (dayMenuRef.current && !dayMenuRef.current.contains(event.target as Node)) {
+        setShowDayMenu(false);
+      }
+    };
+    window.addEventListener("mousedown", onPointer);
+    return () => window.removeEventListener("mousedown", onPointer);
+  }, [showDayMenu]);
 
   // Helper to clean exercise data (remove undefined values)
   const cleanExercise = (ex: Exercise): Exercise => {
@@ -211,7 +278,7 @@ export default function DayView() {
     return cleaned as Exercise;
   };
 
-  const loadTemplate = async (template: WorkoutTemplate) => {
+  const loadTemplate = async (template: WorkoutTemplate, mode: "append" | "replace") => {
     if (!template.exercises || template.exercises.length === 0) {
       toast.error("Template has no exercises");
       return;
@@ -222,13 +289,14 @@ export default function DayView() {
     try {
       const currentDay = await ensureDayExists();
       const existingExercises = currentDay.exercises || [];
-      const templateExercises = template.exercises.map(cleanExercise); // Clean and copy
-      const nextExercises = [...existingExercises, ...templateExercises];
+      const templateExercises = template.exercises.map(cleanExercise);
+      const nextExercises =
+        mode === "replace" ? templateExercises : [...existingExercises, ...templateExercises];
 
       if (currentDay.id) {
-        await updateDay(currentDay.id, { exercises: nextExercises });
-        applyDayIfCurrent({ ...currentDay, exercises: nextExercises });
-        toast.success(`Loaded template: ${template.name}`);
+        await updateDay(currentDay.id, { exercises: nextExercises, isRestDay: false });
+        applyDayIfCurrent({ ...currentDay, exercises: nextExercises, isRestDay: false });
+        toast.success(mode === "replace" ? `Replaced with ${template.name}` : `Added ${template.name}`);
       }
       setShowTemplateSelector(false);
       showSyncing(false);
@@ -238,6 +306,25 @@ export default function DayView() {
       showSyncing(false);
     } finally {
       endSave();
+    }
+  };
+
+  const saveCurrentAsTemplate = async (name: string) => {
+    const exercises = day?.date === currentDate ? day.exercises : [];
+    if (!exercises.length) {
+      toast.error("Log at least one exercise first");
+      return;
+    }
+    try {
+      await createTemplate({
+        name,
+        exercises: cloneExercisesForTemplate(exercises),
+      });
+      toast.success(`Saved “${name}”`);
+      await loadTemplates();
+    } catch (error) {
+      logger.error("Failed to save template", error);
+      toast.error("Could not save template");
     }
   };
 
@@ -307,12 +394,12 @@ export default function DayView() {
   // Normalize date param to YYYY-MM-DD
   const getCurrentDate = (): string => {
     if (dateParam === "today") {
-      return format(new Date(), "yyyy-MM-dd");
+      return localToday ?? "";
     }
     // Validate date format
     const parsed = parseISO(dateParam);
     if (!isValid(parsed)) {
-      return format(new Date(), "yyyy-MM-dd");
+      return localToday ?? "";
     }
     return format(parsed, "yyyy-MM-dd");
   };
@@ -322,6 +409,7 @@ export default function DayView() {
 
   useEffect(() => {
     if (authLoading) return;
+    if (!currentDate) return;
 
     if (!user) {
       router.replace("/login");
@@ -474,81 +562,19 @@ export default function DayView() {
         return; // Don't fetch if requirements not met
       }
 
-      logger.info(`[Insights] Fetching insight for ${exercise.name}: history=${history.length}, isPR=${isPR}`);
+      logger.info(`[Insights] Computing insight for ${exercise.name}: history=${history.length}, isPR=${isPR}`);
 
       const metric = getMetricName(modality, hasDistance);
-
-      // Track loading toast ID so we can remove it when the real insight arrives
-      let loadingToastId: string | null = null;
-
-      // For new PRs, always fetch fresh data (skip cache)
-      // For regular insights, check cache first (but only if it's not a PR insight)
-      if (!isPR) {
-        const cachedInsight = getCachedInsight(exerciseId, metric);
-        if (cachedInsight) {
-          // Only use cached insight if it's not a PR (to avoid showing stale PR messages)
-          if (!cachedInsight.isNewPR) {
-            logger.info(`[Insights] Using cached insight for ${exercise.name}`);
-            // Add small delay to ensure React has finished updates
-            setTimeout(() => {
-              displayInsight(cachedInsight, metric);
-            }, 100);
-            return;
-          } else {
-            // Clear stale PR cache
-            logger.info(`[Insights] Clearing stale PR cache for ${exercise.name}`);
-            clearCacheEntry(exerciseId, metric);
-          }
-        }
-        // Show loading toast for regular insights too (gives immediate feedback)
-        loadingToastId = toast.info("Analyzing your progress...");
-      } else {
-        // Clear cache for PRs to ensure we get fresh insight
-        clearCacheEntry(exerciseId, metric);
-        // Show immediate feedback for PRs - they're important!
-        loadingToastId = toast.info("Analyzing your progress...");
-      }
-
-      // Fetch insight from API (non-blocking - fire and forget)
-      // The toast will appear when the API responds
-      fetchProgressInsight({
+      const insight = analyzeProgress({
         exercise: exercise.name,
-        metric: metric,
-        history: history,
-      })
-        .then((insight) => {
-          logger.info(`[Insights] Received insight from API for ${exercise.name}:`, {
-            isNewPR: insight.isNewPR,
-            hasText: !!insight.insightText,
-            textLength: insight.insightText?.length || 0,
-          });
-          
-          // Remove loading toast if it exists
-          if (loadingToastId) {
-            removeToast(loadingToastId);
-          }
-          
-          // Cache the insight
-          setCachedInsight(exerciseId, metric, insight);
-          
-          // Display the insight with a delay to avoid overlapping with "Exercise saved" toast
-          // For PRs, show sooner (1 second) since they're more important
-          // For regular insights, wait longer (2 seconds) so the success toast can be seen
-          const delay = insight.isNewPR ? 1000 : 2000;
-          setTimeout(() => {
-            displayInsight(insight, metric);
-            logger.info(`[Insights] Successfully displayed insight for ${exercise.name}`);
-          }, delay);
-        })
-        .catch((error) => {
-          // Error handling is done in the outer catch block, but we need to handle it here too
-          // since we're not using await
-          if (error instanceof Error) {
-            if (!error.message.includes("CORS") && !error.message.includes("Failed to fetch") && !error.message.includes("Network error")) {
-              logger.error(`[Insights] Failed to fetch insight for ${exercise.name}:`, error.message);
-            }
-          }
-        });
+        metric,
+        history,
+      });
+      const delay = insight.isNewPR ? 1000 : 2000;
+      setTimeout(() => {
+        displayInsight(insight, metric);
+        logger.info(`[Insights] Successfully displayed insight for ${exercise.name}`);
+      }, delay);
     } catch (error) {
       // Handle any synchronous errors (shouldn't happen, but be safe)
       if (error instanceof Error) {
@@ -558,22 +584,34 @@ export default function DayView() {
   };
 
   /**
-   * Format insight text with proper units
-   * Replaces "weight" with "lbs" or "kgs" based on user preference
+   * Convert stored magnitudes in insight copy (lbs / miles / seconds) to the user's units.
    */
   const formatInsightText = (text: string, metric: string): string => {
-    if (metric !== "weight") {
-      return text; // Only format weight metrics
-    }
+    const numberThenWord = (word: string) =>
+      new RegExp(`(-?\\d+(?:\\.\\d+)?)\\s+${word}\\b`, "gi");
 
-    const unitLabel = units === "metric" ? "kgs" : "lbs";
-    
-    // Replace patterns like "240 weight" or " weight" with the unit
-    // Handle both "weight" and " weight" (with space)
-    let formatted = text.replace(/\s+weight\b/gi, ` ${unitLabel}`);
-    formatted = formatted.replace(/\bweight\b/gi, unitLabel);
-    
-    return formatted;
+    if (metric === "weight") {
+      return text.replace(numberThenWord("weight"), (_, raw) =>
+        formatWeight(Number(raw), units)
+      );
+    }
+    if (metric === "distance") {
+      return text.replace(numberThenWord("distance"), (_, raw) =>
+        formatDistance(Number(raw), units)
+      );
+    }
+    if (metric === "duration") {
+      return text.replace(numberThenWord("duration"), (_, raw) =>
+        formatCardioDuration(Number(raw))
+      );
+    }
+    if (metric === "reps") {
+      return text.replace(numberThenWord("reps"), (_, raw) => {
+        const n = Number(raw);
+        return `${n} rep${n === 1 ? "" : "s"}`;
+      });
+    }
+    return text;
   };
 
   /**
@@ -596,62 +634,6 @@ export default function DayView() {
     } else {
       // Regular insights get info toast (15 seconds - longer since they're more detailed and harder to read)
       toast.info(formattedText, 15000);
-    }
-  };
-
-  const handleExerciseSelect = async (
-    exerciseId: string,
-    name: string,
-    modality: "strength" | "cardio" | "calisthenics"
-  ) => {
-    setSelectedExercise({ id: exerciseId, name, modality });
-
-    const lastExercise =
-      (user ? getCachedLastExercise(user.uid, exerciseId) : null) ||
-      getLastExerciseData(allDays, exerciseId);
-
-    setLastHint(formatLastHint(lastExercise, units));
-
-    if (modality === "cardio") {
-      setCardioActivityType(
-        lastExercise?.modality === "cardio"
-          ? resolveCardioActivityType(lastExercise.cardioData?.activityType, name, exerciseId)
-          : inferCardioActivityType(name, exerciseId)
-      );
-      if (lastExercise?.modality === "cardio" && lastExercise.cardioData) {
-        setCardioData({
-          duration: String(Math.round(lastExercise.cardioData.duration / 60)),
-          distance: lastExercise.cardioData.distance
-            ? formatDistanceInput(lastExercise.cardioData.distance, units)
-            : "",
-        });
-      } else {
-        setCardioData({ duration: "30", distance: "" });
-      }
-    } else if (modality === "calisthenics") {
-      if (lastExercise?.modality === "calisthenics" && lastExercise.calisthenicsSets && lastExercise.calisthenicsSets.length > 0) {
-        setCalisthenicsSets(
-          lastExercise.calisthenicsSets.map((s) => ({
-            reps: String(s.reps),
-            duration: s.duration ? String(s.duration) : "",
-            addedWeight: s.addedWeight ? formatWeightInput(s.addedWeight, units) : "",
-          }))
-        );
-      } else {
-        setCalisthenicsSets([{ reps: "10" }]);
-      }
-    } else {
-      if (lastExercise?.modality === "strength" && lastExercise.strengthSets && lastExercise.strengthSets.length > 0) {
-        setStrengthSets(
-          lastExercise.strengthSets.map((s) => ({
-            reps: String(s.reps),
-            weight: formatWeightInput(s.weight, units),
-            warmup: Boolean(s.warmup),
-          }))
-        );
-      } else {
-        setStrengthSets([{ reps: "10", weight: formatWeightInput(135, units) }]);
-      }
     }
   };
 
@@ -690,6 +672,10 @@ export default function DayView() {
         })) ?? [{ reps: "10" }]
       );
     }
+    setAddSheetOpen(true);
+    window.requestAnimationFrame(() => {
+      document.getElementById("log-composer")?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    });
   };
 
   const ensureDayExists = async (): Promise<Day> => {
@@ -704,18 +690,32 @@ export default function DayView() {
     return newDay;
   };
 
-  const addExercise = async () => {
-    if (!selectedExercise) return;
+  const addExercise = async (options?: {
+    stayOpen?: boolean;
+    silent?: boolean;
+    skipInsight?: boolean;
+    exercise?: SelectedExercise;
+    strengthSets?: StrengthSet[];
+    calisthenicsSets?: CalisthenicsSet[];
+  }) => {
+    const target = options?.exercise ?? selectedExercise;
+    if (!target) return;
+
+    const stayOpen = options?.stayOpen ?? false;
+    const silent = options?.silent ?? false;
+    const skipInsight = options?.skipInsight ?? false;
+    const strengthSource = options?.strengthSets ?? strengthSets;
+    const calisthenicsSource = options?.calisthenicsSets ?? calisthenicsSets;
 
     let exercise: Exercise;
 
-    if (selectedExercise.modality === "cardio") {
+    if (target.modality === "cardio") {
       const durationMinutes = Number(cardioData.duration);
       const duration = durationMinutes * 60;
       const distanceDisplay = cardioData.distance ? Number(cardioData.distance) : undefined;
 
       if (!isFinite(durationMinutes) || durationMinutes <= 0) {
-        toast.error("Duration must be a positive number of minutes.");
+        if (!silent) toast.error("Duration must be a positive number of minutes.");
         return;
       }
 
@@ -729,13 +729,13 @@ export default function DayView() {
       }
       
       exercise = {
-        exerciseId: selectedExercise.id,
-        name: selectedExercise.name,
+        exerciseId: target.id,
+        name: target.name,
         modality: "cardio",
         cardioData: cardioDataObj,
       };
-    } else if (selectedExercise.modality === "calisthenics") {
-      const sets = calisthenicsSets
+    } else if (target.modality === "calisthenics") {
+      const sets = calisthenicsSource
         .map((s) => {
           const reps = Number(s.reps);
           const duration = s.duration ? Number(s.duration) : undefined;
@@ -753,18 +753,18 @@ export default function DayView() {
         .filter((s): s is { reps: number; duration?: number; addedWeight?: number } => s !== null);
 
       if (sets.length === 0) {
-        toast.error("Add at least one valid set with reps.");
+        if (!silent) toast.error("Add at least one valid set with reps.");
         return;
       }
 
       exercise = {
-        exerciseId: selectedExercise.id,
-        name: selectedExercise.name,
+        exerciseId: target.id,
+        name: target.name,
         modality: "calisthenics",
         calisthenicsSets: sets,
       };
     } else {
-      const sets = strengthSets
+      const sets = strengthSource
         .map((s) => {
           const reps = Number(s.reps);
           const weight = Number(s.weight);
@@ -774,13 +774,13 @@ export default function DayView() {
         .filter((s): s is { reps: number; weight: number; warmup?: true } => s !== null);
 
       if (sets.length === 0) {
-        toast.error("Add at least one valid set.");
+        if (!silent) toast.error("Add at least one valid set.");
         return;
       }
 
       exercise = {
-        exerciseId: selectedExercise.id,
-        name: selectedExercise.name,
+        exerciseId: target.id,
+        name: target.name,
         modality: "strength",
         strengthSets: sets,
       };
@@ -792,7 +792,14 @@ export default function DayView() {
       if (previous.supersetGroup) exercise.supersetGroup = previous.supersetGroup;
     }
 
-    if (!beginSave()) return;
+    if (!beginSave()) {
+      if (silent) {
+        persistTimerRef.current = setTimeout(() => {
+          void addExercise(options);
+        }, 280);
+      }
+      return;
+    }
     showSyncing(true);
     try {
       const currentDay = await ensureDayExists();
@@ -810,19 +817,34 @@ export default function DayView() {
           rememberLastWorkout(user.uid, currentDay.date, nextExercises);
         }
       }
-      setSelectedExercise(null);
-      setEditingIndex(null);
-      setLastHint(null);
-      setStrengthSets([{ reps: "10", weight: formatWeightInput(135, units) }]);
-      setCardioData({ duration: "30", distance: "" });
-      setCalisthenicsSets([{ reps: "10" }]);
-      toast.success(editingIndex !== null ? "Exercise updated" : "Exercise added successfully");
+      const wasUpdate = editingIndex !== null;
+      if (stayOpen) {
+        setEditingIndex(wasUpdate ? editingIndex : nextExercises.length - 1);
+      } else {
+        setSelectedExercise(null);
+        setEditingIndex(null);
+        setLastHint(null);
+        setStrengthSets([{ reps: "10", weight: formatWeightInput(135, units) }]);
+        setCardioData({ duration: "30", distance: "" });
+        setCalisthenicsSets([{ reps: "10" }]);
+      }
+      if (!silent) {
+        toast.success(wasUpdate ? "Exercise updated" : "Saved to log");
+      }
       showSyncing(false);
       if (
+        !stayOpen &&
         restTimerSeconds > 0 &&
-        (selectedExercise.modality === "strength" || selectedExercise.modality === "calisthenics")
+        (target.modality === "strength" || target.modality === "calisthenics")
       ) {
         startRest();
+      }
+
+      if (!isDesktop) {
+        setAddSheetOpen(stayOpen);
+      }
+      if (skipInsight) {
+        return;
       }
 
       // Fetch and display insights asynchronously (non-blocking)
@@ -883,6 +905,83 @@ export default function DayView() {
     }
   };
 
+  const queueComposerSave = (patch: { strengthSets?: StrengthSet[]; calisthenicsSets?: CalisthenicsSet[] }) => {
+    if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
+    persistTimerRef.current = setTimeout(() => {
+      void addExercise({ stayOpen: true, silent: true, skipInsight: true, ...patch });
+    }, 400);
+  };
+
+  const handleExerciseSelect = async (
+    exerciseId: string,
+    name: string,
+    modality: "strength" | "cardio" | "calisthenics"
+  ) => {
+    setSelectedExercise({ id: exerciseId, name, modality });
+
+    const lastExercise =
+      (user ? getCachedLastExercise(user.uid, exerciseId) : null) ||
+      getLastExerciseData(allDays, exerciseId);
+
+    setLastHint(formatLastHint(lastExercise, units));
+
+    if (modality === "cardio") {
+      setCardioActivityType(
+        lastExercise?.modality === "cardio"
+          ? resolveCardioActivityType(lastExercise.cardioData?.activityType, name, exerciseId)
+          : inferCardioActivityType(name, exerciseId)
+      );
+      if (lastExercise?.modality === "cardio" && lastExercise.cardioData) {
+        setCardioData({
+          duration: String(Math.round(lastExercise.cardioData.duration / 60)),
+          distance: lastExercise.cardioData.distance
+            ? formatDistanceInput(lastExercise.cardioData.distance, units)
+            : "",
+        });
+      } else {
+        setCardioData({ duration: "30", distance: "" });
+      }
+      return;
+    }
+
+    if (modality === "calisthenics") {
+      const nextSets =
+        lastExercise?.modality === "calisthenics" && lastExercise.calisthenicsSets && lastExercise.calisthenicsSets.length > 0
+          ? lastExercise.calisthenicsSets.map((s) => ({
+              reps: String(s.reps),
+              duration: s.duration ? String(s.duration) : "",
+              addedWeight: s.addedWeight ? formatWeightInput(s.addedWeight, units) : "",
+            }))
+          : [{ reps: "10" }];
+      setCalisthenicsSets(nextSets);
+      void addExercise({
+        exercise: { id: exerciseId, name, modality },
+        stayOpen: true,
+        silent: true,
+        skipInsight: true,
+        calisthenicsSets: nextSets,
+      });
+      return;
+    }
+
+    const nextSets =
+      lastExercise?.modality === "strength" && lastExercise.strengthSets && lastExercise.strengthSets.length > 0
+        ? lastExercise.strengthSets.map((s) => ({
+            reps: String(s.reps),
+            weight: formatWeightInput(s.weight, units),
+            warmup: Boolean(s.warmup),
+          }))
+        : [{ reps: "10", weight: formatWeightInput(135, units) }];
+    setStrengthSets(nextSets);
+    void addExercise({
+      exercise: { id: exerciseId, name, modality },
+      stayOpen: true,
+      silent: true,
+      skipInsight: true,
+      strengthSets: nextSets,
+    });
+  };
+
   const removeExercise = async (idx: number) => {
     if (!day) return;
     if (!beginSave()) return;
@@ -892,6 +991,9 @@ export default function DayView() {
       await updateDay(day.id, { exercises: next });
       applyDayIfCurrent({ ...day, exercises: next });
       toast.success("Exercise removed");
+      if (next.length === 0) {
+        setAddSheetOpen(false);
+      }
       if (editingIndex === idx) {
         setSelectedExercise(null);
         setEditingIndex(null);
@@ -1004,9 +1106,9 @@ export default function DayView() {
   };
 
   const getModalityColor = (mod: string) => {
-    if (mod === "strength") return "bg-blue-100 text-blue-700";
-    if (mod === "cardio") return "bg-red-100 text-red-700";
-    return "bg-green-100 text-green-700";
+    if (mod === "strength") return "bg-brand/15 text-brand";
+    if (mod === "cardio") return "bg-info-muted text-info-fg";
+    return "bg-success-muted text-success-fg";
   };
 
   const getModalityIcon = (mod: string) => {
@@ -1015,7 +1117,7 @@ export default function DayView() {
     return Activity;
   };
 
-  if (authLoading && !user) {
+  if ((authLoading && !user) || !currentDate) {
     return (
       <div className="min-h-screen bg-gray-50">
         <DayNavigationSkeleton />
@@ -1035,120 +1137,43 @@ export default function DayView() {
   const showBodySkeleton = loading && !visibleDay;
   const hasExercises = visibleDay && visibleDay.exercises.length > 0;
   const isRestDay = visibleDay?.isRestDay ?? false;
+  const hasLastWorkout = Boolean(getCachedLastWorkout(user.uid));
+  const sheetMode = Boolean(hasExercises && addSheetOpen && !isDesktop);
+  const showInlineComposer = Boolean((!isRestDay || hasExercises) && (isDesktop || !hasExercises));
 
-  return (
-    <div className="flex h-full flex-col overflow-hidden bg-gray-50">
-      <SyncStatusIndicator />
-      {/* Fixed Header */}
-      <header className="flex-shrink-0">
-      <DayNavigation
-        currentDate={currentDate}
-        onDateChange={handleDateChange}
-        onTodayClick={handleTodayClick}
-        loggedDates={new Set(nearbyDays.filter((d) => !d.isRestDay && d.exercises.length > 0).map((d) => d.date))}
-        restDates={new Set(nearbyDays.filter((d) => d.isRestDay).map((d) => d.date))}
-        injuredDates={new Set(nearbyDays.filter((d) => d.status === "injured").map((d) => d.date))}
-      />
-      </header>
+  const closeAddSheet = () => {
+    setAddSheetOpen(false);
+    setSelectedExercise(null);
+    setEditingIndex(null);
+    setLastHint(null);
+  };
 
-      {/* Scrollable Content */}
-      <main className="flex-1 overflow-y-auto">
-        <div className="container mx-auto max-w-4xl px-4 py-6 md:px-8">
-        {showBodySkeleton ? (
-          <>
-            <div className="mb-6 h-12 w-full rounded-lg bg-gray-200 animate-pulse"></div>
-            <ExerciseListSkeleton />
-          </>
-        ) : (
-        <>
-        {/* Header with Rest Day Toggle and Template Button */}
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <button
-            onClick={toggleRestDay}
-            disabled={saving}
-            className={`flex flex-1 items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${
-              isRestDay
-                ? "border-blue-500 bg-blue-50 text-blue-700"
-                : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
-            }`}
-            title={isRestDay ? "Marked as Rest Day" : "Mark as Rest Day"}
-          >
-            <Moon className={`h-4 w-4 ${isRestDay ? "text-blue-600" : "text-gray-600"}`} />
-            {isRestDay ? <span>Rest Day</span> : <span>Mark as Rest Day</span>}
-          </button>
-          <button
-            onClick={() => setDayStatus("injured")}
-            disabled={saving}
-            className={`rounded-lg border px-3 py-2.5 text-sm font-medium ${
-              visibleDay?.status === "injured" ? "border-rose-500 bg-rose-50 text-rose-800" : "border-gray-200 bg-white text-gray-700"
-            }`}
-          >
-            Injured
-          </button>
-          {!isRestDay && hasExercises && (
-            <button
-              onClick={() => {
-                setShowTemplateSelector(true);
-                loadTemplates();
-              }}
-              className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
-            >
-              <FileText className="h-4 w-4" />
-              Use Template
-            </button>
-          )}
-        </div>
-
-        {visibleDay?.status === "injured" && (
-          <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
-            Injury / skip. This day does not count toward your streak. You can still log modified work.
-          </div>
-        )}
-        {!isRestDay && !hasExercises && !selectedExercise && (
-          <div className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
-            <button
-              type="button"
-              onClick={repeatLastWorkout}
-              disabled={saving}
-              className="flex min-h-[52px] items-center justify-center gap-2 rounded-lg bg-black px-4 py-3 text-sm font-semibold text-white"
-            >
-              Repeat last workout
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setShowTemplateSelector(true);
-                loadTemplates();
-              }}
-              className="flex min-h-[52px] items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-900"
-            >
-              <FileText className="h-4 w-4" />
-              Use template
-            </button>
-            <Link
-              href={`/settings/import?tab=file&date=${currentDate}`}
-              prefetch
-              className="flex min-h-[52px] items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-900"
-            >
-              <Upload className="h-4 w-4" />
-              Import log
-            </Link>
-          </div>
-        )}
-        {(!isRestDay || hasExercises) && (
-          <div className="mb-6 rounded-lg border border-gray-200 bg-white px-4 py-5">
+  const logComposer = (!isRestDay || hasExercises) && (
+          <div id="log-composer" className="rounded-lg border border-gray-200 bg-white px-4 py-5">
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">Add Exercise</h2>
+              <h2 className="text-lg font-semibold text-gray-900">{hasExercises ? "Add another" : "Log"}</h2>
             </div>
 
             {editingIndex !== null && (
-              <div className="mb-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
-                Editing exercise #{editingIndex + 1}. Saving will replace the existing entry.
+              <div className="mb-3 rounded-xl border border-info/30 bg-info-muted px-4 py-3 text-sm text-info-fg">
+                Editing {selectedExercise?.name ?? "exercise"}. Changes save as you add sets.
               </div>
             )}
 
             {!selectedExercise ? (
-              <ExerciseSearch onSelect={handleExerciseSelect} />
+              <div>
+                <ExerciseSearch onSelect={handleExerciseSelect} placeholder="Search a lift..." />
+                {hasLastWorkout && !hasExercises && (
+                  <button
+                    type="button"
+                    onClick={() => void repeatLastWorkout()}
+                    disabled={saving}
+                    className="mt-3 text-sm font-medium text-brand underline-offset-2 hover:underline"
+                  >
+                    Repeat last workout
+                  </button>
+                )}
+              </div>
             ) : (
               <div>
                 <div className="mb-4 flex items-center justify-between border-b border-gray-200 pb-4">
@@ -1181,8 +1206,19 @@ export default function DayView() {
                 {selectedExercise.modality === "strength" && (
                   <StrengthSetInput
                     sets={strengthSets}
-                    onSetsChange={setStrengthSets}
-                    onAddedSet={startRest}
+                    onSetsChange={(next) => {
+                      setStrengthSets(next);
+                      queueComposerSave({ strengthSets: next });
+                    }}
+                    onAddedSet={(next) => {
+                      startRest();
+                      void addExercise({
+                        stayOpen: true,
+                        silent: true,
+                        skipInsight: true,
+                        strengthSets: next,
+                      });
+                    }}
                     exerciseName={selectedExercise.name}
                   />
                 )}
@@ -1199,29 +1235,161 @@ export default function DayView() {
                 {selectedExercise.modality === "calisthenics" && (
                   <CalisthenicsSetInput
                     sets={calisthenicsSets}
-                    onSetsChange={setCalisthenicsSets}
+                    onSetsChange={(next) => {
+                      setCalisthenicsSets(next);
+                      queueComposerSave({ calisthenicsSets: next });
+                    }}
                     showDuration
-                    onAddedSet={startRest}
+                    onAddedSet={(next) => {
+                      startRest();
+                      void addExercise({
+                        stayOpen: true,
+                        silent: true,
+                        skipInsight: true,
+                        calisthenicsSets: next,
+                      });
+                    }}
                   />
                 )}
 
                 <button
-                  onClick={addExercise}
+                  onClick={() => void addExercise()}
                   disabled={saving}
-                  className={`mt-4 flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 font-semibold transition-opacity ${
-                    saving ? "cursor-not-allowed bg-gray-300 text-gray-600" : "bg-black text-white hover:opacity-90"
-                  }`}
-                  aria-label={editingIndex !== null ? "Update exercise" : "Add exercise to workout"}
+                  className="btn-primary mt-4 flex w-full items-center justify-center gap-2"
+                  aria-label={editingIndex !== null ? "Save changes" : "Save to log"}
                 >
                   <Plus className="h-5 w-5" />
-                  {saving ? "Saving..." : editingIndex !== null ? "Update Exercise" : "Add Exercise"}
+                  {saving ? "Saving..." : editingIndex !== null ? "Save changes" : "Save to log"}
                 </button>
               </div>
             )}
           </div>
-        )}
+        );
 
-        {/* Exercises List */}
+  return (
+    <div className="flex h-full flex-col overflow-hidden bg-gray-50">
+      <SyncStatusIndicator />
+      {/* Fixed Header */}
+      <header className="z-20 flex-shrink-0 bg-white">
+      <DayNavigation
+        currentDate={currentDate}
+        onDateChange={handleDateChange}
+        onTodayClick={handleTodayClick}
+        loggedDates={new Set(nearbyDays.filter((d) => !d.isRestDay && d.exercises.length > 0).map((d) => d.date))}
+        restDates={new Set(nearbyDays.filter((d) => d.isRestDay).map((d) => d.date))}
+        injuredDates={new Set(nearbyDays.filter((d) => d.status === "injured").map((d) => d.date))}
+        trailing={
+      <div ref={dayMenuRef} className="relative flex-shrink-0">
+        <button
+          type="button"
+          onClick={(event) => {
+            const rect = event.currentTarget.getBoundingClientRect();
+            setDayMenuPos({ top: rect.bottom + 4, right: Math.max(8, window.innerWidth - rect.right) });
+            setShowDayMenu((open) => !open);
+          }}
+          className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-gray-700 hover:bg-gray-100"
+          aria-label="More for this day"
+          aria-expanded={showDayMenu}
+          aria-haspopup="menu"
+        >
+          <MoreHorizontal className="h-5 w-5" />
+        </button>
+        {showDayMenu && (
+          <div
+            role="menu"
+            className="fixed z-40 w-56 rounded-md border border-gray-200 bg-white py-1 shadow-lg"
+            style={{ top: dayMenuPos.top, right: dayMenuPos.right }}
+          >
+            <button
+              type="button"
+              role="menuitem"
+              disabled={saving}
+              className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-800 hover:bg-gray-50 disabled:opacity-50"
+              onClick={() => {
+                setShowDayMenu(false);
+                void toggleRestDay();
+              }}
+            >
+              <Moon className="h-4 w-4 shrink-0 text-gray-600" />
+              {isRestDay ? "Turn rest off" : "Mark rest day"}
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              disabled={saving}
+              className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-800 hover:bg-gray-50 disabled:opacity-50"
+              onClick={() => {
+                setShowDayMenu(false);
+                void setDayStatus("injured");
+              }}
+            >
+              <Bandage className="h-4 w-4 shrink-0 text-gray-600" />
+              {visibleDay?.status === "injured" ? "Clear injured" : "Mark injured"}
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-800 hover:bg-gray-50"
+              onClick={() => {
+                setShowDayMenu(false);
+                setShowTemplateSelector(true);
+                void loadTemplates();
+              }}
+            >
+              <FileText className="h-4 w-4 shrink-0 text-gray-600" />
+              Templates
+            </button>
+            {hasLastWorkout && (
+              <button
+                type="button"
+                role="menuitem"
+                disabled={saving}
+                className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-800 hover:bg-gray-50 disabled:opacity-50"
+                onClick={() => {
+                  setShowDayMenu(false);
+                  void repeatLastWorkout();
+                }}
+              >
+                <History className="h-4 w-4 shrink-0 text-gray-600" />
+                Repeat last workout
+              </button>
+            )}
+            <Link
+              href={`/settings/import?tab=file&date=${currentDate}`}
+              prefetch
+              role="menuitem"
+              className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-gray-800 hover:bg-gray-50"
+              onClick={() => setShowDayMenu(false)}
+            >
+              <Upload className="h-4 w-4 shrink-0 text-gray-600" />
+              Import log
+            </Link>
+          </div>
+        )}
+      </div>
+        }
+      />
+      </header>
+
+      {/* Scrollable Content */}
+      <main className="flex-1 overflow-y-auto">
+        <div className="container mx-auto max-w-4xl px-4 py-6 md:px-8">
+        {showBodySkeleton ? (
+          <>
+            <div className="mb-6 h-12 w-full rounded-lg bg-gray-200 animate-pulse"></div>
+            <ExerciseListSkeleton />
+          </>
+        ) : (
+        <>
+        {visibleDay?.status === "injured" && (
+          <div className="mb-4 rounded-lg border border-danger/30 bg-danger-muted px-4 py-3 text-sm text-danger-fg">
+            Injury / skip. This day does not count toward your streak. You can still log modified work.
+          </div>
+        )}
+        {!isRestDay && !hasExercises && !selectedExercise && (
+          <p className="mb-4 text-sm text-gray-500">Search a lift to start today’s log.</p>
+        )}
+        <div>
         {hasExercises && (
           <div className="mb-6">
             <h2 className="mb-3 text-lg font-semibold text-gray-900">Exercises</h2>
@@ -1229,7 +1397,7 @@ export default function DayView() {
                 {day!.exercises.map((ex: Exercise, idx: number) => {
                   const Icon = getModalityIcon(ex.modality);
                   return (
-                    <div key={`${ex.name}-${idx}`} className="rounded-lg border border-gray-200 bg-white p-4">
+                    <div key={`${ex.name}-${idx}`} className="cv-auto rounded-lg border border-gray-200 bg-white p-4">
                       <div className="mb-2 flex items-start justify-between">
                         <div className="min-w-0 flex-1">
                           <h3 className="truncate font-semibold text-gray-900">
@@ -1252,7 +1420,7 @@ export default function DayView() {
                           {ex.supersetGroup ? (
                             <button
                               onClick={() => unlinkSuperset(idx)}
-                              className="rounded-full bg-gray-100 p-2 text-gray-600 transition-colors hover:bg-gray-200"
+                              className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-gray-100 p-2 text-gray-600 transition-colors hover:bg-gray-200"
                               aria-label="Unlink superset"
                               title="Unlink superset"
                             >
@@ -1261,7 +1429,7 @@ export default function DayView() {
                           ) : idx > 0 ? (
                             <button
                               onClick={() => pairSuperset(idx)}
-                              className="rounded-full bg-gray-100 p-2 text-gray-600 transition-colors hover:bg-gray-200"
+                              className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-gray-100 p-2 text-gray-600 transition-colors hover:bg-gray-200"
                               aria-label="Superset with previous"
                               title="Superset with previous"
                             >
@@ -1270,14 +1438,14 @@ export default function DayView() {
                           ) : null}
                           <button
                             onClick={() => startEditingExercise(idx)}
-                            className="rounded-full bg-gray-100 p-2 text-gray-600 transition-colors hover:bg-gray-200"
+                            className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-gray-100 p-2 text-gray-600 transition-colors hover:bg-gray-200"
                             aria-label={`Edit ${ex.name}`}
                           >
                             <Pencil className="h-4 w-4" />
                           </button>
                           <button
                             onClick={() => setExerciseToRemove(idx)}
-                            className="rounded-full bg-red-50 p-2 text-red-600 transition-colors hover:bg-red-100"
+                            className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-danger-muted p-2 text-danger transition-colors hover:opacity-80"
                             aria-label={`Remove ${ex.name}`}
                           >
                             <Trash2 className="h-4 w-4" />
@@ -1290,7 +1458,7 @@ export default function DayView() {
                             <div key={i} className="rounded bg-gray-100 px-3 py-1">
                               <span className="text-sm text-gray-700">
                                 {st.warmup ? (
-                                  <span className="mr-1 text-xs font-semibold text-amber-800" title="Warmup">
+                                  <span className="mr-1 text-xs font-semibold text-warning-fg" title="Warmup">
                                     W
                                   </span>
                                 ) : null}
@@ -1325,69 +1493,74 @@ export default function DayView() {
               </div>
           </div>
         )}
+        {showInlineComposer && <div className="mb-6">{logComposer}</div>}
+        </div>
 
-        {isRestDay && !hasExercises && (
-          <div className="rounded-lg border border-blue-200 bg-blue-50 p-8 text-center">
-            <Moon className="mx-auto mb-4 h-12 w-12 text-blue-500" />
-            <p className="text-lg font-semibold text-blue-900">Rest Day</p>
-            <p className="mt-2 text-sm text-blue-700">Recovery day. Turn rest off to log work.</p>
-          </div>
-        )}
-
-        {/* Template Selector Modal */}
-        {showTemplateSelector && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4" role="dialog" aria-modal="true" aria-labelledby="template-title">
-            <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white shadow-xl">
-              <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-                <h3 id="template-title" className="text-lg font-bold text-gray-900">Select Template</h3>
+        {sheetMode && (
+          <div className="fixed inset-0 z-[60]">
+            <button
+              type="button"
+              className="modal-backdrop absolute inset-0"
+              aria-label="Dismiss add sheet"
+              onClick={closeAddSheet}
+            />
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label="Add a lift"
+              className="absolute inset-x-0 bottom-0 max-h-[85dvh] overflow-y-auto rounded-t-3xl border border-gray-200 bg-white px-4 pt-3 shadow-xl"
+              style={{ paddingBottom: "max(1.5rem, calc(var(--safe-area-bottom) + 1rem))" }}
+            >
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-sm font-medium text-gray-500">Add to this day</p>
                 <button
                   type="button"
-                  onClick={() => setShowTemplateSelector(false)}
-                  className="rounded-full p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-                  aria-label="Close templates"
+                  onClick={closeAddSheet}
+                  className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100"
+                  aria-label="Close add sheet"
                 >
                   <X className="h-5 w-5" />
                 </button>
               </div>
-              <div className="max-h-96 overflow-y-auto px-6 py-4">
-                {templates.length === 0 ? (
-                  <div className="py-8 text-center">
-                    <FileText className="mx-auto mb-3 h-12 w-12 text-gray-300" />
-                    <p className="text-gray-500">No templates found</p>
-                    <p className="mt-1 text-sm text-gray-400">Create one in Settings, or import a starter program</p>
-                    <Link
-                      href="/settings/import"
-                      prefetch
-                      className="mt-4 inline-block text-sm font-semibold text-gray-900 underline"
-                    >
-                      Import or starter programs
-                    </Link>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {templates.map((template) => (
-                      <button
-                        key={template.id}
-                        onClick={() => loadTemplate(template)}
-                        disabled={saving}
-                        className="w-full rounded-lg border border-gray-200 bg-white p-4 text-left transition-colors hover:bg-gray-50 disabled:opacity-50"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <h4 className="font-semibold text-gray-900">{template.name}</h4>
-                            <p className="mt-1 text-sm text-gray-500">
-                              {template.exercises.length} exercise{template.exercises.length !== 1 ? "s" : ""}
-                            </p>
-                          </div>
-                          <ChevronRight className="h-5 w-5 text-gray-400" />
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <div className="mb-2">{logComposer}</div>
             </div>
           </div>
+        )}
+
+        {hasExercises && !sheetMode && !isDesktop && (
+          <button
+            type="button"
+            onClick={() => {
+              setEditingIndex(null);
+              setSelectedExercise(null);
+              setLastHint(null);
+              setAddSheetOpen(true);
+            }}
+            className="fixed-above-nav fixed right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-brand text-brand-fg shadow-lg"
+            aria-label="Add a lift"
+          >
+            <Plus className="h-7 w-7" />
+          </button>
+        )}
+
+        {isRestDay && !hasExercises && (
+          <div className="rounded-lg border border-info/30 bg-info-muted p-8 text-center">
+            <Moon className="mx-auto mb-4 h-12 w-12 text-info" />
+            <p className="text-lg font-semibold text-info-fg">Rest Day</p>
+            <p className="mt-2 text-sm text-info-fg">Recovery day. Turn rest off to log work.</p>
+          </div>
+        )}
+
+        {showTemplateSelector && (
+          <TemplatePicker
+            templates={templates}
+            saving={saving}
+            dayHasWork={Boolean(hasExercises)}
+            canSaveCurrent={Boolean(hasExercises)}
+            onClose={() => setShowTemplateSelector(false)}
+            onSelect={(template, mode) => void loadTemplate(template, mode)}
+            onSaveCurrent={(name) => void saveCurrentAsTemplate(name)}
+          />
         )}
         </>
         )}
@@ -1401,8 +1574,9 @@ export default function DayView() {
           onSkip={() => setResting(false)}
         />
       )}
+      {exerciseToRemove !== null && (
       <ConfirmDialog
-        open={exerciseToRemove !== null}
+        open
         title="Remove exercise?"
         message="This set data will be deleted from today."
         confirmText="Remove"
@@ -1414,6 +1588,7 @@ export default function DayView() {
           if (idx != null) void removeExercise(idx);
         }}
       />
+      )}
     </div>
   );
 }

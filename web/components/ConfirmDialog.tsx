@@ -49,9 +49,10 @@ export function ConfirmDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end bg-black/50 md:items-center md:justify-center"
+      className="modal-backdrop fixed inset-0 z-50 flex items-end md:items-center md:justify-center"
       role="dialog"
       aria-modal="true"
+      aria-label={title}
       aria-labelledby={titleId}
       onClick={(e) => {
         if (e.target === e.currentTarget) onCancel();
@@ -68,18 +69,14 @@ export function ConfirmDialog({
           <button
             type="button"
             onClick={onCancel}
-            className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-3 font-semibold text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500"
+            className="btn-secondary flex-1"
           >
             {cancelText}
           </button>
           <button
             type="button"
             onClick={onConfirm}
-            className={`flex-1 rounded-xl px-4 py-3 font-semibold text-white transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-              danger
-                ? "bg-red-600 hover:bg-red-700 focus:ring-red-500"
-                : "bg-black hover:bg-gray-800 focus:ring-black"
-            }`}
+            className={danger ? "btn-danger flex-1" : "btn-primary flex-1"}
           >
             {confirmText}
           </button>

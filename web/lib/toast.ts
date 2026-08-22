@@ -30,16 +30,10 @@ function addToast(message: string, type: ToastType, duration?: number): string {
   try {
     const id = Math.random().toString(36).substring(2, 9);
     toasts.push({ id, message, type });
-    
-    // Log for debugging (always log in development)
-    if (typeof window !== "undefined") {
-      console.log(`[Toast] Added ${type} toast:`, { id, message: message.substring(0, 50) + "...", duration, totalToasts: toasts.length });
-    }
-    
     notifyListeners();
     
     // Auto remove after specified duration, or default to 8 seconds
-    const timeoutDuration = duration ?? 8000;
+    const timeoutDuration = duration ?? 4000;
     setTimeout(() => {
       toasts = toasts.filter((t) => t.id !== id);
       notifyListeners();

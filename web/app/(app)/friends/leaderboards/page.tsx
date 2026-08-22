@@ -109,7 +109,8 @@ export default function Leaderboards() {
               <ArrowLeft className="h-5 w-5" />
               <span className="text-sm">Back</span>
             </Link>
-            <h1 className="mb-2 text-2xl font-bold text-gray-900 md:text-3xl">Leaderboards</h1>
+            <p className="kicker mb-1">The board</p>
+            <h1 className="mb-2 text-2xl font-semibold text-gray-900 md:text-3xl">Leaderboards</h1>
             <p className="text-sm text-gray-500">Compete with your friends</p>
           </div>
 
@@ -121,7 +122,7 @@ export default function Leaderboards() {
                   onClick={() => setMetric(m)}
                   className={`flex-1 rounded-lg py-2 px-3 text-xs font-semibold transition-colors ${
                     metric === m
-                      ? "bg-black text-white"
+                      ? "bg-brand text-brand-fg"
                       : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                   }`}
                 >
@@ -140,7 +141,7 @@ export default function Leaderboards() {
                     onClick={() => setTimePeriod(period)}
                     className={`rounded px-3 py-1 text-xs font-semibold transition-colors ${
                       timePeriod === period
-                        ? "bg-black text-white"
+                        ? "bg-brand text-brand-fg"
                         : "text-gray-600 hover:bg-gray-200"
                     }`}
                   >
@@ -157,7 +158,7 @@ export default function Leaderboards() {
         <div className="container mx-auto px-4 py-6 md:px-8 md:max-w-4xl">
           {loading || authLoading ? (
             <div className="flex justify-center py-12">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-black" />
+              <div className="spinner" />
             </div>
           ) : loadError ? (
             <div className="rounded-2xl border border-gray-100 bg-white p-12 text-center shadow-sm">
@@ -166,7 +167,7 @@ export default function Leaderboards() {
               <button
                 type="button"
                 onClick={loadDays}
-                className="mt-4 rounded-lg bg-black px-4 py-2 text-sm font-semibold text-white"
+                className="btn-primary mt-4"
               >
                 Retry
               </button>

@@ -19,9 +19,9 @@ type Props = {
 
 const getModalityColor = (modality: string) => {
   switch (modality) {
-    case "strength": return "bg-blue-100 text-blue-700";
-    case "cardio": return "bg-red-100 text-red-700";
-    case "calisthenics": return "bg-green-100 text-green-700";
+    case "strength": return "bg-brand/15 text-brand";
+    case "cardio": return "bg-info-muted text-info-fg";
+    case "calisthenics": return "bg-success-muted text-success-fg";
     default: return "bg-gray-100 text-gray-700";
   }
 };
@@ -109,7 +109,7 @@ export default function WorkoutCard({
     <div
       onClick={handleClick}
       onContextMenu={handleContextMenu}
-      className="mb-4 cursor-pointer rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-all hover:shadow-md active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-black"
+      className="mb-4 cursor-pointer rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-all hover:shadow-md active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-brand"
       role="button"
       tabIndex={0}
       onKeyDown={(e) => {

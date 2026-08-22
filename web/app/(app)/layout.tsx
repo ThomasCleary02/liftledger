@@ -1,16 +1,9 @@
-import { Navigation } from "../../components/Navigation";
+import { AppShell } from "../../components/AppShell";
 
 export default function AppLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <>
-      <Navigation />
-      <div className="app-shell md:ml-64">
-        {children}
-      </div>
-    </>
-  );
+  return <AppShell>{children}</AppShell>;
 }

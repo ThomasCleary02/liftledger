@@ -14,7 +14,6 @@ import {
   SnapshotOptions,
 } from "firebase/firestore";
 import { createFriendsService } from "./friends";
-import { lookupUserIdByEmail } from "./emailIndex";
 import { lookupUserIdByUsername } from "./usernameIndex";
 
 const COLLECTION = "friendRequests";
@@ -83,22 +82,15 @@ export function createFriendRequestsService(db: Firestore, auth: Auth) {
 
       const trimmed = identifier.trim();
       if (!trimmed) {
-        throw new Error("Enter an email or username");
+        throw new Error("Enter a username");
       }
 
-      let toUserId: string | null = null;
       if (trimmed.includes("@")) {
-        toUserId = await lookupUserIdByEmail(db, trimmed);
-        if (!toUserId) {
-          throw new Error(
-            "No user found with that email address. Make sure they have signed in at least once."
-          );
-        }
-      } else {
-        toUserId = await lookupUserIdByUsername(db, trimmed);
-        if (!toUserId) {
-          throw new Error("No user found with that username.");
-        }
+        throw new Error("Add friends by username. We do not look people up by email.");
+      }
+      const toUserId = await lookupUserIdByUsername(db, trimmed);
+      if (!toUserId) {
+        throw new Error("No user found with that username.");
       }
 
       // Prevent sending request to yourself

@@ -3,10 +3,12 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../../providers/Auth";
-import { Mail, Lock, Eye, EyeOff, Dumbbell, User } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, User } from "lucide-react";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "../../../lib/firebase";
 import { toast } from "../../../lib/toast";
+import { BrandMark } from "../../../components/BrandMark";
+import { isValidUsername } from "@liftledger/shared";
 
 export default function Login() {
   const router = useRouter();
@@ -22,6 +24,11 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null);
   const [showResetPassword, setShowResetPassword] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Redirect if already authenticated (wait for auth to finish loading)
   useEffect(() => {
@@ -30,7 +37,18 @@ export default function Login() {
     }
   }, [user, authLoading, router]);
 
-  if (user && !authLoading) {
+  if (!mounted || authLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12">
+        <div className="w-full max-w-md">
+          <div className="mx-auto mb-12 h-14 w-48 animate-pulse rounded-md bg-gray-200" />
+          <div className="h-80 animate-pulse rounded-3xl bg-white" />
+        </div>
+      </div>
+    );
+  }
+
+  if (user) {
     return null;
   }
 
@@ -58,8 +76,7 @@ export default function Login() {
         setError("Please enter a username");
         return false;
       }
-      const usernameRegex = /^[a-zA-Z0-9_-]{3,20}$/;
-      if (!usernameRegex.test(username.trim())) {
+      if (!isValidUsername(username)) {
         setError("Username must be 3-20 characters and contain only letters, numbers, underscores, and hyphens");
         return false;
       }
@@ -130,20 +147,15 @@ export default function Login() {
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12 md:px-6">
       <div className="w-full max-w-md">
         {/* Logo/Header */}
-        <div className="mb-12 text-center">
-          <div className="mb-4 inline-flex items-center justify-center rounded-3xl bg-black p-6">
-            <Dumbbell className="h-12 w-12 text-white" />
-          </div>
-          <h1 className="mb-2 text-4xl font-bold text-gray-900">LiftLedger</h1>
-          <p className="whitespace-pre-line text-gray-500">
-            Track your workouts,{'\n'}achieve your goals
-          </p>
+        <div className="mb-12 flex flex-col items-center text-center">
+          <BrandMark size="lg" />
+          <p className="kicker mt-6">Sign the log</p>
         </div>
 
         {/* Form Card */}
         <div className="mb-6 rounded-3xl border border-gray-100 bg-white p-6 shadow-sm md:p-8">
-          <h2 className="mb-1 text-2xl font-bold text-gray-900">
-            {mode === "login" ? "Welcome Back" : "Create Account"}
+          <h2 className="mb-1 text-2xl font-semibold text-gray-900">
+            {mode === "login" ? "Welcome back" : "Open an account"}
           </h2>
           <p className="mb-6 text-gray-500">
             {mode === "login"
@@ -153,8 +165,8 @@ export default function Login() {
 
           {/* Error Message */}
           {error && (
-            <div className="mb-4 rounded-xl bg-red-50 border border-red-200 p-3">
-              <p className="text-sm text-red-600">{error}</p>
+            <div className="mb-4 rounded-xl border border-danger/30 bg-danger-muted p-3">
+              <p className="text-sm text-danger-fg">{error}</p>
             </div>
           )}
 
@@ -273,7 +285,7 @@ export default function Login() {
                 <button
                   type="button"
                   onClick={() => setShowResetPassword(true)}
-                  className="text-sm text-gray-600 hover:text-black hover:underline"
+                  className="text-sm text-gray-600 hover:text-brand hover:underline"
                 >
                   Forgot password?
                 </button>
@@ -315,11 +327,7 @@ export default function Login() {
             <button
               type="submit"
               disabled={loading || !isFormValid}
-              className={`w-full rounded-xl py-4 shadow-lg transition-opacity ${
-                loading || !isFormValid
-                  ? "cursor-not-allowed bg-gray-300 text-gray-600"
-                  : "bg-black text-white hover:opacity-90"
-              }`}
+              className="btn-primary w-full rounded-xl py-4 text-base shadow-lg"
             >
               <div className="flex items-center justify-center">
                 {loading && (
@@ -340,11 +348,12 @@ export default function Login() {
         </div>
 
         {/* Toggle Mode */}
-        <div className="flex items-center justify-center">
+        <div className="flex items-center justify-center gap-1.5">
           <p className="text-gray-600">
-            {mode === "login" ? "Don't have an account? " : "Already have an account? "}
+            {mode === "login" ? "Don't have an account?" : "Already have an account?"}
           </p>
           <button
+            type="button"
             onClick={() => {
               setMode(mode === "login" ? "signup" : "login");
               setConfirmPassword("");
@@ -352,7 +361,7 @@ export default function Login() {
               setShowResetPassword(false);
               setError(null);
             }}
-            className="font-semibold text-black hover:underline"
+            className="font-semibold text-brand underline-offset-2 hover:underline"
           >
             {mode === "login" ? "Sign Up" : "Log In"}
           </button>

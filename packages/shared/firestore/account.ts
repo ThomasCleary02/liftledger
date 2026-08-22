@@ -89,26 +89,29 @@ export function createAccountService(db: Firestore, auth: Auth) {
       photoURL: string | null;
       favoriteExercises: string[];
       trackedExercises: string[];
+      bodyweightLbs: number | null;
     }> {
       const user = auth.currentUser;
       if (!user) {
-        return { username: null, photoURL: null, favoriteExercises: [], trackedExercises: [] };
+        return { username: null, photoURL: null, favoriteExercises: [], trackedExercises: [], bodyweightLbs: null };
       }
       try {
         const accountDoc = await getDoc(doc(db, ACCOUNTS_COLLECTION, user.uid));
         if (!accountDoc.exists()) {
-          return { username: null, photoURL: null, favoriteExercises: [], trackedExercises: [] };
+          return { username: null, photoURL: null, favoriteExercises: [], trackedExercises: [], bodyweightLbs: null };
         }
         const data = accountDoc.data();
+        const weight = data.bodyweightLbs;
         return {
           username: typeof data.username === "string" ? data.username : null,
           photoURL: typeof data.photoURL === "string" ? data.photoURL : null,
           favoriteExercises: Array.isArray(data.favoriteExercises) ? data.favoriteExercises : [],
           trackedExercises: Array.isArray(data.trackedExercises) ? data.trackedExercises : [],
+          bodyweightLbs: typeof weight === "number" && weight > 0 ? weight : null,
         };
       } catch (error) {
         console.error("Error getting account summary:", error);
-        return { username: null, photoURL: null, favoriteExercises: [], trackedExercises: [] };
+        return { username: null, photoURL: null, favoriteExercises: [], trackedExercises: [], bodyweightLbs: null };
       }
     },
 

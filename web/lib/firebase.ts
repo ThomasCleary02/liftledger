@@ -8,10 +8,8 @@ import {
 } from "firebase/firestore";
 import { getAuth, setPersistence, browserLocalPersistence } from "firebase/auth";
 import { getStorage } from "firebase/storage";
-import { createWorkoutService } from "@liftledger/shared/firestore/workouts";
 import { createExerciseService } from "@liftledger/shared/firestore/exercises";
 import { createAccountService } from "@liftledger/shared/firestore/account";
-import { createWorkoutTemplateService } from "@liftledger/shared/firestore/workoutTemplates";
 import { logger } from "./logger";
 
 const firebaseConfig = {
@@ -89,10 +87,8 @@ import { webPreferencesStorage } from "./preferences/storage";
 
 export { db, auth, app };
 export const storage = getStorage(app);
-export const workoutService = createWorkoutService(db, auth);
 export const exerciseService = createExerciseService(db);
 export const accountService = createAccountService(db, auth);
-export const workoutTemplateService = createWorkoutTemplateService(db, auth);
 export const dayService = createDayService(db, auth);
 export const friendsService = createFriendsService(db, auth);
 export const friendRequestsService = createFriendRequestsService(db, auth);

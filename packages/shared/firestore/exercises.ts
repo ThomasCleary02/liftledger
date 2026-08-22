@@ -180,6 +180,26 @@ function calculateRelevanceScore(
     }
   });
 
+  // Prefer the lift people mean: "bench" → Bench Press, not Bench Dip.
+  const tokens = nameFolded.split(/[\s-]+/).filter(Boolean);
+  const primarySecond = new Set([
+    "press",
+    "squat",
+    "deadlift",
+    "row",
+    "curl",
+    "lunge",
+    "fly",
+    "flye",
+  ]);
+  if (tokens[0] === queryFolded) {
+    if (tokens.length === 1) score += 400;
+    if (tokens[1] && primarySecond.has(tokens[1])) score += 280;
+    const accessory = new Set(["dip", "dips", "pushdown", "kickback", "extension"]);
+    if (tokens[1] && accessory.has(tokens[1])) score -= 220;
+    score += Math.max(0, 120 - tokens.length * 25);
+  }
+
   return score;
 }
 

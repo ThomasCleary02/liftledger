@@ -7,6 +7,10 @@ export function normalizeUsername(username: string): string {
   return username.trim().replace(/^@/, "").toLowerCase();
 }
 
+export function isValidUsername(username: string): boolean {
+  return /^[a-zA-Z0-9_-]{3,20}$/.test(username.trim());
+}
+
 export async function lookupUserIdByUsername(
   db: Firestore,
   username: string

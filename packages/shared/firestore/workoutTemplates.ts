@@ -1,7 +1,7 @@
 import type { Firestore } from "firebase/firestore";
 import type { Auth } from "firebase/auth";
 import { Timestamp, collection, addDoc, getDoc, getDocs, updateDoc, deleteDoc, doc, query, where, orderBy, QueryDocumentSnapshot, SnapshotOptions } from "firebase/firestore";
-import type { Exercise } from "./workouts";
+import type { Exercise, StrengthSetEntry, CalisthenicsSetEntry, CardioEntry } from "./workouts";
 
 export interface WorkoutTemplate {
   id: string;
@@ -14,6 +14,40 @@ export interface WorkoutTemplate {
 export interface NewWorkoutTemplateInput {
   name: string;
   exercises: Exercise[];
+}
+
+export function cloneExercisesForTemplate(exercises: Exercise[]): Exercise[] {
+  return exercises.map((exercise) => {
+    const next: Exercise = {
+      name: exercise.name,
+      modality: exercise.modality,
+    };
+    if (exercise.exerciseId) next.exerciseId = exercise.exerciseId;
+    if (exercise.supersetGroup !== undefined) next.supersetGroup = exercise.supersetGroup;
+    if (exercise.strengthSets) {
+      next.strengthSets = exercise.strengthSets.map((set) => {
+        const row: StrengthSetEntry = { reps: set.reps, weight: set.weight };
+        if (set.warmup) row.warmup = true;
+        return row;
+      });
+    }
+    if (exercise.calisthenicsSets) {
+      next.calisthenicsSets = exercise.calisthenicsSets.map((set) => {
+        const row: CalisthenicsSetEntry = { reps: set.reps };
+        if (set.duration != null) row.duration = set.duration;
+        if (set.addedWeight != null) row.addedWeight = set.addedWeight;
+        return row;
+      });
+    }
+    if (exercise.cardioData) {
+      const cardio: CardioEntry = { duration: exercise.cardioData.duration };
+      if (exercise.cardioData.distance != null) cardio.distance = exercise.cardioData.distance;
+      if (exercise.cardioData.pace != null) cardio.pace = exercise.cardioData.pace;
+      if (exercise.cardioData.activityType) cardio.activityType = exercise.cardioData.activityType;
+      next.cardioData = cardio;
+    }
+    return next;
+  });
 }
 
 const COLLECTION = "workoutTemplates";

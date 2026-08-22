@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../../providers/Auth";
-import { listDays, Day } from "../../../lib/firestore/days";
+import { listDays, getDaysInRange, Day } from "../../../lib/firestore/days";
 import { getAllExercises } from "../../../lib/firestore/exercises";
 import {
   getAnalyticsSummaryFromDays,
@@ -34,13 +34,30 @@ import {
 import { format, startOfWeek, eachDayOfInterval, addDays } from "date-fns";
 import { logger } from "../../../lib/logger";
 import { toast } from "../../../lib/toast";
-import { getTrackedExercises } from "../../../lib/firestore/account";
+import { getAccountSummary } from "../../../lib/firestore/account";
 import { CARDIO_ACTIVITY_LABELS, cardioPaceKind, type CardioActivityType } from "@liftledger/shared";
 import { downloadWeekSharePng } from "../../../lib/shareWeekPng";
-import { accountService } from "../../../lib/firebase";
-import { peekCatalog, peekDaysArray } from "../../../lib/sessionCache";
+import { peekCatalog, peekDaysArray, daysListIsComplete } from "../../../lib/sessionCache";
 
 type TabType = "overview" | "strength" | "cardio" | "prs";
+
+const ALL_HISTORY_LIMIT = 250;
+
+function periodStart(period: TimePeriod): Date | null {
+  if (period === "all") return null;
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  if (period === "week") start.setDate(start.getDate() - 7);
+  else if (period === "month") start.setDate(start.getDate() - 30);
+  else start.setFullYear(start.getFullYear() - 1);
+  return start;
+}
+
+function mergeDays(existing: Day[], incoming: Day[]): Day[] {
+  const map = new Map(existing.map((day) => [day.date, day]));
+  incoming.forEach((day) => map.set(day.date, day));
+  return Array.from(map.values()).sort((a, b) => b.date.localeCompare(a.date));
+}
 
 function catalogToMap(): Map<string, ExerciseDoc> {
   const map = new Map<string, ExerciseDoc>();
@@ -58,10 +75,11 @@ export default function Analytics() {
   const [days, setDays] = useState<Day[]>(() => peekDaysArray());
   const [exercises, setExercises] = useState<Map<string, ExerciseDoc>>(catalogToMap);
   const [loading, setLoading] = useState(() => peekDaysArray().length === 0);
-  const [timePeriod, setTimePeriod] = useState<TimePeriod>("all");
   const { defaultChartView } = usePreferences();
+  const [timePeriod, setTimePeriod] = useState<TimePeriod>(defaultChartView);
   const [trackedExerciseIds, setTrackedExerciseIds] = useState<string[]>([]);
-  const [hasInitializedPeriod, setHasInitializedPeriod] = useState(false);
+  const [username, setUsername] = useState<string | null>(null);
+  const [historyComplete, setHistoryComplete] = useState(() => daysListIsComplete());
   const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
@@ -72,31 +90,32 @@ export default function Analytics() {
       router.replace("/login");
       return;
     }
-    loadData();
-  }, [user, router, authLoading]);
+    void loadData(timePeriod);
+  }, [user, router, authLoading, timePeriod]);
 
   useEffect(() => {
-    if (!hasInitializedPeriod && defaultChartView) {
-      setTimePeriod(defaultChartView);
-      setHasInitializedPeriod(true);
-    }
-  }, [defaultChartView, hasInitializedPeriod]);
+    setDays([]);
+    setHistoryComplete(false);
+  }, [user?.uid]);
 
-  useEffect(() => {
-    if (user) {
-      getTrackedExercises().then(setTrackedExerciseIds);
-    }
-  }, [user]);
-
-  const loadData = async () => {
+  const loadData = async (period: TimePeriod) => {
     try {
       setLoadError(false);
-      const [dayData, exerciseData] = await Promise.all([
-        listDays({ limit: 1000, order: "desc" }),
+      const start = periodStart(period);
+      const [dayData, exerciseData, account] = await Promise.all([
+        start
+          ? getDaysInRange(start, new Date())
+          : listDays({ limit: ALL_HISTORY_LIMIT, order: "desc" }),
         getAllExercises(),
+        getAccountSummary(),
       ]);
 
       setDays(dayData);
+      setHistoryComplete(
+        daysListIsComplete() || (!start && dayData.length < ALL_HISTORY_LIMIT)
+      );
+      setTrackedExerciseIds(account.trackedExercises);
+      setUsername(account.username);
 
       const exerciseMap = new Map<string, ExerciseDoc>();
       exerciseData.forEach((ex: ExerciseDoc) => exerciseMap.set(ex.id, ex));
@@ -109,11 +128,19 @@ export default function Analytics() {
     }
   };
 
+  const loadOlderHistory = async () => {
+    try {
+      const older = await listDays({ limit: 1000, order: "desc" });
+      setDays((prev) => mergeDays(prev, older));
+      setHistoryComplete(daysListIsComplete() || older.length < 1000);
+    } catch (error) {
+      logger.error("Error loading older analytics", error);
+      toast.error("Could not load older history");
+    }
+  };
+
   const filteredDays = useMemo(() => filterDaysByPeriod(days, timePeriod), [days, timePeriod]);
-  const summary = useMemo(() => {
-    if (days.length === 0) return null;
-    return getAnalyticsSummaryFromDays(filteredDays, exercises);
-  }, [days.length, filteredDays, exercises]);
+  const summary = useMemo(() => getAnalyticsSummaryFromDays(filteredDays, exercises), [filteredDays, exercises]);
   const prs = useMemo(() => {
     if (activeTab !== "prs" || days.length === 0) return [];
     return findAllPRs(filteredDays, trackedExerciseIds.length > 0 ? trackedExerciseIds : undefined);
@@ -131,7 +158,7 @@ export default function Analytics() {
   ];
 
   const showSpinner = (authLoading || loading) && days.length === 0 && !loadError;
-  const showEmpty = !loading && !loadError && (!summary || days.length === 0);
+  const showEmpty = !loading && !loadError && days.length === 0 && timePeriod === "all";
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-gray-50">
@@ -139,30 +166,29 @@ export default function Analytics() {
       <header className="flex-shrink-0 border-b border-gray-200 bg-white">
         <div className="px-4 py-4 md:px-8 md:py-6">
           <div className="mx-auto max-w-4xl">
-            <h1 className="mb-2 text-2xl font-bold text-gray-900 md:text-3xl">Analytics</h1>
+            <p className="kicker mb-1">The books</p>
+            <h1 className="mb-2 text-2xl font-semibold text-gray-900 md:text-3xl">Analytics</h1>
             <p className="text-sm text-gray-500">Track your progress</p>
           </div>
 
           {/* Time Period Filter */}
           <div className="mx-auto mt-4 max-w-4xl border-t border-gray-100 pt-4">
-            <div className="flex items-center justify-end">
-              <div className="flex rounded-lg bg-gray-100 p-1">
+            <div className="flex w-full rounded-lg bg-gray-100 p-1">
                 {(["week", "month", "year", "all"] as TimePeriod[]).map((period) => (
                   <button
                     key={period}
                     onClick={() => setTimePeriod(period)}
                     aria-current={timePeriod === period ? "true" : undefined}
-                    className={`rounded px-3 py-1 text-xs font-semibold transition-colors ${
+                    className={`min-w-0 flex-1 rounded px-2 py-1.5 text-xs font-semibold capitalize transition-colors ${
                       timePeriod === period
-                        ? "bg-black text-white"
+                        ? "bg-brand text-brand-fg"
                         : "text-gray-600 hover:bg-gray-200"
                     }`}
                   >
-                    {period.charAt(0).toUpperCase() + period.slice(1)}
+                    {period}
                   </button>
                 ))}
               </div>
-            </div>
           </div>
 
           {/* Tabs */}
@@ -195,7 +221,7 @@ export default function Analytics() {
         <div className="container mx-auto px-4 py-6 md:px-8 md:max-w-4xl">
           {showSpinner ? (
             <div className="flex min-h-[40vh] items-center justify-center">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-black" />
+              <div className="spinner" />
             </div>
           ) : loadError ? (
             <div className="rounded-2xl border border-gray-100 bg-white p-12 text-center shadow-sm">
@@ -204,14 +230,14 @@ export default function Analytics() {
               <button
                 onClick={() => {
                   setLoading(true);
-                  loadData();
+                  loadData(timePeriod);
                 }}
-                className="rounded-xl bg-black px-6 py-3 font-semibold text-white"
+                className="btn-primary rounded-xl px-6"
               >
                 Retry
               </button>
             </div>
-          ) : showEmpty || !summary ? (
+          ) : showEmpty ? (
             <div className="flex flex-col items-center px-6 py-12 text-center">
               <BarChart3 className="mb-4 h-16 w-16 text-gray-300" />
               <h2 className="mb-2 text-2xl font-bold text-gray-900">No analytics data yet</h2>
@@ -221,7 +247,7 @@ export default function Analytics() {
               <Link
                 href="/day/today"
                 prefetch
-                className="rounded-xl bg-black px-6 py-3 font-semibold text-white transition-opacity hover:opacity-90"
+                className="btn-primary rounded-xl px-6"
               >
                 Create Your First Workout
               </Link>
@@ -229,7 +255,7 @@ export default function Analytics() {
           ) : (
             <>
               {activeTab === "overview" && (
-                <OverviewView summary={summary} days={filteredDays} allDays={days} timePeriod={timePeriod} />
+                <OverviewView summary={summary} days={filteredDays} allDays={days} timePeriod={timePeriod} username={username} />
               )}
               {activeTab === "strength" && (
                 <StrengthView days={filteredDays} exercises={exercises} timePeriod={timePeriod} />
@@ -238,6 +264,15 @@ export default function Analytics() {
                 <CardioView days={filteredDays} timePeriod={timePeriod} />
               )}
               {activeTab === "prs" && <PRsView prs={prs} trackedExerciseIds={trackedExerciseIds} />}
+              {timePeriod === "all" && !historyComplete && days.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => void loadOlderHistory()}
+                  className="btn-secondary mt-6 w-full"
+                >
+                  Load older history
+                </button>
+              )}
             </>
           )}
         </div>
@@ -252,11 +287,13 @@ function OverviewView({
   days,
   allDays,
   timePeriod,
+  username,
 }: {
   summary: AnalyticsSummary;
   days: Day[];
   allDays: Day[];
   timePeriod: TimePeriod;
+  username: string | null;
 }) {
   const { units } = usePreferences();
   const cardio = useMemo(() => getCardioAnalytics(days, timePeriod), [days, timePeriod]);
@@ -317,9 +354,8 @@ function OverviewView({
               type="button"
               className="flex items-center gap-1 text-sm font-semibold text-gray-800"
               aria-label="Share this week as an image"
-              onClick={async () => {
+              onClick={() => {
                 try {
-                  const username = await accountService.getUsername();
                   downloadWeekSharePng(allDays, username, units);
                 } catch (error) {
                   logger.error("Share week failed", error);
@@ -343,7 +379,7 @@ function OverviewView({
                 <div
                   className={`flex h-9 w-full items-center justify-center rounded-lg text-xs font-semibold ${
                     didTrain
-                      ? "bg-black text-white"
+                      ? "bg-brand text-brand-fg"
                       : isToday
                         ? "border border-gray-300 text-gray-700"
                         : "bg-gray-100 text-gray-400"
@@ -629,7 +665,7 @@ function TypeChip({
       type="button"
       onClick={onClick}
       className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
-        selected ? "bg-black text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+        selected ? "bg-brand text-brand-fg" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
       }`}
     >
       {label}

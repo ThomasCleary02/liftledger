@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Dumbbell, BarChart3, Users, Settings } from "lucide-react";
 import { useAuth } from "../providers/Auth";
+import { BrandMark } from "./BrandMark";
 import { getAllExercises } from "../lib/firestore/exercises";
 import { listDays } from "../lib/firestore/days";
 
@@ -16,7 +17,7 @@ type NavItem = {
 };
 
 const navItems: NavItem[] = [
-  { path: "/day/today", label: "Workouts", icon: Dumbbell, matchPrefix: "/day/" },
+  { path: "/day/today", label: "Daily log", icon: Dumbbell, matchPrefix: "/day/" },
   { path: "/analytics", label: "Analytics", icon: BarChart3 },
   { path: "/friends", label: "Friends", icon: Users },
   { path: "/settings", label: "Settings", icon: Settings },
@@ -29,11 +30,20 @@ export function Navigation() {
 
   useEffect(() => {
     if (!user) return;
-    navItems.forEach((item) => {
-      router.prefetch(item.path);
-    });
-    void getAllExercises().catch(() => undefined);
-    void listDays({ limit: 20, order: "desc" }).catch(() => undefined);
+    const run = () => {
+      navItems.forEach((item) => {
+        router.prefetch(item.path);
+      });
+      void getAllExercises().catch(() => undefined);
+      void listDays({ limit: 20, order: "desc" }).catch(() => undefined);
+    };
+    const idle = window.requestIdleCallback;
+    if (typeof idle === "function") {
+      const id = idle(run, { timeout: 1500 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const t = window.setTimeout(run, 200);
+    return () => window.clearTimeout(t);
   }, [user, router]);
 
   // Only show nav for authenticated users
@@ -44,7 +54,7 @@ export function Navigation() {
   return (
     <>
       {/* Mobile Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-gray-200 bg-white md:hidden" style={{ paddingBottom: "var(--safe-area-bottom)", paddingLeft: "env(safe-area-inset-left, 0px)", paddingRight: "env(safe-area-inset-right, 0px)" }}>
+      <nav className="app-tabbar fixed bottom-0 left-0 right-0 z-50 border-t border-gray-200 bg-paper md:hidden" style={{ paddingBottom: "var(--safe-area-bottom)", paddingLeft: "env(safe-area-inset-left, 0px)", paddingRight: "env(safe-area-inset-right, 0px)" }}>
         <div className="flex h-16 items-center justify-around">
           {navItems.map((item) => {
             const Icon = item.icon;
@@ -58,11 +68,11 @@ export function Navigation() {
                 prefetch
                 aria-current={isActive ? "page" : undefined}
                 className={`flex flex-col items-center justify-center gap-1 px-4 py-2 transition-colors ${
-                  isActive ? "text-black" : "text-gray-500"
+                  isActive ? "text-brand" : "text-gray-500"
                 }`}
               >
                 <Icon className={`h-6 w-6 ${isActive ? "fill-current" : ""}`} />
-                <span className="text-xs font-medium">{item.label}</span>
+                <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em]">{item.label}</span>
               </Link>
             );
           })}
@@ -70,14 +80,9 @@ export function Navigation() {
       </nav>
 
       {/* Desktop Sidebar Navigation */}
-      <aside className="hidden md:fixed md:inset-y-0 md:left-0 md:z-40 md:flex md:w-64 md:flex-col md:border-r md:border-gray-200 md:bg-white">
+      <aside className="app-tabbar hidden md:fixed md:inset-y-0 md:left-0 md:z-40 md:flex md:w-64 md:flex-col md:border-r md:border-gray-200 md:bg-paper">
         <div className="flex h-16 items-center border-b border-gray-200 px-6">
-          <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-black p-2">
-              <Dumbbell className="h-5 w-5 text-white" />
-            </div>
-            <h1 className="text-xl font-bold text-gray-900">LiftLedger</h1>
-          </div>
+          <BrandMark size="sm" />
         </div>
         <nav className="flex-1 space-y-1 px-4 py-6">
           {navItems.map((item) => {
@@ -93,7 +98,7 @@ export function Navigation() {
                 aria-current={isActive ? "page" : undefined}
                 className={`flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left transition-colors ${
                   isActive
-                    ? "bg-black text-white"
+                    ? "bg-brand text-brand-fg"
                     : "text-gray-700 hover:bg-gray-100"
                 }`}
               >

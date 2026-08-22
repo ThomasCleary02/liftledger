@@ -12,3 +12,4 @@ export const {
 } = workoutTemplateService;
 
 export type { WorkoutTemplate, NewWorkoutTemplateInput } from "@liftledger/shared/firestore/workoutTemplates";
+export { cloneExercisesForTemplate } from "@liftledger/shared/firestore/workoutTemplates";

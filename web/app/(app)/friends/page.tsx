@@ -7,7 +7,7 @@ import { useAuth } from "../../../providers/Auth";
 import { friendsService, friendRequestsService, accountService } from "../../../lib/firebase";
 import type { Friend } from "@liftledger/shared/firestore/friends";
 import type { FriendRequest } from "@liftledger/shared/firestore/friendRequests";
-import { Users, Mail, Trash2, Plus, Trophy, ChevronRight, Check, X } from "lucide-react";
+import { Users, User, Trash2, Plus, Trophy, ChevronRight, Check, X } from "lucide-react";
 import { Avatar } from "../../../components/Avatar";
 import { toast } from "../../../lib/toast";
 import { logger } from "../../../lib/logger";
@@ -84,7 +84,7 @@ export default function Friends() {
 
   const handleSendFriendRequest = async () => {
     if (!emailInput.trim()) {
-      toast.error("Please enter an email or username");
+      toast.error("Please enter a username");
       return;
     }
 
@@ -169,7 +169,8 @@ export default function Friends() {
       <header className="flex-shrink-0 border-b border-gray-200 bg-white sticky top-0 z-10">
         <div className="px-4 py-4 md:px-8 md:py-6">
           <div className="mx-auto max-w-4xl">
-            <h1 className="mb-2 text-2xl font-bold text-gray-900 md:text-3xl">Friends</h1>
+            <p className="kicker mb-1">The roster</p>
+            <h1 className="mb-2 text-2xl font-semibold text-gray-900 md:text-3xl">Friends</h1>
             <p className="text-sm text-gray-500">Connect with friends and compete</p>
           </div>
         </div>
@@ -184,26 +185,26 @@ export default function Friends() {
               <Link
                 href="/friends/leaderboards"
                 prefetch
-                className="block w-full rounded-2xl border border-gray-100 bg-black p-5 text-left shadow-sm transition-opacity hover:opacity-90"
+                className="block w-full rounded-2xl border border-brand/20 bg-brand p-5 text-left shadow-sm transition-opacity hover:opacity-90"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="rounded-full bg-white p-2">
-                      <Trophy className="h-6 w-6 text-black" />
+                    <div className="rounded-full bg-brand-fg p-2">
+                      <Trophy className="h-6 w-6 text-brand" />
                     </div>
                     <div>
-                      <h2 className="text-lg font-semibold text-white">Leaderboards</h2>
-                      <p className="text-sm text-gray-300">Compete with your friends</p>
+                      <h2 className="text-lg font-semibold text-brand-fg">Leaderboards</h2>
+                      <p className="text-sm text-brand-fg/80">Compete with your friends</p>
                     </div>
                   </div>
-                  <ChevronRight className="h-5 w-5 text-white" />
+                  <ChevronRight className="h-5 w-5 text-brand-fg" />
                 </div>
               </Link>
             </section>
 
             {(authLoading || loading) && (
               <div className="flex justify-center py-12">
-                <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-black" />
+                <div className="spinner" />
               </div>
             )}
 
@@ -298,18 +299,18 @@ export default function Friends() {
             <section>
               <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
                 <h2 className="mb-3 text-lg font-semibold text-gray-900">Send Friend Request</h2>
-                <p className="mb-3 text-sm text-gray-500">Use their email or username.</p>
+                <p className="mb-3 text-sm text-gray-500">Use the username they picked at signup.</p>
                 <div className="flex gap-2">
                   <div className="flex-1 relative">
-                    <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                    <User className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
                     <input
                       type="text"
                       autoCapitalize="none"
                       autoCorrect="off"
                       value={emailInput}
                       onChange={(e) => setEmailInput(e.target.value)}
-                      placeholder="Email or username"
-                      className="w-full rounded-lg border border-gray-200 bg-gray-50 pl-10 pr-4 py-3 outline-none focus:border-black focus:bg-white"
+                      placeholder="Username"
+                      className="w-full rounded-lg border border-gray-200 bg-gray-50 pl-10 pr-4 py-3 outline-none focus:border-brand focus:bg-white"
                       disabled={sendingRequest}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && !sendingRequest && emailInput.trim()) {
@@ -321,11 +322,7 @@ export default function Friends() {
                   <button
                     onClick={handleSendFriendRequest}
                     disabled={sendingRequest || !emailInput.trim()}
-                    className={`flex items-center gap-2 rounded-lg px-6 py-3 font-semibold text-white transition-opacity ${
-                      sendingRequest || !emailInput.trim()
-                        ? "cursor-not-allowed bg-gray-300"
-                        : "bg-black hover:opacity-90"
-                    }`}
+                    className="btn-primary flex items-center gap-2 px-6"
                   >
                     {sendingRequest ? (
                       <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
@@ -349,7 +346,7 @@ export default function Friends() {
                 <div className="rounded-2xl border border-gray-100 bg-white p-12 text-center shadow-sm">
                   <Users className="mx-auto h-12 w-12 text-gray-300" />
                   <p className="mt-4 text-gray-500">
-                    No friends yet. Add someone by email or username.
+                    No friends yet. Add someone by username.
                   </p>
                 </div>
               ) : (

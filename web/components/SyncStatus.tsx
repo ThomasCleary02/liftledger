@@ -1,126 +1,136 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { db } from "../lib/firebase";
-import { Cloud, CloudOff, Loader2, CheckCircle2 } from "lucide-react";
-import { enableNetwork } from "firebase/firestore";
+import { useEffect, useRef, useState } from "react";
+import { CloudOff, Loader2, CheckCircle2 } from "lucide-react";
 
-type SyncStatus = "online" | "offline" | "syncing" | "synced";
+type SyncStatus = "hidden" | "syncing" | "synced" | "offline";
 
 export function SyncStatusIndicator() {
-  const [status, setStatus] = useState<SyncStatus>("online");
-  const [isOnline, setIsOnline] = useState(true);
+  const [status, setStatus] = useState<SyncStatus>(
+    typeof navigator !== "undefined" && !navigator.onLine ? "offline" : "hidden"
+  );
+  const showTimer = useRef<number | null>(null);
+  const hideTimer = useRef<number | null>(null);
+
+  const clearTimers = () => {
+    if (showTimer.current != null) {
+      window.clearTimeout(showTimer.current);
+      showTimer.current = null;
+    }
+    if (hideTimer.current != null) {
+      window.clearTimeout(hideTimer.current);
+      hideTimer.current = null;
+    }
+  };
 
   useEffect(() => {
-    // Check browser online/offline status
-    const handleOnline = () => {
-      setIsOnline(true);
-      setStatus("syncing");
-      // Try to enable network
-      enableNetwork(db).then(() => {
-        setStatus("synced");
-        setTimeout(() => setStatus("online"), 2000);
-      }).catch(() => {
-        setStatus("offline");
-      });
-    };
-
+    const handleOnline = () => setStatus("hidden");
     const handleOffline = () => {
-      setIsOnline(false);
+      clearTimers();
       setStatus("offline");
     };
 
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
-
-    // Initial check
-    setIsOnline(navigator.onLine);
     if (!navigator.onLine) setStatus("offline");
 
     return () => {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
+      clearTimers();
     };
   }, []);
 
-  // Show syncing state when saving
   const showSyncing = (syncing: boolean) => {
-    if (syncing && isOnline) {
-      setStatus("syncing");
-    } else if (!isOnline) {
+    if (!navigator.onLine) {
+      clearTimers();
       setStatus("offline");
-    } else {
-      setStatus("synced");
-      setTimeout(() => setStatus("online"), 2000);
+      return;
     }
+
+    if (syncing) {
+      if (hideTimer.current != null) {
+        window.clearTimeout(hideTimer.current);
+        hideTimer.current = null;
+      }
+      if (showTimer.current != null) return;
+      showTimer.current = window.setTimeout(() => {
+        showTimer.current = null;
+        setStatus("syncing");
+        hideTimer.current = window.setTimeout(() => {
+          hideTimer.current = null;
+          setStatus("hidden");
+        }, 2500);
+      }, 300);
+      return;
+    }
+
+    if (showTimer.current != null) {
+      window.clearTimeout(showTimer.current);
+      showTimer.current = null;
+      setStatus("hidden");
+      return;
+    }
+
+    setStatus((current) => (current === "offline" ? "offline" : "synced"));
+    if (hideTimer.current != null) window.clearTimeout(hideTimer.current);
+    hideTimer.current = window.setTimeout(() => {
+      hideTimer.current = null;
+      setStatus("hidden");
+    }, 900);
   };
 
-  // Expose method to parent components
   useEffect(() => {
-    (window as any).__setSyncStatus = showSyncing;
+    (window as unknown as { __setSyncStatus?: (syncing: boolean) => void }).__setSyncStatus =
+      showSyncing;
     return () => {
-      delete (window as any).__setSyncStatus;
+      delete (window as unknown as { __setSyncStatus?: (syncing: boolean) => void }).__setSyncStatus;
     };
-  }, [isOnline]);
+  });
 
-  if (status === "online") {
-    return null; // Don't show anything when online and synced
-  }
+  if (status === "hidden") return null;
 
-  const getStatusConfig = () => {
-    switch (status) {
-      case "syncing":
-        return {
+  const config =
+    status === "syncing"
+      ? {
           icon: Loader2,
-          text: "Syncing...",
-          color: "bg-blue-100 text-blue-700 border-blue-200",
-          iconColor: "text-blue-600",
-        };
-      case "synced":
-        return {
-          icon: CheckCircle2,
-          text: "Synced",
-          color: "bg-green-100 text-green-700 border-green-200",
-          iconColor: "text-green-600",
-        };
-      case "offline":
-        return {
-          icon: CloudOff,
-          text: "Offline",
-          color: "bg-gray-100 text-gray-700 border-gray-200",
-          iconColor: "text-gray-600",
-        };
-      default:
-        return {
-          icon: Cloud,
-          text: "Online",
-          color: "bg-gray-100 text-gray-700 border-gray-200",
-          iconColor: "text-gray-600",
-        };
-    }
-  };
+          text: "Saving…",
+          color: "bg-info-muted text-info-fg border-info/30",
+          iconColor: "text-info",
+          spin: true,
+        }
+      : status === "synced"
+        ? {
+            icon: CheckCircle2,
+            text: "Saved",
+            color: "bg-success-muted text-success-fg border-success/30",
+            iconColor: "text-success",
+            spin: false,
+          }
+        : {
+            icon: CloudOff,
+            text: "Offline",
+            color: "bg-gray-100 text-gray-700 border-gray-200",
+            iconColor: "text-gray-600",
+            spin: false,
+          };
 
-  const config = getStatusConfig();
   const Icon = config.icon;
 
   return (
     <div
       className={`fixed-above-nav fixed right-4 z-50 flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium shadow-lg ${config.color}`}
     >
-      <Icon
-        className={`h-4 w-4 ${config.iconColor} ${status === "syncing" ? "animate-spin" : ""}`}
-      />
+      <Icon className={`h-4 w-4 ${config.iconColor} ${config.spin ? "animate-spin" : ""}`} />
       <span>{config.text}</span>
     </div>
   );
 }
 
-// Hook to use sync status in components
 export function useSyncStatus() {
   const showSyncing = (syncing: boolean) => {
-    if ((window as any).__setSyncStatus) {
-      (window as any).__setSyncStatus(syncing);
-    }
+    const fn = (window as unknown as { __setSyncStatus?: (value: boolean) => void }).__setSyncStatus;
+    if (fn) fn(syncing);
   };
 
   return { showSyncing };

@@ -13,42 +13,41 @@ export function ServiceWorkerUpdate() {
     }
 
     let refreshing = false;
+    let cancelled = false;
 
-    // Check for service worker updates
-    if (!navigator.serviceWorker.controller) {
-      return;
-    }
+    navigator.serviceWorker
+      .register("/sw.js")
+      .then((reg) => {
+        if (cancelled) return;
+        setRegistration(reg);
 
-    navigator.serviceWorker.ready.then((reg) => {
-      setRegistration(reg);
+        if (reg.waiting && navigator.serviceWorker.controller) {
+          setUpdateAvailable(true);
+        }
 
-      reg.addEventListener("updatefound", () => {
-        const newWorker = reg.installing;
-        if (!newWorker) return;
-
-        newWorker.addEventListener("statechange", () => {
-          if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
-            setUpdateAvailable(true);
-          }
+        reg.addEventListener("updatefound", () => {
+          const newWorker = reg.installing;
+          if (!newWorker) return;
+          newWorker.addEventListener("statechange", () => {
+            if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
+              setUpdateAvailable(true);
+            }
+          });
         });
-      });
-    });
+      })
+      .catch(() => undefined);
 
-    // Handle controller change (update applied)
-    navigator.serviceWorker.addEventListener("controllerchange", () => {
+    const onControllerChange = () => {
       if (refreshing) return;
       refreshing = true;
       window.location.reload();
-    });
-
-    const handleUpdate = () => {
-      if (!registration?.waiting) return;
-      
-      registration.waiting.postMessage({ type: "SKIP_WAITING" });
-      setUpdateAvailable(false);
     };
+    navigator.serviceWorker.addEventListener("controllerchange", onControllerChange);
 
-    (window as any).__handleServiceWorkerUpdate = handleUpdate;
+    return () => {
+      cancelled = true;
+      navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange);
+    };
   }, []);
 
   if (!updateAvailable) {
@@ -64,11 +63,10 @@ export function ServiceWorkerUpdate() {
           <p className="text-xs text-blue-700">Reload to use the latest version.</p>
         </div>
         <button
+          type="button"
           onClick={() => {
-            if (registration?.waiting) {
-              registration.waiting.postMessage({ type: "SKIP_WAITING" });
-              setUpdateAvailable(false);
-            }
+            registration?.waiting?.postMessage({ type: "SKIP_WAITING" });
+            setUpdateAvailable(false);
           }}
           className="rounded bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-90"
         >

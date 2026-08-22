@@ -77,6 +77,10 @@ Desktop.ini
 # Testing
 coverage/
 .nyc_output/
+/web/e2e/.auth/
+/web/playwright-report/
+/web/test-results/
+
 
 # Logs
 logs/

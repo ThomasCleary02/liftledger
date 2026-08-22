@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../../../providers/Auth";
+import { getAccountSummary } from "../../../../lib/firestore/account";
 import { accountService, app } from "../../../../lib/firebase";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "../../../../lib/toast";
@@ -40,15 +41,11 @@ export default function AccountSettings() {
   const loadProfile = async () => {
     try {
       setLoadingUsername(true);
-      const [currentUsername, currentPhoto, bodyweightLbs] = await Promise.all([
-        accountService.getUsername(),
-        accountService.getPhotoURL(),
-        accountService.getBodyweightLbs(),
-      ]);
-      setUsername(currentUsername || "");
-      setUsernameInput(currentUsername || "");
-      setPhotoURL(currentPhoto);
-      const display = bodyweightLbs ? formatWeightInput(bodyweightLbs, units) : "";
+      const summary = await getAccountSummary();
+      setUsername(summary.username || "");
+      setUsernameInput(summary.username || "");
+      setPhotoURL(summary.photoURL);
+      const display = summary.bodyweightLbs ? formatWeightInput(summary.bodyweightLbs, units) : "";
       setBodyweightInput(display);
       setSavedBodyweight(display);
     } catch (error) {
@@ -130,7 +127,7 @@ export default function AccountSettings() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50">
         <div className="text-center">
-          <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-black"></div>
+          <div className="mx-auto mb-4 spinner"></div>
           <p className="mt-4 text-gray-500">Loading...</p>
         </div>
       </div>
@@ -149,7 +146,8 @@ export default function AccountSettings() {
               <ArrowLeft className="h-5 w-5" />
               <span className="text-sm">Back</span>
             </button>
-            <h1 className="mb-2 text-2xl font-bold text-gray-900 md:text-3xl">Account Settings</h1>
+            <p className="kicker mb-1">The account</p>
+            <h1 className="mb-2 text-2xl font-semibold text-gray-900 md:text-3xl">Account Settings</h1>
             <p className="text-sm text-gray-500">Customize your profile</p>
           </div>
         </div>
@@ -178,7 +176,7 @@ export default function AccountSettings() {
                         type="button"
                         disabled={uploadingPhoto}
                         onClick={() => fileRef.current?.click()}
-                        className="rounded-lg bg-black px-4 py-2 text-sm font-semibold text-white disabled:bg-gray-300"
+                        className="btn-primary px-4 py-2 disabled:bg-gray-300"
                       >
                         {uploadingPhoto ? "Saving..." : photoURL ? "Change photo" : "Upload photo"}
                       </button>
@@ -220,13 +218,13 @@ export default function AccountSettings() {
                         value={usernameInput}
                         onChange={(e) => setUsernameInput(e.target.value)}
                         placeholder="Enter username"
-                        className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-black focus:outline-none focus:ring-1 focus:ring-black"
+                        className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
                         maxLength={20}
                       />
                       <button
                         onClick={handleSaveUsername}
                         disabled={savingUsername || usernameInput === username || !usernameInput.trim()}
-                        className="rounded-lg bg-black px-4 py-2 text-sm font-semibold text-white disabled:bg-gray-300 disabled:cursor-not-allowed hover:bg-gray-800"
+                        className="btn-primary px-4 py-2 disabled:cursor-not-allowed disabled:bg-gray-300"
                       >
                         {savingUsername ? "Saving..." : "Save"}
                       </button>
@@ -248,12 +246,12 @@ export default function AccountSettings() {
                       value={bodyweightInput}
                       onChange={(e) => setBodyweightInput(e.target.value)}
                       placeholder={units === "metric" ? "80" : "180"}
-                      className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-black focus:outline-none focus:ring-1 focus:ring-black"
+                      className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
                     />
                     <button
                       onClick={handleSaveBodyweight}
                       disabled={savingWeight || bodyweightInput === savedBodyweight}
-                      className="rounded-lg bg-black px-4 py-2 text-sm font-semibold text-white disabled:bg-gray-300 disabled:cursor-not-allowed hover:bg-gray-800"
+                      className="btn-primary px-4 py-2 disabled:cursor-not-allowed disabled:bg-gray-300"
                     >
                       {savingWeight ? "Saving..." : "Save"}
                     </button>
