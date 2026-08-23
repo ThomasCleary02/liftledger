@@ -18,20 +18,22 @@ describe("AddLiftModal", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
-  it("covers the viewport and closes from the header or Escape", () => {
+  it("portals above page chrome and closes from Done", async () => {
     const onClose = vi.fn();
     render(
       <AddLiftModal open onClose={onClose}>
         Search
       </AddLiftModal>
     );
-    const dialog = screen.getByRole("dialog", { name: "Add a lift" });
-    expect(dialog.className).toContain("fixed");
-    expect(dialog.className).not.toContain("rounded-t-3xl");
+    const dialog = await screen.findByRole("dialog", { name: "Add a lift" });
+    expect(dialog.parentElement).toBe(document.body);
+    expect(dialog.className).toContain("z-[100]");
     expect(document.documentElement.classList.contains("add-modal-open")).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: "Close add sheet" }));
     expect(onClose).toHaveBeenCalledOnce();
-    fireEvent.keyDown(window, { key: "Escape" });
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
     expect(onClose).toHaveBeenCalledTimes(2);
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(3);
   });
 });

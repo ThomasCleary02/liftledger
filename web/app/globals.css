@@ -282,8 +282,10 @@ html.dark .bg-black\/50 {
   }
 }
 
-html.add-modal-open .app-tabbar {
+html.add-modal-open .app-tabbar,
+html.add-modal-open .app-shell {
   visibility: hidden;
+  pointer-events: none;
 }
 
 .app-shell {

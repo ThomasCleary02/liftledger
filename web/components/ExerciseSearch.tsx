@@ -109,11 +109,6 @@ export default function ExerciseSearch({
     };
   }, [query, maxResults, favorites]);
 
-  useEffect(() => {
-    if (!query.trim()) return;
-    inputRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
-  }, [query]);
-
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (results.length === 0) return;
 

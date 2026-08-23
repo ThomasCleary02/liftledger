@@ -34,6 +34,12 @@ export async function closeMenus(page: Page) {
 }
 
 export async function closeAddSheet(page: Page) {
+  const done = page.getByRole("button", { name: "Done", exact: true });
+  if (await done.isVisible()) {
+    await done.click();
+    await expect(done).toHaveCount(0);
+    return;
+  }
   const close = page.getByRole("button", { name: "Close add sheet" });
   if (await close.isVisible()) {
     await close.click();
