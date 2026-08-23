@@ -13,6 +13,8 @@ import {
   getCardioAnalytics,
   getStrengthAnalytics,
   getVolumeDataPoints,
+  getBodyweightPoints,
+  getBodyweightChangeLbs,
 } from "../analytics/calculations";
 import { getCardioDistanceLeaderboard, getConsistencyLeaderboard, getVolumeLeaderboard } from "../analytics/leaderboards";
 import { groupDaysByUserId } from "../firestore/leaderboards";
@@ -143,5 +145,19 @@ describe("analytics from days", () => {
     expect(cardio.sessions).toBe(1);
     expect(cardio.byType[0].type).toBe("run");
     expect(cardio.byType[0].bestPace).toBe(600);
+  });
+
+  it("builds a bodyweight series and change from weigh-ins only", () => {
+    const days = [
+      makeDay("2026-01-01", { bodyweightLbs: 190 }),
+      makeDay("2026-01-02", { exercises: [strength("Squat", [{ reps: 5, weight: 225 }])] }),
+      makeDay("2026-01-04", { bodyweightLbs: 187.4 }),
+    ];
+    const points = getBodyweightPoints(days);
+    expect(points).toEqual([
+      { date: "2026-01-01", bodyweightLbs: 190 },
+      { date: "2026-01-04", bodyweightLbs: 187.4 },
+    ]);
+    expect(getBodyweightChangeLbs(points)).toBeCloseTo(-2.6);
   });
 });

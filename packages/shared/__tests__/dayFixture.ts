@@ -12,6 +12,7 @@ export function makeDay(date: string, extras: Partial<Omit<Day, "date" | "id">> 
     notes: extras.notes,
     status: extras.status,
     importId: extras.importId,
+    bodyweightLbs: extras.bodyweightLbs,
     createdAt: extras.createdAt ?? ({} as Day["createdAt"]),
     updatedAt: extras.updatedAt ?? ({} as Day["updatedAt"]),
   };

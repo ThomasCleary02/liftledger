@@ -103,6 +103,12 @@ export function patchCachedDay(dayId: string, updates: UpdateDayInput): void {
     if (updates.importId !== undefined) {
       next.importId = updates.importId ?? undefined;
     }
+    if (updates.bodyweightLbs !== undefined) {
+      next.bodyweightLbs =
+        typeof updates.bodyweightLbs === "number" && updates.bodyweightLbs > 0
+          ? updates.bodyweightLbs
+          : undefined;
+    }
     state.byDate.set(key, next);
     break;
   }

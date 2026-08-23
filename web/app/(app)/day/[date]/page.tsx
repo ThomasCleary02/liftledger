@@ -27,6 +27,7 @@ import {
   type WorkoutTemplate,
 } from "../../../../lib/firestore/workoutTemplates";
 import DayNavigation from "../../../../components/DayNavigation";
+import { BodyweightCard } from "../../../../components/BodyweightCard";
 import { Trash2, Dumbbell, Heart, Activity, Pencil, Plus, Moon, FileText, Upload, Link2, Unlink, MoreHorizontal, Bandage, History } from "lucide-react";
 import { usePreferences } from "../../../../lib/hooks/usePreferences";
 import { formatWeight, formatDistance, formatCardioDuration, formatWeightInput, formatDistanceInput, toStoredWeight, toStoredDistance } from "../../../../lib/utils/units";
@@ -137,7 +138,7 @@ export default function DayView() {
   const [cardioActivityType, setCardioActivityType] = useState<CardioActivityType>("other");
   const [calisthenicsSets, setCalisthenicsSets] = useState<CalisthenicsSet[]>([{ reps: "10" }]);
 
-  const { units, restTimerSeconds } = usePreferences();
+  const { units, restTimerSeconds, trackBodyweight } = usePreferences();
   const [localToday, setLocalToday] = useState<string | null>(null);
 
   useEffect(() => {
@@ -689,6 +690,20 @@ export default function DayView() {
     });
     applyDayIfCurrent(newDay);
     return newDay;
+  };
+
+  const saveBodyweight = async (bodyweightLbs: number | null) => {
+    try {
+      const currentDay = await ensureDayExists();
+      await updateDay(currentDay.id, { bodyweightLbs });
+      applyDayIfCurrent({
+        ...currentDay,
+        bodyweightLbs: bodyweightLbs ?? undefined,
+      });
+    } catch (error) {
+      logger.error("Failed to save bodyweight", error);
+      toast.error("Could not save bodyweight");
+    }
   };
 
   const addExercise = async (options?: {
@@ -1392,6 +1407,14 @@ export default function DayView() {
           <div className="mb-4 rounded-lg border border-danger/30 bg-danger-muted px-4 py-3 text-sm text-danger-fg">
             Injury / skip. This day does not count toward your streak. You can still log modified work.
           </div>
+        )}
+        {trackBodyweight && (
+          <BodyweightCard
+            valueLbs={visibleDay?.bodyweightLbs}
+            units={units}
+            disabled={saving}
+            onSave={saveBodyweight}
+          />
         )}
         {!isRestDay && !hasExercises && !selectedExercise && (
           <p className="mb-4 text-sm text-gray-500">Search a lift to start today’s log.</p>

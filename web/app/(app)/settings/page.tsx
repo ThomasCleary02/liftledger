@@ -27,6 +27,7 @@ import {
   Clock,
   Download,
   Upload,
+  Weight,
 } from "lucide-react";
 import { Avatar } from "../../../components/Avatar";
 import { toast } from "../../../lib/toast";
@@ -68,7 +69,8 @@ export default function Settings() {
   const [chartModalOpen, setChartModalOpen] = useState(false);
   const [themeModalOpen, setThemeModalOpen] = useState(false);
   const [restModalOpen, setRestModalOpen] = useState(false);
-  const { units, defaultChartView, theme, restTimerSeconds, updateUnits, updateChartView, updateTheme, updateRestTimer } = usePreferences();
+  const [bodyweightModalOpen, setBodyweightModalOpen] = useState(false);
+  const { units, defaultChartView, theme, restTimerSeconds, trackBodyweight, updateUnits, updateChartView, updateTheme, updateRestTimer, updateTrackBodyweight } = usePreferences();
 
   // Add state for confirmations
   const [signOutConfirmOpen, setSignOutConfirmOpen] = useState(false);
@@ -444,6 +446,12 @@ export default function Settings() {
                 onClick={() => setRestModalOpen(true)}
               />
               <SettingItem
+                icon={Weight}
+                title="Bodyweight tracking"
+                subtitle={trackBodyweight ? "On — one weigh-in per day" : "Off"}
+                onClick={() => setBodyweightModalOpen(true)}
+              />
+              <SettingItem
                 icon={Download}
                 title="Export workouts"
                 subtitle="Download a CSV of your training log"
@@ -584,6 +592,18 @@ export default function Settings() {
           { value: 90 as RestTimerSeconds, label: "90 seconds" },
           { value: 120 as RestTimerSeconds, label: "2 minutes" },
           { value: 180 as RestTimerSeconds, label: "3 minutes" },
+        ]}
+      />
+      <ChoiceModal
+        open={bodyweightModalOpen}
+        onClose={() => setBodyweightModalOpen(false)}
+        title="Bodyweight tracking"
+        description="Log one scale reading per day and see the trend in analytics. Off by default."
+        current={trackBodyweight ? "on" : "off"}
+        onSave={(value) => void updateTrackBodyweight(value === "on")}
+        options={[
+          { value: "off", label: "Off", description: "Hide weight from the log and analytics" },
+          { value: "on", label: "On", description: "One weigh-in on each day" },
         ]}
       />
 

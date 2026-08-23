@@ -16,6 +16,8 @@ export interface Day {
   notes?: string;
   status?: DayStatus;
   importId?: string;
+  /** Scale weight for this calendar day, stored in pounds. */
+  bodyweightLbs?: number;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -27,6 +29,7 @@ export interface NewDayInput {
   notes?: string;
   status?: DayStatus;
   importId?: string;
+  bodyweightLbs?: number;
 }
 
 export interface UpdateDayInput {
@@ -35,6 +38,7 @@ export interface UpdateDayInput {
   notes?: string;
   status?: DayStatus | null;
   importId?: string | null;
+  bodyweightLbs?: number | null;
 }
 
 export interface ListDaysOptions {
@@ -55,6 +59,7 @@ type DayDoc = {
   notes?: string;
   status?: DayStatus;
   importId?: string;
+  bodyweightLbs?: number;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 };
@@ -114,6 +119,10 @@ export function createDayService(db: Firestore, auth: Auth) {
         notes: typeof data?.notes === "string" ? data.notes : undefined,
         status: data?.status === "injured" ? "injured" : undefined,
         importId: typeof data?.importId === "string" ? data.importId : undefined,
+        bodyweightLbs:
+          typeof data?.bodyweightLbs === "number" && Number.isFinite(data.bodyweightLbs) && data.bodyweightLbs > 0
+            ? data.bodyweightLbs
+            : undefined,
         createdAt: data?.createdAt instanceof Timestamp ? data.createdAt : Timestamp.now(),
         updatedAt: data?.updatedAt instanceof Timestamp ? data.updatedAt : Timestamp.now(),
       };
@@ -133,6 +142,7 @@ export function createDayService(db: Firestore, auth: Auth) {
     notes: d.notes,
     status: d.status,
     importId: d.importId,
+    bodyweightLbs: d.bodyweightLbs,
     createdAt: d.createdAt,
     updatedAt: d.updatedAt,
   });
@@ -167,6 +177,9 @@ export function createDayService(db: Firestore, auth: Auth) {
         }
         if (input.status) payload.status = input.status;
         if (input.importId) payload.importId = input.importId;
+        if (typeof input.bodyweightLbs === "number" && input.bodyweightLbs > 0) {
+          payload.bodyweightLbs = input.bodyweightLbs;
+        }
         tx.set(ref, payload);
         return toDay(dayId, payload);
       });
@@ -217,6 +230,12 @@ export function createDayService(db: Firestore, auth: Auth) {
       }
       if (updates.importId !== undefined) {
         payload.importId = updates.importId ? updates.importId : deleteField();
+      }
+      if (updates.bodyweightLbs !== undefined) {
+        payload.bodyweightLbs =
+          typeof updates.bodyweightLbs === "number" && updates.bodyweightLbs > 0
+            ? updates.bodyweightLbs
+            : deleteField();
       }
 
       await updateDoc(dayDoc(dayId), payload);

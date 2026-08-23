@@ -40,8 +40,9 @@ describe("sessionCache", () => {
     expect(peekDay("2026-08-21")?.exercises[0].name).toBe("Bench");
     rememberEmptyDate("2026-08-20");
     expect(peekDay("2026-08-20")).toBeNull();
-    patchCachedDay("u1_2026-08-21", { isRestDay: true, exercises: [] });
+    patchCachedDay("u1_2026-08-21", { isRestDay: true, exercises: [], bodyweightLbs: 182 });
     expect(peekDay("2026-08-21")?.isRestDay).toBe(true);
+    expect(peekDay("2026-08-21")?.bodyweightLbs).toBe(182);
     forgetDay("u1_2026-08-21", "2026-08-21");
     expect(peekDay("2026-08-21")).toBeNull();
     expect(daysCacheIsFresh()).toBe(true);

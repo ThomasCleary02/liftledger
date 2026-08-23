@@ -1,7 +1,7 @@
 import { Workout, Exercise } from "../firestore/workouts";
 import { Day, isLoggedDay } from "../firestore/days";
 import { ExerciseDoc } from "../firestore/exercises";
-import { AnalyticsSummary, ExercisePR, VolumeDataPoint, MuscleGroupStats, TimePeriod } from "./types";
+import { AnalyticsSummary, ExercisePR, VolumeDataPoint, BodyweightDataPoint, MuscleGroupStats, TimePeriod } from "./types";
 import { parseISO } from "date-fns";
 import { strengthVolume, workingStrengthSets, maxWorkingWeight } from "../sets";
 import {
@@ -521,6 +521,19 @@ export function getVolumeDataPoints(days: Day[], period: TimePeriod = "month"): 
       workoutCount: data.count, // Keep name for backward compatibility, but represents day count
     };
   }).sort((a, b) => a.date.getTime() - b.date.getTime());
+}
+
+/** One weigh-in per day, oldest first. Days without a scale reading are skipped. */
+export function getBodyweightPoints(days: Day[]): BodyweightDataPoint[] {
+  return days
+    .filter((day) => typeof day.bodyweightLbs === "number" && day.bodyweightLbs > 0)
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map((day) => ({ date: day.date, bodyweightLbs: day.bodyweightLbs as number }));
+}
+
+export function getBodyweightChangeLbs(points: BodyweightDataPoint[]): number | null {
+  if (points.length < 2) return null;
+  return points[points.length - 1].bodyweightLbs - points[0].bodyweightLbs;
 }
 
 /**

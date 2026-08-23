@@ -26,6 +26,7 @@ export interface PreferencesService {
   updatePRNotifications(enabled: boolean): Promise<void>;
   updateTheme(theme: ThemePreference): Promise<void>;
   updateRestTimerSeconds(seconds: RestTimerSeconds): Promise<void>;
+  updateTrackBodyweight(enabled: boolean): Promise<void>;
 }
 
 type PreferencesContextType = {
@@ -37,12 +38,14 @@ type PreferencesContextType = {
   updatePRNotifications: (enabled: boolean) => Promise<void>;
   updateTheme: (theme: ThemePreference) => Promise<void>;
   updateRestTimer: (seconds: RestTimerSeconds) => Promise<void>;
+  updateTrackBodyweight: (enabled: boolean) => Promise<void>;
   // Convenience getters
   units: UnitSystem;
   defaultChartView: DefaultChartView;
   prNotifications: boolean;
   theme: ThemePreference;
   restTimerSeconds: RestTimerSeconds;
+  trackBodyweight: boolean;
 };
 
 const PreferencesContext = createContext<PreferencesContextType | undefined>(undefined);
@@ -95,6 +98,11 @@ export function createPreferencesProvider(service: PreferencesService) {
       await loadPreferences();
     };
 
+    const updateTrackBodyweightPref = async (enabled: boolean) => {
+      await service.updateTrackBodyweight(enabled);
+      await loadPreferences();
+    };
+
     const value: PreferencesContextType = {
       preferences,
       loading,
@@ -104,11 +112,13 @@ export function createPreferencesProvider(service: PreferencesService) {
       updatePRNotifications: updatePRNotifs,
       updateTheme: updateThemePref,
       updateRestTimer: updateRestTimerPref,
+      updateTrackBodyweight: updateTrackBodyweightPref,
       units: preferences?.units || "imperial",
       defaultChartView: preferences?.defaultChartView || "month",
       prNotifications: preferences?.prNotifications ?? true,
       theme: preferences?.theme || "system",
       restTimerSeconds: preferences?.restTimerSeconds ?? 0,
+      trackBodyweight: preferences?.trackBodyweight ?? false,
     };
 
     return (

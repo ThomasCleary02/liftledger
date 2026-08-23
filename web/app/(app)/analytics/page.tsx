@@ -12,6 +12,8 @@ import {
   getCardioAnalytics,
   filterDaysByPeriod,
   findAllPRs,
+  getBodyweightPoints,
+  getBodyweightChangeLbs,
   type CardioTypeStats,
 } from "../../../lib/analytics/calculations";
 import { AnalyticsSummary, ExercisePR, TimePeriod } from "../../../lib/analytics/types";
@@ -295,8 +297,10 @@ function OverviewView({
   timePeriod: TimePeriod;
   username: string | null;
 }) {
-  const { units } = usePreferences();
+  const { units, trackBodyweight } = usePreferences();
   const cardio = useMemo(() => getCardioAnalytics(days, timePeriod), [days, timePeriod]);
+  const weighIns = useMemo(() => getBodyweightPoints(days), [days]);
+  const weightChange = getBodyweightChangeLbs(weighIns);
   const cardioBreakdown = cardio.byType
     .filter((t) => t.sessions > 0)
     .map((t) => {
@@ -392,6 +396,35 @@ function OverviewView({
           })}
         </div>
       </div>
+      {trackBodyweight && weighIns.length === 0 && (
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+          <p className="text-sm font-semibold text-gray-900">Bodyweight</p>
+          <p className="mt-1 text-sm text-gray-500">
+            Log a weigh-in on any day. Trends show up here after two readings.
+          </p>
+        </div>
+      )}
+      {trackBodyweight && weighIns.length > 0 && (
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+          <div className="mb-3 flex items-end justify-between gap-3">
+            <div>
+              <p className="text-sm text-gray-500">Bodyweight</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {formatWeight(weighIns[weighIns.length - 1].bodyweightLbs, units)}
+              </p>
+            </div>
+            {weightChange != null && (
+              <p className={`text-sm font-semibold ${weightChange <= 0 ? "text-success-fg" : "text-gray-700"}`}>
+                {weightChange > 0 ? "+" : ""}
+                {formatWeight(Math.abs(weightChange), units)}
+                {weightChange > 0 ? " up" : weightChange < 0 ? " down" : ""}
+                <span className="font-normal text-gray-500"> · {weighIns.length} weigh-ins</span>
+              </p>
+            )}
+          </div>
+          <BodyweightSparkline points={weighIns} />
+        </div>
+      )}
       {summary.favoriteExercise && (
         <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
           <div className="flex items-center">
@@ -956,5 +989,33 @@ function StatRow({ label, value }: { label: string; value: string }) {
       <p className="text-gray-600">{label}</p>
       <p className="font-semibold text-gray-900">{value}</p>
     </div>
+  );
+}
+
+function BodyweightSparkline({ points }: { points: { date: string; bodyweightLbs: number }[] }) {
+  if (points.length === 0) return null;
+  const values = points.map((point) => point.bodyweightLbs);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = max - min || 1;
+  const width = 320;
+  const height = 64;
+  const pad = 4;
+  const coords = values.map((value, index) => {
+    const x = pad + (index / Math.max(values.length - 1, 1)) * (width - pad * 2);
+    const y = height - pad - ((value - min) / span) * (height - pad * 2);
+    return `${x},${y}`;
+  });
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} className="h-16 w-full text-brand" role="img" aria-label="Bodyweight trend">
+      <polyline
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="3"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+        points={coords.join(" ")}
+      />
+    </svg>
   );
 }

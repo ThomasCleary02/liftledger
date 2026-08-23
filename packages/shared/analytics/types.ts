@@ -29,6 +29,11 @@ export interface VolumeDataPoint {
   workoutCount: number;
 }
 
+export interface BodyweightDataPoint {
+  date: string;
+  bodyweightLbs: number;
+}
+
 export interface MuscleGroupStats {
   muscleGroup: string;
   volume: number;

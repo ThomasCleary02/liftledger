@@ -41,5 +41,8 @@ describe("preferences service", () => {
     await prefs.updateRestTimerSeconds(90);
     expect((await prefs.getPreferences()).theme).toBe("dark");
     expect((await prefs.getPreferences()).restTimerSeconds).toBe(90);
+    expect((await prefs.getPreferences()).trackBodyweight).toBe(false);
+    await prefs.updateTrackBodyweight(true);
+    expect((await prefs.getPreferences()).trackBodyweight).toBe(true);
   });
 });

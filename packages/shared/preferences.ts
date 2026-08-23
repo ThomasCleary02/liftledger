@@ -17,6 +17,8 @@ export interface UserPreferences {
   prNotifications: boolean;
   theme: ThemePreference;
   restTimerSeconds: RestTimerSeconds;
+  /** When false (default), hide bodyweight logging and analytics. */
+  trackBodyweight: boolean;
 }
 
 /**
@@ -37,6 +39,7 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   prNotifications: true,
   theme: "system",
   restTimerSeconds: 0,
+  trackBodyweight: false,
 };
 
 /**
@@ -87,6 +90,10 @@ export function createPreferencesService(storage: PreferencesStorage) {
     await savePreferences({ restTimerSeconds });
   }
 
+  async function updateTrackBodyweight(trackBodyweight: boolean): Promise<void> {
+    await savePreferences({ trackBodyweight });
+  }
+
   return {
     getPreferences,
     savePreferences,
@@ -95,6 +102,7 @@ export function createPreferencesService(storage: PreferencesStorage) {
     updatePRNotifications,
     updateTheme,
     updateRestTimerSeconds,
+    updateTrackBodyweight,
   };
 }
 
