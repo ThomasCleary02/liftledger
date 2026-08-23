@@ -282,10 +282,20 @@ html.dark .bg-black\/50 {
   }
 }
 
+html.add-modal-open,
+html.add-modal-open body {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 html.add-modal-open .app-tabbar,
+html.add-modal-open .day-page-header {
+  display: none !important;
+}
+
 html.add-modal-open .app-shell {
-  visibility: hidden;
-  pointer-events: none;
+  padding-top: 0;
+  padding-bottom: 0;
 }
 
 .app-shell {

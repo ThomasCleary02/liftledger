@@ -1275,8 +1275,8 @@ export default function DayView() {
   return (
     <div className="flex h-full flex-col overflow-hidden bg-gray-50">
       <SyncStatusIndicator />
-      {/* Fixed Header */}
-      <header className="z-20 flex-shrink-0 bg-white">
+      {!sheetMode && (
+      <header className="day-page-header z-20 flex-shrink-0 bg-white">
       <DayNavigation
         currentDate={currentDate}
         onDateChange={handleDateChange}
@@ -1376,6 +1376,7 @@ export default function DayView() {
         }
       />
       </header>
+      )}
 
       {/* Scrollable Content */}
       <main className="flex-1 overflow-y-auto">
