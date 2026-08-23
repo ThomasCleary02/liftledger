@@ -282,6 +282,10 @@ html.dark .bg-black\/50 {
   }
 }
 
+html.add-modal-open .app-tabbar {
+  visibility: hidden;
+}
+
 .app-shell {
   box-sizing: border-box;
   display: flex;

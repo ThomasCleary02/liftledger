@@ -27,7 +27,7 @@ test.describe("day modes on a sandbox date", () => {
     await expect(page.getByText("Rest Day", { exact: true })).toHaveCount(0);
   });
 
-  test("FAB opens the add sheet after the first lift", async ({ page }) => {
+  test("FAB opens the add modal after the first lift", async ({ page }) => {
     await clearSandboxDay(page, SANDBOX);
     await pickSearchResult(page, "face pull", /Face Pull/);
     await expect(page.getByRole("heading", { name: "Face Pull" }).first()).toBeVisible({

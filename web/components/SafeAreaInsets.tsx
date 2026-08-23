@@ -7,6 +7,10 @@ export function SafeAreaInsets() {
   useEffect(() => {
     const root = document.documentElement;
     const syncViewportInset = () => {
+      if (root.classList.contains("add-modal-open")) {
+        root.style.setProperty("--viewport-bottom-inset", "0px");
+        return;
+      }
       const vv = window.visualViewport;
       if (!vv) return;
       const gap = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);

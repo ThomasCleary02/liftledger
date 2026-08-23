@@ -27,12 +27,13 @@ import {
   type WorkoutTemplate,
 } from "../../../../lib/firestore/workoutTemplates";
 import DayNavigation from "../../../../components/DayNavigation";
-import { Trash2, Dumbbell, Heart, Activity, Pencil, Plus, Moon, FileText, Upload, Link2, Unlink, MoreHorizontal, X, Bandage, History } from "lucide-react";
+import { Trash2, Dumbbell, Heart, Activity, Pencil, Plus, Moon, FileText, Upload, Link2, Unlink, MoreHorizontal, Bandage, History } from "lucide-react";
 import { usePreferences } from "../../../../lib/hooks/usePreferences";
 import { formatWeight, formatDistance, formatCardioDuration, formatWeightInput, formatDistanceInput, toStoredWeight, toStoredDistance } from "../../../../lib/utils/units";
 import { toast } from "../../../../lib/toast";
 import { logger } from "../../../../lib/logger";
 import { DayNavigationSkeleton, ExerciseListSkeleton } from "../../../../components/LoadingSkeleton";
+import { AddLiftModal } from "../../../../components/AddLiftModal";
 import { SyncStatusIndicator, useSyncStatus } from "../../../../components/SyncStatus";
 import {
   rememberExercises,
@@ -1149,10 +1150,15 @@ export default function DayView() {
   };
 
   const logComposer = (!isRestDay || hasExercises) && (
-          <div id="log-composer" className="rounded-lg border border-gray-200 bg-white px-4 py-5">
+          <div
+            id="log-composer"
+            className={sheetMode ? "" : "rounded-lg border border-gray-200 bg-white px-4 py-5"}
+          >
+            {!sheetMode && (
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-900">{hasExercises ? "Add another" : "Log"}</h2>
             </div>
+            )}
 
             {editingIndex !== null && (
               <div className="mb-3 rounded-xl border border-info/30 bg-info-muted px-4 py-3 text-sm text-info-fg">
@@ -1496,36 +1502,9 @@ export default function DayView() {
         {showInlineComposer && <div className="mb-6">{logComposer}</div>}
         </div>
 
-        {sheetMode && (
-          <div className="fixed inset-0 z-[60]">
-            <button
-              type="button"
-              className="modal-backdrop absolute inset-0"
-              aria-label="Dismiss add sheet"
-              onClick={closeAddSheet}
-            />
-            <div
-              role="dialog"
-              aria-modal="true"
-              aria-label="Add a lift"
-              className="absolute inset-x-0 bottom-0 max-h-[85dvh] overflow-y-auto rounded-t-3xl border border-gray-200 bg-white px-4 pt-3 shadow-xl"
-              style={{ paddingBottom: "max(1.5rem, calc(var(--safe-area-bottom) + 1rem))" }}
-            >
-              <div className="mb-2 flex items-center justify-between">
-                <p className="text-sm font-medium text-gray-500">Add to this day</p>
-                <button
-                  type="button"
-                  onClick={closeAddSheet}
-                  className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100"
-                  aria-label="Close add sheet"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-              <div className="mb-2">{logComposer}</div>
-            </div>
-          </div>
-        )}
+        <AddLiftModal open={sheetMode} onClose={closeAddSheet}>
+          {logComposer}
+        </AddLiftModal>
 
         {hasExercises && !sheetMode && !isDesktop && (
           <button
