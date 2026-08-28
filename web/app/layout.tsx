@@ -11,6 +11,7 @@ import { PWAInstallPrompt } from "../components/PWAInstallPrompt";
 import { ServiceWorkerUpdate } from "../components/ServiceWorkerUpdate";
 import { SafeAreaInsets } from "../components/SafeAreaInsets";
 import { ThemeSync } from "../components/ThemeSync";
+import { EmulatorBanner } from "../components/EmulatorBanner";
 import Script from "next/script";
 import React from "react";
 
@@ -90,6 +91,7 @@ export default function RootLayout({
           {`(function(){try{var theme="system";try{var raw=localStorage.getItem("@liftledger:preferences");if(raw){var p=JSON.parse(raw);if(p&&p.theme)theme=p.theme;}}catch(e){}var dark=theme==="dark"||(theme==="system"&&window.matchMedia("(prefers-color-scheme: dark)").matches);if(dark)document.documentElement.classList.add("dark");}catch(e){}})();`}
         </Script>
         <ErrorBoundary>
+          <EmulatorBanner />
           <AuthProvider>
             <PreferencesProvider>
               <SafeAreaInsets />

@@ -68,5 +68,9 @@ export default defineConfig({
     timeout: 120_000,
     stdout: "pipe",
     stderr: "pipe",
+    env: {
+      ...process.env,
+      NEXT_PUBLIC_USE_PRODUCTION: "true",
+    },
   },
 });

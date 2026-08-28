@@ -19,14 +19,22 @@ Primary log surface: `/day/today`. Weights and distances are stored as **pounds 
 
 ## Run the web app
 
+Local development is isolated. `npm run start` (from the repo root) boots the Firebase emulators and the Next.js app together. Auth, Firestore, and Storage stay on this machine. They cannot reach production.
+
+Requires **Java 21+** (the emulator suite is a JVM process). First run downloads emulator binaries and can take a few minutes.
+
 ```bash
 npm install
-cd web
-cp .env.example .env.local   # then fill in Firebase keys
-npm run dev
+npm run start
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:3000](http://localhost:3000). The yellow bar means you are on emulators. Browse data at [http://127.0.0.1:4000](http://127.0.0.1:4000).
+
+Sign up a throwaway account on the login page. The first start seeds a small exercise catalog into the emulator; later starts leave your local data alone. Ctrl+C stops both processes and exports data to `emulator-data/` for the next start.
+
+`cd web && npm run dev` also targets emulators, but will fail if they are not running. Prefer `npm run start` from the root.
+
+To point `next dev` at production anyway (not the default): set `NEXT_PUBLIC_USE_PRODUCTION=true` and fill `web/.env.local` from `web/.env.example`. Netlify production builds are unchanged.
 
 Typecheck: `cd web && npm run type-check`
 

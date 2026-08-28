@@ -99,6 +99,9 @@ logs/
 service-account-key.json
 *-service-account*.json
 
+# Local Firebase emulator export (auth / firestore / storage)
+/emulator-data/
+
 # Build artifacts
 *.apk
 *.aab

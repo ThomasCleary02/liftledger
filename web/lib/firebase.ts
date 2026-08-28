@@ -11,8 +11,15 @@ import { getStorage } from "firebase/storage";
 import { createExerciseService } from "@liftledger/shared/firestore/exercises";
 import { createAccountService } from "@liftledger/shared/firestore/account";
 import { logger } from "./logger";
+import {
+  connectFirebaseEmulators,
+  emulatorFirebaseConfig,
+  shouldUseFirebaseEmulators,
+} from "./firebaseEmulators";
 
-const firebaseConfig = {
+export const usingEmulators = shouldUseFirebaseEmulators();
+
+const productionConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "",
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "",
   projectId: "lift-ledger-8f627",
@@ -22,8 +29,11 @@ const firebaseConfig = {
   measurementId: "G-M04D4MX5J7"
 };
 
-// Validate required environment variables
+const firebaseConfig = usingEmulators ? emulatorFirebaseConfig : productionConfig;
+
 function validateConfig() {
+  if (usingEmulators) return;
+
   const required = ["apiKey", "authDomain"] as const;
   const missing: string[] = [];
   
@@ -43,7 +53,6 @@ function validateConfig() {
   }
 }
 
-// Only validate on client side
 if (typeof window !== "undefined") {
   validateConfig();
 }
@@ -51,13 +60,14 @@ if (typeof window !== "undefined") {
 let app: ReturnType<typeof initializeApp>;
 let db: ReturnType<typeof initializeFirestore>;
 let auth: ReturnType<typeof getAuth>;
+let storage: ReturnType<typeof getStorage>;
 
 try {
   app = getApps().length ? getApp() : initializeApp(firebaseConfig);
   try {
     db = initializeFirestore(app, {
       localCache:
-        typeof window === "undefined"
+        usingEmulators || typeof window === "undefined"
           ? memoryLocalCache()
           : persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
     });
@@ -65,9 +75,13 @@ try {
     db = getFirestore(app);
   }
   auth = getAuth(app);
+  storage = getStorage(app);
+
+  if (usingEmulators) {
+    connectFirebaseEmulators(auth, db, storage);
+    logger.info("Firebase: using local emulators (demo-liftledger)");
+  }
   
-  // Set persistence to localStorage (persists across browser sessions)
-  // This ensures users stay logged in even after closing the browser
   if (typeof window !== "undefined") {
     setPersistence(auth, browserLocalPersistence).catch((error) => {
       logger.error("Failed to set auth persistence", error);
@@ -85,8 +99,7 @@ import { createFriendRequestsService } from "@liftledger/shared/firestore/friend
 import { createPreferencesService } from "@liftledger/shared/preferences";
 import { webPreferencesStorage } from "./preferences/storage";
 
-export { db, auth, app };
-export const storage = getStorage(app);
+export { db, auth, app, storage };
 export const exerciseService = createExerciseService(db);
 export const accountService = createAccountService(db, auth);
 export const dayService = createDayService(db, auth);
