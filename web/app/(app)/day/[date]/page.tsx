@@ -232,10 +232,10 @@ export default function DayView() {
   // Helper to clean exercise data (remove undefined values)
   const cleanExercise = (ex: Exercise): Exercise => {
     const cleaned: any = {
-      exerciseId: ex.exerciseId,
       name: ex.name,
       modality: ex.modality,
     };
+    if (ex.exerciseId) cleaned.exerciseId = ex.exerciseId;
     if (ex.importId) cleaned.importId = ex.importId;
     if (ex.supersetGroup) cleaned.supersetGroup = ex.supersetGroup;
     

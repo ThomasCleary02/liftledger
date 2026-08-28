@@ -30,11 +30,18 @@ npm run start
 
 Open [http://localhost:3000](http://localhost:3000). The yellow bar means you are on emulators. Browse data at [http://127.0.0.1:4000](http://127.0.0.1:4000).
 
-Sign up a throwaway account on the login page. The first start seeds a small exercise catalog into the emulator; later starts leave your local data alone. Ctrl+C stops both processes and exports data to `emulator-data/` for the next start.
+Sign up a throwaway account on the login page. The first start (and later starts) upsert a gym exercise catalog into the emulator. Ctrl+C stops both processes and exports data to `emulator-data/` for the next start.
+
+Playwright smoke tests talk to the same emulators, not production. One-time browser download:
+
+```bash
+npm run playwright:install
+npm run test:e2e
+```
 
 `cd web && npm run dev` also targets emulators, but will fail if they are not running. Prefer `npm run start` from the root.
 
-To point `next dev` at production anyway (not the default): set `NEXT_PUBLIC_USE_PRODUCTION=true` and fill `web/.env.local` from `web/.env.example`. Netlify production builds are unchanged.
+To point `next dev` at production anyway (not the default): set `NEXT_PUBLIC_USE_PRODUCTION=true` and fill `web/.env.local` from `web/.env.example`. Netlify production builds are unchanged. `npm run test:e2e` does not use that flag.
 
 Typecheck: `cd web && npm run type-check`
 

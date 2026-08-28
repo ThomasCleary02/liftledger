@@ -1,4 +1,4 @@
-const { spawn } = require("node:child_process");
+const { spawn, spawnSync } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 const { envWithJava } = require("./java-env.cjs");
@@ -29,8 +29,12 @@ const child = spawn(process.execPath, [firebaseBin, ...args], {
 });
 
 const stop = () => {
-  if (child.killed) return;
-  child.kill(process.platform === "win32" ? undefined : "SIGINT");
+  if (child.killed || child.pid == null) return;
+  if (process.platform === "win32") {
+    spawnSync("taskkill", ["/PID", String(child.pid), "/T", "/F"], { stdio: "ignore" });
+    return;
+  }
+  child.kill("SIGINT");
 };
 
 process.on("SIGINT", stop);

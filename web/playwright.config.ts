@@ -26,6 +26,11 @@ function loadLocalEnv() {
 
 loadLocalEnv();
 
+if (process.env.E2E_ALLOW_CUSTOM !== "true") {
+  process.env.E2E_EMAIL = "e2e@liftledger.test";
+  process.env.E2E_PASSWORD = "e2e-password-1";
+}
+
 export const AUTH_FILE = path.join(root, "e2e/.auth/user.json");
 
 export default defineConfig({
@@ -68,9 +73,5 @@ export default defineConfig({
     timeout: 120_000,
     stdout: "pipe",
     stderr: "pipe",
-    env: {
-      ...process.env,
-      NEXT_PUBLIC_USE_PRODUCTION: "true",
-    },
   },
 });

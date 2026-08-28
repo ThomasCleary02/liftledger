@@ -51,11 +51,7 @@ test.describe("day modes on a sandbox date", () => {
 
   test("cardio duration persists", async ({ page }) => {
     await clearSandboxDay(page, SANDBOX);
-    await openComposer(page);
-    await page.getByLabel("Search exercises").fill("run");
-    const cardioResult = page.locator("#log-composer button").filter({ hasText: "cardio" }).first();
-    await expect(cardioResult).toBeVisible({ timeout: 20_000 });
-    await cardioResult.click();
+    await pickSearchResult(page, "run", /^Running$/);
     await page.getByLabel("Duration in minutes").fill("12");
     await page.getByRole("button", { name: "Save to log" }).click();
     await closeAddSheet(page);
