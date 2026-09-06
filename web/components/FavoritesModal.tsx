@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
-import { X, Star } from "lucide-react";
+import { Star, X } from "lucide-react";
 import type { ExerciseDoc } from "../lib/firestore/exercises";
+import { FullScreenSheet } from "./FullScreenSheet";
 
 interface FavoritesModalProps {
   open: boolean;
@@ -19,91 +19,45 @@ export function FavoritesModal({
   onClose,
   onRemoveFavorite,
 }: FavoritesModalProps) {
-  useEffect(() => {
-    if (open) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
-
-  if (!open) return null;
-
   return (
-    <div
-      className="modal-backdrop fixed inset-0 z-50 flex items-end md:items-center md:justify-center"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="favorites-title"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="w-full max-h-[90vh] flex flex-col rounded-t-3xl bg-white md:max-w-lg md:rounded-2xl md:shadow-xl" style={{ paddingBottom: "var(--safe-area-bottom)" }}>
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-          <h2 id="favorites-title" className="text-xl font-semibold text-gray-900">Favorite Exercises</h2>
-          <button
-            onClick={onClose}
-            className="min-h-[44px] min-w-[44px] rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
-            aria-label="Close favorites"
-          >
-            <X className="h-5 w-5" />
-          </button>
+    <FullScreenSheet open={open} title="Favorite Exercises" onClose={onClose} closeAriaLabel="Close favorites">
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <div className="spinner-sm"></div>
         </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto px-6 py-4">
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="spinner-sm"></div>
-            </div>
-          ) : favoriteExercises.length === 0 ? (
-            <div className="py-12 text-center">
-              <Star className="mx-auto mb-3 h-12 w-12 text-gray-300" />
-              <p className="text-sm text-gray-500">No favorite exercises yet</p>
-              <p className="mt-1 text-xs text-gray-400">Star an exercise when you add it to a day</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {favoriteExercises.map((exercise) => (
-                <div
-                  key={exercise.id}
-                  className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3 hover:bg-gray-50 transition-colors"
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-gray-900 break-words">{exercise.name}</p>
-                    {exercise.muscleGroup && (
-                      <p className="text-sm text-gray-500 capitalize mt-0.5">
-                        {exercise.muscleGroup.replace(/_/g, " ")}
-                      </p>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => onRemoveFavorite(exercise.id)}
-                    className="ml-4 flex-shrink-0 rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors"
-                    aria-label="Remove from favorites"
-                  >
-                    <X className="h-5 w-5" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
+      ) : favoriteExercises.length === 0 ? (
+        <div className="py-12 text-center">
+          <Star className="mx-auto mb-3 h-12 w-12 text-gray-300" />
+          <p className="text-sm text-gray-500">No favorite exercises yet</p>
+          <p className="mt-1 text-xs text-gray-400">Star an exercise when you add it to a day</p>
         </div>
-      </div>
-    </div>
+      ) : (
+        <div className="space-y-2">
+          {favoriteExercises.map((exercise) => (
+            <div
+              key={exercise.id}
+              className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3 transition-colors hover:bg-gray-50"
+            >
+              <div className="min-w-0 flex-1">
+                <p className="break-words font-semibold text-gray-900">{exercise.name}</p>
+                {exercise.muscleGroup && (
+                  <p className="mt-0.5 text-sm capitalize text-gray-500">
+                    {exercise.muscleGroup.replace(/_/g, " ")}
+                  </p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => onRemoveFavorite(exercise.id)}
+                className="ml-4 flex-shrink-0 rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                aria-label="Remove from favorites"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </FullScreenSheet>
   );
 }

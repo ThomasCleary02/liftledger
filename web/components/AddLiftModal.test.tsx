@@ -1,11 +1,11 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AddLiftModal } from "./AddLiftModal";
+import { resetFullScreenChromeForTests } from "./fullScreenChrome";
 
 afterEach(() => {
   cleanup();
-  document.body.style.overflow = "";
-  document.documentElement.classList.remove("add-modal-open");
+  resetFullScreenChromeForTests();
 });
 
 describe("AddLiftModal", () => {

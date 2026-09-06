@@ -1,10 +1,11 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { FavoritesModal } from "./FavoritesModal";
+import { resetFullScreenChromeForTests } from "./fullScreenChrome";
 
 afterEach(() => {
   cleanup();
-  document.body.style.overflow = "";
+  resetFullScreenChromeForTests();
 });
 
 describe("FavoritesModal", () => {
@@ -19,7 +20,7 @@ describe("FavoritesModal", () => {
         onRemoveFavorite={() => {}}
       />
     );
-    expect(screen.getByRole("dialog")).toHaveAttribute("aria-labelledby", "favorites-title");
+    expect(screen.getByRole("dialog")).toHaveAttribute("aria-labelledby");
     expect(screen.getByText("No favorite exercises yet")).toBeTruthy();
     fireEvent.click(screen.getByLabelText("Close favorites"));
     expect(onClose).toHaveBeenCalledOnce();

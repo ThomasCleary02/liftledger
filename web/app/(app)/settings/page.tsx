@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "../../../providers/Auth";
@@ -15,13 +15,10 @@ import {
   LogOut,
   Trash2,
   ChevronRight,
-  X,
   Star,
   List,
-  Check,
   FileText,
   Plus,
-  ChevronRight as ChevronRightIcon,
   Pencil,
   Moon,
   Clock,
@@ -33,7 +30,9 @@ import { Avatar } from "../../../components/Avatar";
 import { toast } from "../../../lib/toast";
 import { logger } from "../../../lib/logger";
 import { ConfirmDialog } from "../../../components/ConfirmDialog";
-import { getFavoriteExercises, toggleFavoriteExercise, getTrackedExercises, setTrackedExercises, getAccountSummary } from "../../../lib/firestore/account";
+import { FullScreenSheet } from "../../../components/FullScreenSheet";
+import { MyExercisesModal } from "../../../components/MyExercisesModal";
+import { getFavoriteExercises, toggleFavoriteExercise, getTrackedExercises, setTrackedExercises as persistTrackedExercises, getAccountSummary } from "../../../lib/firestore/account";
 import { type ExerciseDoc } from "../../../lib/firestore/exercises";
 import { FavoritesModal } from "../../../components/FavoritesModal";
 import { getAllExercises } from "../../../lib/firestore/exercises";
@@ -83,7 +82,7 @@ export default function Settings() {
 
   // Add state for My Exercises
   const [myExercisesOpen, setMyExercisesOpen] = useState(false);
-  const [trackedExercises, setTrackedExercises] = useState<string[]>([]);
+  const [trackedExerciseIds, setTrackedExerciseIds] = useState<string[]>([]);
   const [allExercises, setAllExercises] = useState<ExerciseDoc[]>([]);
   const [loadingExercises, setLoadingExercises] = useState(false);
 
@@ -193,7 +192,7 @@ export default function Settings() {
         getTrackedExercises(),
         getAllExercises()
       ]);
-      setTrackedExercises(tracked);
+      setTrackedExerciseIds(tracked);
       setTrackedCount(tracked.length);
       setAllExercises(all);
     } catch (error) {
@@ -303,20 +302,16 @@ export default function Settings() {
     }
   };
 
-  // Add toggle function for My Exercises
-  const handleToggleTrackedExercise = async (exerciseId: string) => {
+  const handleSaveTrackedExercises = async (exerciseIds: string[]) => {
     try {
-      const isTracked = trackedExercises.includes(exerciseId);
-      const newTracked = isTracked
-        ? trackedExercises.filter(id => id !== exerciseId)
-        : [...trackedExercises, exerciseId];
-      
-      await setTrackedExercises(newTracked); // Use the imported function, not state setter
-      setTrackedExercises(newTracked); // Update local state
-      toast.success(isTracked ? "Removed from tracked exercises" : "Added to tracked exercises");
+      await persistTrackedExercises(exerciseIds);
+      setTrackedExerciseIds(exerciseIds);
+      setTrackedCount(exerciseIds.length);
+      toast.success("Tracked exercises updated");
     } catch (error) {
-      console.error("Failed to update tracked exercises", error);
-      toast.error("Failed to update tracked exercises");
+      logger.error("Failed to save tracked exercises", error);
+      toast.error("Failed to save tracked exercises");
+      throw error;
     }
   };
 
@@ -475,7 +470,7 @@ export default function Settings() {
               <SettingItem
                 icon={List}
                 title="My Exercises"
-                subtitle={`${trackedExercises.length || trackedCount} exercises tracked for PRs`}
+                subtitle={`${trackedExerciseIds.length || trackedCount} exercises tracked for PRs`}
                 onClick={() => {
                   setMyExercisesOpen(true);
                   loadTrackedExercises();
@@ -505,11 +500,11 @@ export default function Settings() {
           {/* My Exercises Modal */}
           <MyExercisesModal
             open={myExercisesOpen}
-            trackedExercises={trackedExercises}
+            trackedExercises={trackedExerciseIds}
             allExercises={allExercises}
             loading={loadingExercises}
             onClose={() => setMyExercisesOpen(false)}
-            onToggleTrackedExercise={handleToggleTrackedExercise}
+            onSave={handleSaveTrackedExercises}
           />
 
           {/* Workout Templates Modal */}
@@ -554,17 +549,30 @@ export default function Settings() {
       </main>
 
       {/* Modals */}
-      <UnitsModal
+      <ChoiceModal
         open={unitsModalOpen}
         onClose={() => setUnitsModalOpen(false)}
-        currentUnit={units}
+        title="Units"
+        description="Choose your preferred unit system"
+        current={units}
         onSave={updateUnits}
+        options={[
+          { value: "imperial", label: "Imperial", description: "Pounds (lb), Miles (mi)" },
+          { value: "metric", label: "Metric", description: "Kilograms (kg), Kilometers (km)" },
+        ]}
       />
-      <ChartViewModal
+      <ChoiceModal
         open={chartModalOpen}
         onClose={() => setChartModalOpen(false)}
-        currentView={defaultChartView}
+        title="Default analytics period"
+        description="Choose the period Analytics opens to. You can still switch to All on that screen."
+        current={defaultChartView}
         onSave={updateChartView}
+        options={[
+          { value: "week", label: "Week", description: "Last 7 days on Analytics" },
+          { value: "month", label: "Month", description: "Last 30 days on Analytics" },
+          { value: "year", label: "Year", description: "Last 365 days on Analytics" },
+        ]}
       />
       <ChoiceModal
         open={themeModalOpen}
@@ -688,187 +696,6 @@ function SettingItem({
   );
 }
 
-// Modal Components
-function UnitsModal({
-  open,
-  onClose,
-  currentUnit,
-  onSave,
-}: {
-  open: boolean;
-  onClose: () => void;
-  currentUnit: UnitSystem;
-  onSave: (unit: UnitSystem) => void;
-}) {
-  const [selectedUnit, setSelectedUnit] = useState<UnitSystem>(currentUnit);
-
-  useEffect(() => {
-    if (open) {
-      setSelectedUnit(currentUnit);
-    }
-  }, [open, currentUnit]);
-
-  if (!open) return null;
-
-  const handleSave = () => {
-    onSave(selectedUnit);
-    onClose();
-  };
-
-  return (
-    <div className="modal-backdrop fixed inset-0 z-50 flex items-end md:items-center md:justify-center">
-      <div className="w-full rounded-t-3xl bg-white p-6 md:max-w-md md:rounded-2xl">
-        <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-gray-900">Units</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <X className="h-6 w-6" />
-          </button>
-        </div>
-
-        <p className="mb-4 text-gray-600">Choose your preferred unit system</p>
-
-        <div className="space-y-3">
-          <button
-            onClick={() => setSelectedUnit("imperial")}
-            className={`flex w-full items-center rounded-xl border-2 p-4 ${
-              selectedUnit === "imperial"
-                ? "border-brand bg-brand/10"
-                : "border-gray-200 bg-gray-50"
-            }`}
-          >
-            <div
-              className={`mr-3 h-6 w-6 rounded-full border-2 ${
-                selectedUnit === "imperial" ? "border-brand" : "border-gray-300"
-              } flex items-center justify-center`}
-            >
-              {selectedUnit === "imperial" && (
-                <div className="h-3 w-3 rounded-full bg-brand/100"></div>
-              )}
-            </div>
-            <div className="flex-1 text-left">
-              <p className="font-semibold text-gray-900">Imperial</p>
-              <p className="text-sm text-gray-500">Pounds (lb), Miles (mi)</p>
-            </div>
-          </button>
-
-          <button
-            onClick={() => setSelectedUnit("metric")}
-            className={`flex w-full items-center rounded-xl border-2 p-4 ${
-              selectedUnit === "metric"
-                ? "border-brand bg-brand/10"
-                : "border-gray-200 bg-gray-50"
-            }`}
-          >
-            <div
-              className={`mr-3 h-6 w-6 rounded-full border-2 ${
-                selectedUnit === "metric" ? "border-brand" : "border-gray-300"
-              } flex items-center justify-center`}
-            >
-              {selectedUnit === "metric" && (
-                <div className="h-3 w-3 rounded-full bg-brand/100"></div>
-              )}
-            </div>
-            <div className="flex-1 text-left">
-              <p className="font-semibold text-gray-900">Metric</p>
-              <p className="text-sm text-gray-500">Kilograms (kg), Kilometers (km)</p>
-            </div>
-          </button>
-        </div>
-
-        <button
-          onClick={handleSave}
-          className="mt-6 w-full btn-primary py-4 text-base"
-        >
-          Save
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function ChartViewModal({
-  open,
-  onClose,
-  currentView,
-  onSave,
-}: {
-  open: boolean;
-  onClose: () => void;
-  currentView: DefaultChartView;
-  onSave: (view: DefaultChartView) => void;
-}) {
-  const [selectedView, setSelectedView] = useState<DefaultChartView>(currentView);
-
-  useEffect(() => {
-    if (open) {
-      setSelectedView(currentView);
-    }
-  }, [open, currentView]);
-
-  if (!open) return null;
-
-  const handleSave = () => {
-    onSave(selectedView);
-    onClose();
-  };
-
-  const options: { value: DefaultChartView; label: string; description: string }[] = [
-    { value: "week", label: "Week", description: "Last 7 days on Analytics" },
-    { value: "month", label: "Month", description: "Last 30 days on Analytics" },
-    { value: "year", label: "Year", description: "Last 365 days on Analytics" },
-  ];
-
-  return (
-    <div className="modal-backdrop fixed inset-0 z-50 flex items-end md:items-center md:justify-center">
-      <div className="w-full rounded-t-3xl bg-white p-6 md:max-w-md md:rounded-2xl">
-        <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-gray-900">Default analytics period</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <X className="h-6 w-6" />
-          </button>
-        </div>
-
-        <p className="mb-4 text-gray-600">Choose the period Analytics opens to. You can still switch to All on that screen.</p>
-
-        <div className="space-y-3">
-          {options.map((option) => (
-            <button
-              key={option.value}
-              onClick={() => setSelectedView(option.value)}
-              className={`flex w-full items-center rounded-xl border-2 p-4 ${
-                selectedView === option.value
-                  ? "border-brand bg-brand/10"
-                  : "border-gray-200 bg-gray-50"
-              }`}
-            >
-              <div
-                className={`mr-3 h-6 w-6 rounded-full border-2 ${
-                  selectedView === option.value ? "border-brand" : "border-gray-300"
-                } flex items-center justify-center`}
-              >
-                {selectedView === option.value && (
-                  <div className="h-3 w-3 rounded-full bg-brand/100"></div>
-                )}
-              </div>
-              <div className="flex-1 text-left">
-                <p className="font-semibold text-gray-900">{option.label}</p>
-                <p className="text-sm text-gray-500">{option.description}</p>
-              </div>
-            </button>
-          ))}
-        </div>
-
-        <button
-          onClick={handleSave}
-          className="mt-6 w-full btn-primary py-4 text-base"
-        >
-          Save
-        </button>
-      </div>
-    </div>
-  );
-}
-
 function ChoiceModal<T extends string | number>({
   open,
   onClose,
@@ -887,180 +714,46 @@ function ChoiceModal<T extends string | number>({
   onSave: (value: T) => void;
 }) {
   const [selected, setSelected] = useState<T>(current);
+  const selectedRef = useRef(selected);
+  selectedRef.current = selected;
 
   useEffect(() => {
     if (open) setSelected(current);
   }, [open, current]);
 
-  if (!open) return null;
+  const commit = () => {
+    onSave(selectedRef.current);
+    onClose();
+  };
 
   return (
-    <div className="modal-backdrop fixed inset-0 z-50 flex items-end md:items-center md:justify-center">
-      <div className="w-full rounded-t-3xl bg-white p-6 md:max-w-md md:rounded-2xl">
-        <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-gray-900">{title}</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <X className="h-6 w-6" />
-          </button>
-        </div>
-        <p className="mb-4 text-gray-600">{description}</p>
-        <div className="space-y-3">
-          {options.map((option) => (
-            <button
-              key={String(option.value)}
-              onClick={() => setSelected(option.value)}
-              className={`flex w-full items-center rounded-xl border-2 p-4 ${
-                selected === option.value ? "border-brand bg-brand/10" : "border-gray-200 bg-gray-50"
+    <FullScreenSheet open={open} title={title} onClose={commit}>
+      <p className="mb-4 text-gray-600">{description}</p>
+      <div className="space-y-3">
+        {options.map((option) => (
+          <button
+            key={String(option.value)}
+            type="button"
+            onClick={() => setSelected(option.value)}
+            className={`flex w-full items-center rounded-xl border-2 p-4 ${
+              selected === option.value ? "border-brand bg-brand/10" : "border-gray-200 bg-gray-50"
+            }`}
+          >
+            <div
+              className={`mr-3 flex h-6 w-6 items-center justify-center rounded-full border-2 ${
+                selected === option.value ? "border-brand" : "border-gray-300"
               }`}
             >
-              <div
-                className={`mr-3 flex h-6 w-6 items-center justify-center rounded-full border-2 ${
-                  selected === option.value ? "border-brand" : "border-gray-300"
-                }`}
-              >
-                {selected === option.value && <div className="h-3 w-3 rounded-full bg-brand/100" />}
-              </div>
-              <div className="flex-1 text-left">
-                <p className="font-semibold text-gray-900">{option.label}</p>
-                {option.description && <p className="text-sm text-gray-500">{option.description}</p>}
-              </div>
-            </button>
-          ))}
-        </div>
-        <button
-          onClick={() => {
-            onSave(selected);
-            onClose();
-          }}
-          className="mt-6 w-full btn-primary py-4 text-base"
-        >
-          Save
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function MyExercisesModal({
-  open,
-  trackedExercises,
-  allExercises,
-  loading,
-  onClose,
-  onToggleTrackedExercise,
-}: {
-  open: boolean;
-  trackedExercises: string[];
-  allExercises: ExerciseDoc[];
-  loading: boolean;
-  onClose: () => void;
-  onToggleTrackedExercise: (exerciseId: string) => Promise<void>;
-}) {
-  const [selectedExercises, setSelectedExercises] = useState<string[]>(trackedExercises);
-  const [searchQuery, setSearchQuery] = useState("");
-
-  useEffect(() => {
-    if (open) {
-      setSelectedExercises(trackedExercises);
-      setSearchQuery("");
-    }
-  }, [open, trackedExercises]);
-
-  if (!open) return null;
-
-  const handleToggle = (exerciseId: string) => {
-    setSelectedExercises(prev => {
-      if (prev.includes(exerciseId)) {
-        return prev.filter(id => id !== exerciseId);
-      } else {
-        return [...prev, exerciseId];
-      }
-    });
-  };
-
-  const handleSave = async () => {
-    try {
-      // Update all exercises at once
-      await setTrackedExercises(selectedExercises);
-      // Close modal - the parent will reload the data
-      onClose();
-      toast.success("Tracked exercises updated");
-    } catch (error) {
-      console.error("Failed to save tracked exercises", error);
-      toast.error("Failed to save tracked exercises");
-    }
-  };
-
-  const filteredExercises = allExercises.filter(ex =>
-    ex.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  return (
-    <div className="modal-backdrop fixed inset-0 z-50 flex items-end md:items-center md:justify-center">
-      <div className="w-full max-h-[80vh] rounded-t-3xl bg-white p-6 md:max-w-2xl md:rounded-2xl flex flex-col">
-        <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-gray-900">My Exercises</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <X className="h-6 w-6" />
+              {selected === option.value && <div className="h-3 w-3 rounded-full bg-brand/100" />}
+            </div>
+            <div className="flex-1 text-left">
+              <p className="font-semibold text-gray-900">{option.label}</p>
+              {option.description && <p className="text-sm text-gray-500">{option.description}</p>}
+            </div>
           </button>
-        </div>
-
-        <p className="mb-4 text-gray-600">Select exercises to track for PRs</p>
-
-        {/* Search input */}
-        <input
-          type="text"
-          placeholder="Search exercises..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="mb-4 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-base outline-none focus:border-brand focus:bg-white"
-        />
-
-        {/* Exercises list */}
-        <div className="flex-1 overflow-y-auto space-y-2">
-          {loading ? (
-            <p className="text-center text-gray-500 py-8">Loading exercises...</p>
-          ) : filteredExercises.length === 0 ? (
-            <p className="text-center text-gray-500 py-8">No exercises found.</p>
-          ) : (
-            filteredExercises.map(exercise => (
-              <button
-                key={exercise.id}
-                onClick={() => handleToggle(exercise.id)}
-                className={`flex w-full items-center justify-between rounded-xl border-2 p-4 transition-colors ${
-                  selectedExercises.includes(exercise.id)
-                    ? "border-brand bg-brand/10"
-                    : "border-gray-200 bg-gray-50 hover:bg-gray-100"
-                }`}
-              >
-                <div className="flex items-center">
-                  <div className={`mr-3 h-6 w-6 rounded-full border-2 flex items-center justify-center ${
-                    selectedExercises.includes(exercise.id)
-                      ? "border-brand bg-brand/100"
-                      : "border-gray-300"
-                  }`}>
-                    {selectedExercises.includes(exercise.id) && (
-                      <Check className="h-4 w-4 text-white" />
-                    )}
-                  </div>
-                  <div className="text-left">
-                    <p className="font-semibold text-gray-900">{exercise.name}</p>
-                    <p className="text-xs text-gray-500 capitalize">{exercise.modality}</p>
-                  </div>
-                </div>
-              </button>
-            ))
-          )}
-        </div>
-
-        <button
-          onClick={handleSave}
-          className="mt-6 w-full btn-primary py-4 text-base"
-        >
-          Save
-        </button>
+        ))}
       </div>
-    </div>
+    </FullScreenSheet>
   );
 }
 
@@ -1086,8 +779,6 @@ function TemplatesModal({
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
-  if (!open) return null;
-
   const handleDelete = (id: string) => {
     setPendingDeleteId(id);
   };
@@ -1105,18 +796,11 @@ function TemplatesModal({
   };
 
   return (
-    <div className="modal-backdrop fixed inset-0 z-50 flex items-end md:items-center md:justify-center">
-      <div className="w-full max-h-[80vh] rounded-t-3xl bg-white p-6 md:max-w-2xl md:rounded-2xl flex flex-col">
-        <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-gray-900">Workout Templates</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <X className="h-6 w-6" />
-          </button>
-        </div>
-
-        {/* Add Create Button */}
+    <>
+    <FullScreenSheet open={open} title="Workout Templates" onClose={onClose} footer={null}>
         <div className="mb-4">
           <button
+            type="button"
             onClick={onCreate}
             className="btn-primary flex w-full items-center justify-center gap-2"
           >
@@ -1125,7 +809,7 @@ function TemplatesModal({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto">
+        <div>
           {loading ? (
             <p className="text-center text-gray-500 py-8">Loading templates...</p>
           ) : templates.length === 0 ? (
@@ -1175,7 +859,7 @@ function TemplatesModal({
             </div>
           )}
         </div>
-      </div>
+    </FullScreenSheet>
       <ConfirmDialog
         open={Boolean(pendingDeleteId)}
         title="Delete template?"
@@ -1185,7 +869,7 @@ function TemplatesModal({
         onCancel={() => setPendingDeleteId(null)}
         onConfirm={confirmDelete}
       />
-    </div>
+    </>
   );
 }
 
@@ -1382,26 +1066,39 @@ function TemplateEditorModal({
     await onSave(name.trim(), exercises); // Pass the values
   };
 
-  if (!open) return null;
-
   const filteredExercises = allExercises.filter(ex =>
     ex.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
-    <div className="modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-4xl max-h-[90vh] rounded-2xl bg-white flex flex-col">
-        <div className="flex items-center justify-between p-6 border-b">
-          <h2 className="text-2xl font-bold text-gray-900">
-            {initialName ? "Edit Template" : "Create Template"}
-          </h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <X className="h-6 w-6" />
+    <FullScreenSheet
+      open={open}
+      title={initialName ? "Edit Template" : "Create Template"}
+      onClose={() => {
+        void handleSave();
+      }}
+      closeText="Save"
+      footer={
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="btn-secondary flex-1 min-h-[48px]"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              void handleSave();
+            }}
+            className="btn-primary flex-1 min-h-[48px]"
+          >
+            Save Template
           </button>
         </div>
-
-        <div className="flex-1 overflow-y-auto p-6">
-          {/* Template Name */}
+      }
+    >
           <div className="mb-6">
             <label className="mb-2 block text-sm font-semibold text-gray-700">
               Template Name
@@ -1550,23 +1247,6 @@ function TemplateEditorModal({
               </div>
             )}
           </div>
-        </div>
-
-        <div className="flex gap-3 border-t p-6">
-          <button
-            onClick={onClose}
-            className="flex-1 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 font-semibold text-gray-700"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            className="btn-primary flex-1"
-          >
-            Save Template
-          </button>
-        </div>
-      </div>
-    </div>
+    </FullScreenSheet>
   );
 }

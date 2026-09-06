@@ -5,7 +5,7 @@
  * The preferences service is provided by platform code via firebase.ts
  */
 
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import type {
   UserPreferences,
   UnitSystem,

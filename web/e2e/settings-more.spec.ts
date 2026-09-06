@@ -12,7 +12,7 @@ test.describe("settings surfaces", () => {
 
     await themeRow.click();
     await page.getByRole("button", { name: /^Dark/ }).click();
-    await page.getByRole("button", { name: "Save" }).click();
+    await page.getByRole("button", { name: "Done" }).first().click();
     await page.reload();
     await expect(page.getByRole("button", { name: /Theme/ })).toContainText("Dark");
 
@@ -23,11 +23,11 @@ test.describe("settings surfaces", () => {
         ? /^Dark/
         : /Match device/;
     await page.getByRole("button", { name: restoreTheme }).click();
-    await page.getByRole("button", { name: "Save" }).click();
+    await page.getByRole("button", { name: "Done" }).first().click();
 
     await page.getByRole("button", { name: /Rest timer/ }).click();
     await page.getByRole("button", { name: /^90 seconds/ }).click();
-    await page.getByRole("button", { name: "Save" }).click();
+    await page.getByRole("button", { name: "Done" }).first().click();
     await page.reload();
     await expect(page.getByRole("button", { name: /Rest timer/ })).toContainText("1.5 min");
 
@@ -42,7 +42,7 @@ test.describe("settings surfaces", () => {
             ? /^1 minute/
             : /^Off/;
     await page.getByRole("button", { name: restoreRest }).click();
-    await page.getByRole("button", { name: "Save" }).click();
+    await page.getByRole("button", { name: "Done" }).first().click();
   });
 
   test("account photo, username, and bodyweight fields", async ({ page }) => {
@@ -70,5 +70,6 @@ test.describe("settings surfaces", () => {
 
     await page.getByRole("button", { name: /My Exercises/ }).click();
     await expect(page.getByRole("heading", { name: "My Exercises" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Done" }).first()).toBeVisible();
   });
 });

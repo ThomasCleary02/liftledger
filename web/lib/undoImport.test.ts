@@ -34,7 +34,7 @@ describe("undoLastImport", () => {
       dates: ["2026-08-01", "2026-08-02"],
       createdDates: ["2026-08-01"],
     } as never);
-    vi.mocked(getDayByDate).mockImplementation(async (date: string) => {
+    vi.mocked(getDayByDate).mockImplementation(async (date: string | Date) => {
       if (date === "2026-08-01") {
         return { id: "d1", exercises: [{ name: "Squat", importId: "imp_1" }] } as never;
       }
