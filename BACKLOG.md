@@ -2,25 +2,31 @@
 
 One list. **Now** is next to ship. **Next** is planned. **Later** is parked until a feature exists. Medal ideas that are not live stay in `packages/shared/achievements.ts` (`ACHIEVEMENT_ROADMAP`) so they are not shown as fake locked medals.
 
-Durable product/engineering knowledge (architecture, data model, hosting, roadmap narrative) lives in [`docs/`](./docs/README.md). Keep this file short.
+Durable product/engineering knowledge lives in [`docs/`](./docs/README.md). Keep this file short.
 
 ## Now
 
-- Gym-floor offline logging: precache the day shell and write through Firestore cache so a workout can be logged without a connection.
-- Wire a few medals that the product already supports (week share, first accepted friend, twelve weigh-ins) instead of inventing new surfaces for them.
+_(empty — pick from Next when ready to start the next ship)_
 
 ## Next
 
-- **Year wrapped.** After Dec 31 (or first open in January), show a one-time recap: sessions, streak, volume, top lift, cardio time, a few medals from that year. Persist `wrappedYearSeen` on the account so it fires once. Re-open from Profile or Settings (“Your 2026”). Do not put it in the tab bar. Keep it ledger-voiced, not Spotify-clone slides with fake drama.
-- Import that can prove a year of history (needed for Ghost writer and a richer wrapped).
+- Gym-floor offline logging: precache day shell + Firestore cache write-through.
+- Wire medals the product already supports (week share, first friend, twelve weigh-ins) — pairs well with progress UI once those hooks exist.
+- **Year wrapped** (+ light calisthenics line if earned). Persist `wrappedYearSeen`. Not a tab.
+- Import that can prove a year of history.
 - Starter programs with a real complete state.
-- Head-to-head week on leaderboards (you vs one friend).
+- Head-to-head week on leaderboards.
+- **Share card family** (month / PR cards beyond week + medal).
+- Friends empty states / leaderboard label fix (cardio board is duration).
 
 ## Later
 
-- Offline-first as a medal (“Quiet gym”) once logging works without network.
-- Night/dawn medals if we store local log time, not just calendar date.
+- Offline-first medal (“Quiet gym”) once offline logging works.
+- Night/dawn medals if we store local log time.
 - More medals as features land — do not grow the live catalog in bulk.
+- **Calisthenics analytics (opt-in)** — not a mandatory Strength/Cardio peer.
+- **Bodyweight UI refine** — compact “logged · edit” after save on the day page.
+- Native Expo integrations → candidate **v4**.
 
 ## Explicitly not doing
 
@@ -28,4 +34,6 @@ Durable product/engineering knowledge (architecture, data model, hosting, roadma
 - Combining run and walk PRs.
 - Volume-as-PR.
 - A settings toggle to “simplify” exercise variants.
-- Showing unfinished medals on the profile.
+- Showing **ROADMAP** medals as locked/unearned on the profile (ideas stay in code only).
+- Making calisthenics a mandatory third peer of Strength/Cardio for everyone.
+- A social feed or public share gallery (share cards stay one-off images).

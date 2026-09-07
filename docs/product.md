@@ -14,8 +14,8 @@ People who log strength, cardio, and calisthenics by calendar day, then check pr
 |---|---|---|
 | Day log | `/day/[date]`, `/day/today` | Add/edit lifts, rest, notes, bodyweight |
 | Analytics | `/analytics` | Overview / Strength / Cardio / PRs |
-| Friends | `/friends`, `/friends/leaderboards` | Requests, friends, leaderboards |
-| Profile | `/profile` | Username, photo, featured medals |
+| Friends | `/friends`, `/friends/leaderboards` (via Profile) | Requests, friends, leaderboards |
+| Profile | `/profile` | Avatar, medals, friends entry |
 | Settings | `/settings`, `/settings/account`, `/settings/import` | Prefs, favorites, My exercises, templates, import/export |
 | Admin | `/admin/exercises` | Catalog maintenance (admin emails) |
 | Marketing | `/`, `/login`, `/privacy`, `/terms`, `/contact` | Public site + auth |

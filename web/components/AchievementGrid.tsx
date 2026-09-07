@@ -13,7 +13,13 @@ import {
   Trophy,
   Zap,
 } from "lucide-react";
-import type { AchievementDef, AchievementIcon, EarnedMap } from "@liftledger/shared";
+import type {
+  AchievementDef,
+  AchievementIcon,
+  AchievementProgressMetric,
+  EarnedMap,
+} from "@liftledger/shared";
+import { formatAchievementProgress } from "@liftledger/shared";
 
 const ICONS: Record<AchievementIcon, LucideIcon> = {
   dumbbell: Dumbbell,
@@ -39,18 +45,23 @@ export function AchievementMedal({
   earned,
   featured,
   size = 64,
+  metric,
   onClick,
 }: {
   def: AchievementDef;
   earned: boolean;
   featured?: boolean;
   size?: number;
+  metric?: AchievementProgressMetric;
   onClick?: () => void;
 }) {
   const Icon = ICONS[def.icon];
   const iconPx = Math.round(size * 0.38);
+  const showProgress = !earned && metric && metric.target > 0;
+  const ratio = showProgress ? Math.min(1, metric.current / metric.target) : 0;
+
   return (
-    <button type="button" onClick={onClick} className="flex w-[4.75rem] flex-col items-center gap-2" aria-label={def.title}>
+    <button type="button" onClick={onClick} className="flex w-[5.25rem] flex-col items-center gap-1.5" aria-label={def.title}>
       <span
         className={`relative flex items-center justify-center rounded-full bg-gradient-to-b ${
           earned ? TIER_FACE[def.tier] : "from-[#d9ccb8] to-[#b7a48c] text-gray-600 dark:from-[#3a322a] dark:to-[#1c1915] dark:text-gray-500"
@@ -67,6 +78,14 @@ export function AchievementMedal({
       <span className={`text-center text-[11px] font-semibold leading-tight ${earned ? "text-gray-900" : "text-gray-400"}`}>
         {def.title}
       </span>
+      {showProgress ? (
+        <span className="flex w-full flex-col items-center gap-1">
+          <span className="h-1 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+            <span className="block h-full rounded-full bg-brand/70" style={{ width: `${Math.max(6, ratio * 100)}%` }} />
+          </span>
+          <span className="font-mono text-[9px] tabular-nums text-gray-400">{formatAchievementProgress(metric)}</span>
+        </span>
+      ) : null}
     </button>
   );
 }
@@ -75,11 +94,13 @@ export function AchievementGrid({
   items,
   earned,
   featuredIds,
+  progressById,
   onSelect,
 }: {
   items: AchievementDef[];
   earned: EarnedMap;
   featuredIds: string[];
+  progressById?: Record<string, AchievementProgressMetric>;
   onSelect: (id: string) => void;
 }) {
   return (
@@ -90,6 +111,7 @@ export function AchievementGrid({
           def={def}
           earned={Boolean(earned[def.id])}
           featured={featuredIds.includes(def.id)}
+          metric={progressById?.[def.id]}
           onClick={() => onSelect(def.id)}
         />
       ))}

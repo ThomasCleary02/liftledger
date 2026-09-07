@@ -6,19 +6,24 @@ import { useRouter } from "next/navigation";
 import {
   ACHIEVEMENT_BY_ID,
   MAX_FEATURED_ACHIEVEMENTS,
+  achievementTierLabel,
+  formatAchievementProgress,
+  getAchievementProgress,
   toggleFeaturedId,
   type AchievementProgress,
+  type AchievementProgressMetric,
 } from "@liftledger/shared";
-import { Camera } from "lucide-react";
+import { Camera, Share2 } from "lucide-react";
 import { useAuth } from "../../../providers/Auth";
 import { accountService, app } from "../../../lib/firebase";
 import { listDays } from "../../../lib/firestore/days";
 import { syncEarnedAchievements } from "../../../lib/publishAchievements";
 import { fileToAvatarPayload, uploadAvatar } from "../../../lib/avatar";
+import { shareMedalPng } from "../../../lib/shareMedalPng";
 import { toast } from "../../../lib/toast";
 import { logger } from "../../../lib/logger";
 import { AvatarCropModal } from "../../../components/AvatarCropModal";
-import { FeaturedRow, MedalCollection, ProfileHero } from "../../../components/ProfileView";
+import { FeaturedRow, MedalCollection, ProfileFriendsLinks, ProfileHero } from "../../../components/ProfileView";
 import { FullScreenSheet } from "../../../components/FullScreenSheet";
 import { format } from "date-fns";
 
@@ -36,8 +41,10 @@ export default function ProfilePage() {
   const [username, setUsername] = useState<string | null>(null);
   const [photoURL, setPhotoURL] = useState<string | null>(null);
   const [progress, setProgress] = useState<AchievementProgress>(EMPTY);
+  const [medalMetrics, setMedalMetrics] = useState<Record<string, AchievementProgressMetric>>({});
   const [cropFile, setCropFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [sharingMedal, setSharingMedal] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [collectionOpen, setCollectionOpen] = useState(false);
   const [ready, setReady] = useState(false);
@@ -61,6 +68,7 @@ export default function ProfilePage() {
       setPhotoURL(summary.photoURL);
       const synced = await syncEarnedAchievements(days);
       setProgress(synced.progress);
+      setMedalMetrics(getAchievementProgress(days));
     } catch (error) {
       logger.error("Failed to load profile", error);
       toast.error("Could not load profile");
@@ -123,6 +131,28 @@ export default function ProfilePage() {
   const selected = selectedId ? ACHIEVEMENT_BY_ID[selectedId] : null;
   const earnedAt = selectedId ? progress.earned[selectedId]?.earnedAt : undefined;
   const canPin = Boolean(selected && earnedAt);
+  const selectedMetric = selectedId ? medalMetrics[selectedId] : undefined;
+
+  const handleShareMedal = async () => {
+    if (!selected || !earnedAt) return;
+    setSharingMedal(true);
+    try {
+      const result = await shareMedalPng({
+        title: selected.title,
+        description: selected.description,
+        tier: selected.tier,
+        earnedAt,
+        username,
+      });
+      if (result === "downloaded") toast.success("Medal image saved");
+      else if (result === "previewed") toast.success("Opened medal image");
+    } catch (error) {
+      logger.error("Failed to share medal", error);
+      toast.error("Could not share that medal");
+    } finally {
+      setSharingMedal(false);
+    }
+  };
 
   if (authLoading || !user || !ready) {
     return (
@@ -136,21 +166,15 @@ export default function ProfilePage() {
     <div className="flex h-full flex-col overflow-hidden bg-gray-50">
       <header className="flex-shrink-0 border-b border-gray-200 bg-white px-4 py-3 md:px-8">
         <div className="mx-auto flex max-w-lg items-center justify-between">
-          <div>
-            <p className="kicker">Profile</p>
-            <h1 className="text-lg font-semibold text-gray-900">Profile</h1>
-            <p className="text-xs text-gray-500">How friends see you</p>
-          </div>
-          <div className="flex items-center gap-1">
-            <Link href="/settings/account" className="min-h-[44px] px-3 py-2 text-sm font-semibold text-brand">
-              Account
-            </Link>
-          </div>
+          <h1 className="text-xl font-semibold text-gray-900">Profile</h1>
+          <Link href="/settings/account" className="min-h-[44px] px-3 py-2 text-sm font-semibold text-brand">
+            Account
+          </Link>
         </div>
       </header>
 
       <main className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-lg px-4 py-6">
+        <div className="mx-auto max-w-lg space-y-4 px-4 py-6">
           <input
             ref={fileRef}
             type="file"
@@ -179,11 +203,13 @@ export default function ProfilePage() {
             }
           />
 
-          <section className="mt-4 rounded-md border border-gray-200 bg-white p-5 shadow-[0_1px_0_rgb(20_83_45/0.08)]">
-            <div className="flex items-end justify-between">
+          <ProfileFriendsLinks />
+
+          <section className="rounded-md border border-gray-200 bg-white p-5 shadow-[0_1px_0_rgb(20_83_45/0.08)]">
+            <div className="flex items-end justify-between gap-3">
               <div>
-                <p className="kicker">Pinned</p>
-                <h2 className="text-lg font-semibold text-gray-900">Medals</h2>
+                <p className="kicker">Collection</p>
+                <h2 className="text-lg font-semibold text-gray-900">Pinned medals</h2>
               </div>
               <button type="button" onClick={() => setCollectionOpen(true)} className="text-sm font-semibold text-brand">
                 All medals
@@ -193,7 +219,7 @@ export default function ProfilePage() {
               featuredIds={progress.featuredIds}
               earned={progress.earned}
               onSelect={setSelectedId}
-              emptyHint="Pin up to three medals."
+              emptyHint="Pin up to three medals from your collection."
             />
           </section>
         </div>
@@ -205,7 +231,7 @@ export default function ProfilePage() {
 
       <FullScreenSheet open={collectionOpen} title="All medals" onClose={() => setCollectionOpen(false)}>
         <div className="rounded-md border border-gray-200 bg-white p-5 shadow-[0_1px_0_rgb(20_83_45/0.08)]">
-          <MedalCollection progress={progress} onSelect={setSelectedId} />
+          <MedalCollection progress={progress} progressById={medalMetrics} onSelect={setSelectedId} />
         </div>
       </FullScreenSheet>
 
@@ -214,32 +240,65 @@ export default function ProfilePage() {
         title={selected?.title ?? "Medal"}
         onClose={() => setSelectedId(null)}
         footer={
-          canPin ? (
-            <button
-              type="button"
-              className="btn-primary min-h-[48px] w-full"
-              onClick={() => {
-                if (!selected) return;
-                if (!progress.featuredIds.includes(selected.id) && progress.featuredIds.length >= MAX_FEATURED_ACHIEVEMENTS) {
-                  toast.error(`You can pin up to ${MAX_FEATURED_ACHIEVEMENTS} medals.`);
-                  return;
-                }
-                void persistProgress({
-                  ...progress,
-                  featuredIds: toggleFeaturedId(progress.featuredIds, selected.id, progress.earned),
-                });
-              }}
-            >
-              {selected && progress.featuredIds.includes(selected.id) ? "Unpin" : "Pin to profile"}
-            </button>
+          canPin || earnedAt ? (
+            <div className="flex w-full flex-col gap-2">
+              {earnedAt ? (
+                <button
+                  type="button"
+                  className="btn-secondary flex min-h-[48px] w-full items-center justify-center gap-2"
+                  disabled={sharingMedal}
+                  onClick={() => void handleShareMedal()}
+                >
+                  <Share2 className="h-4 w-4" />
+                  {sharingMedal ? "Sharing…" : "Share medal"}
+                </button>
+              ) : null}
+              {canPin ? (
+                <button
+                  type="button"
+                  className="btn-primary min-h-[48px] w-full"
+                  onClick={() => {
+                    if (!selected) return;
+                    if (!progress.featuredIds.includes(selected.id) && progress.featuredIds.length >= MAX_FEATURED_ACHIEVEMENTS) {
+                      toast.error(`You can pin up to ${MAX_FEATURED_ACHIEVEMENTS} medals.`);
+                      return;
+                    }
+                    void persistProgress({
+                      ...progress,
+                      featuredIds: toggleFeaturedId(progress.featuredIds, selected.id, progress.earned),
+                    });
+                  }}
+                >
+                  {selected && progress.featuredIds.includes(selected.id) ? "Unpin" : "Pin to profile"}
+                </button>
+              ) : null}
+            </div>
           ) : null
         }
       >
         {selected && (
           <div className="rounded-md border border-gray-200 bg-white p-5 shadow-[0_1px_0_rgb(20_83_45/0.08)]">
-            <p className="text-gray-700">{selected.description}</p>
+            <p className="font-mono text-xs uppercase tracking-[0.12em] text-gray-500">
+              {achievementTierLabel(selected.tier)} · Tier {selected.tier}
+            </p>
+            <p className="mt-3 text-gray-700">{selected.description}</p>
             {earnedAt ? (
               <p className="mt-3 font-mono text-sm text-gray-500">Earned {format(new Date(earnedAt), "MMM d, yyyy")}</p>
+            ) : selectedMetric ? (
+              <div className="mt-4">
+                <div className="mb-1 flex items-center justify-between gap-3 text-sm">
+                  <span className="text-gray-500">Progress</span>
+                  <span className="font-mono tabular-nums text-gray-700">{formatAchievementProgress(selectedMetric)}</span>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-gray-100">
+                  <div
+                    className="h-full rounded-full bg-brand"
+                    style={{
+                      width: `${Math.max(4, Math.min(100, (selectedMetric.current / selectedMetric.target) * 100))}%`,
+                    }}
+                  />
+                </div>
+              </div>
             ) : (
               <p className="mt-3 text-sm text-gray-500">Not earned yet.</p>
             )}

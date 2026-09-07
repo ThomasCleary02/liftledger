@@ -200,17 +200,25 @@ export default function Analytics() {
     };
   }, [user, authLoading, lifetimeComplete]);
 
-  const prs = useMemo(() => {
+  const allPRs = useMemo(() => {
     if (activeTab !== "prs") return [];
     if (historyForLifetime.length === 0) return [];
-    return collapsePRsByExercise(
-      findAllPRs(
-        historyForLifetime,
-        trackedExerciseIds.length > 0 ? trackedExerciseIds : undefined,
-        catalogList
-      )
+    return findAllPRs(
+      historyForLifetime,
+      trackedExerciseIds.length > 0 ? trackedExerciseIds : undefined,
+      catalogList
     );
   }, [activeTab, historyForLifetime, trackedExerciseIds, catalogList]);
+
+  const prs = useMemo(() => collapsePRsByExercise(allPRs), [allPRs]);
+
+  const longestDistanceByExercise = useMemo(() => {
+    const map = new Map<string, ExercisePR>();
+    for (const pr of allPRs) {
+      if (pr.prType === "maxDistance") map.set(pr.exerciseId, pr);
+    }
+    return map;
+  }, [allPRs]);
 
   if (!authLoading && !user) {
     return null;
@@ -333,6 +341,7 @@ export default function Analytics() {
               {activeTab === "prs" && (
                 <PRsView
                   prs={prs}
+                  longestDistanceByExercise={longestDistanceByExercise}
                   trackingEmpty={trackedExerciseIds.length === 0}
                   lifetimeLoading={!lifetimeComplete}
                 />
@@ -840,9 +849,17 @@ function CardioTypeDetail({
         {stats.longestDuration > 0 && (
           <StatCard
             icon={Clock}
-            label="Longest"
+            label="Longest time"
             value={formatCardioDuration(stats.longestDuration)}
             color="bg-orange-100 text-orange-700"
+          />
+        )}
+        {stats.longestDistance > 0 && (
+          <StatCard
+            icon={MapIcon}
+            label="Longest distance"
+            value={formatDistance(stats.longestDistance, units)}
+            color="bg-red-100 text-red-700"
           />
         )}
       </div>
@@ -884,10 +901,12 @@ function CardioTypeDetail({
 // PRs View Component
 function PRsView({
   prs,
+  longestDistanceByExercise,
   trackingEmpty,
   lifetimeLoading,
 }: {
   prs: ExercisePR[];
+  longestDistanceByExercise: Map<string, ExercisePR>;
   trackingEmpty: boolean;
   lifetimeLoading: boolean;
 }) {
@@ -928,6 +947,10 @@ function PRsView({
           {sectionPRs.map((pr, idx) => {
             const dateStr = getDateFromDayId(pr.dayId);
             const speedHint = formatPRHint(pr);
+            const longest =
+              pr.modality === "cardio" && pr.prType === "bestPace"
+                ? longestDistanceByExercise.get(pr.exerciseId)
+                : undefined;
             return (
               <Link
                 key={`${pr.dayId}-${pr.exerciseId}-${pr.prType}`}
@@ -947,6 +970,11 @@ function PRsView({
                   <div className="ml-3 text-right">
                     <p className="text-lg font-bold tabular-nums text-gray-900">{formatPRValue(pr)}</p>
                     {speedHint ? <p className="text-xs tabular-nums text-gray-500">{speedHint}</p> : null}
+                    {longest ? (
+                      <p className="text-xs tabular-nums text-gray-500">
+                        Longest {formatDistance(longest.value, units)}
+                      </p>
+                    ) : null}
                     <p className="text-xs text-gray-400">{pr.date.toLocaleDateString()}</p>
                   </div>
                 </div>

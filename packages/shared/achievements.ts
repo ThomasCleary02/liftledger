@@ -431,6 +431,80 @@ export function evaluateEarnedIds(days: Day[]): string[] {
   return earned;
 }
 
+export type AchievementProgressMetric = {
+  current: number;
+  target: number;
+  /** How to show the numbers in UI (default plain integers). */
+  unit?: "count" | "hours" | "volume";
+};
+
+export function achievementTierLabel(tier: 1 | 2 | 3): string {
+  if (tier === 1) return "Bronze";
+  if (tier === 2) return "Silver";
+  return "Gold";
+}
+
+/** Progress toward each live catalog medal. ROADMAP ids are never included. */
+export function getAchievementProgress(days: Day[]): Record<string, AchievementProgressMetric> {
+  const trained = trainingDays(days);
+  const restDays = days.filter((day) => day.isRestDay && day.status !== "injured").length;
+  const longest = calculateLongestStreakFromDays(days);
+  const volume = calculateTotalVolumeFromDays(days);
+  const truePrs = countTruePrs(days);
+  const trainedWeeks = trained.map((day) => isoWeekKey(day.date));
+  const weekStreak = longestConsecutiveWeeks(trainedWeeks);
+  const rhythmWeeks = weeksWithMinSessions(days, 3);
+  const exercises = uniqueExerciseIds(days).size;
+  const loyalWeeks = longestExerciseWeekSpan(days);
+  const cardioSeconds = calculateTotalCardioDurationFromDays(days);
+  const reps = calculateTotalCalisthenicsRepsFromDays(days);
+  const hybrid = hasHybridWeek(days) ? 1 : 0;
+
+  const progress: Record<string, AchievementProgressMetric> = {
+    true_pr: { current: Math.min(truePrs, 1), target: 1 },
+    rhythm_4: { current: Math.min(rhythmWeeks, 4), target: 4 },
+    toolbox: { current: Math.min(exercises, 12), target: 12 },
+    hybrid_week: { current: hybrid, target: 1 },
+    rest_steward: { current: Math.min(restDays, 8), target: 8 },
+    streak_7: { current: Math.min(longest, 7), target: 7 },
+    week_streak_8: { current: Math.min(weekStreak, 8), target: 8 },
+    pr_repeat: { current: Math.min(truePrs, 5), target: 5 },
+    loyal: { current: Math.min(loyalWeeks, 16), target: 16 },
+    sessions_50: { current: Math.min(trained.length, 50), target: 50 },
+    engine: {
+      current: Math.min(cardioSeconds, 10 * 3600),
+      target: 10 * 3600,
+      unit: "hours",
+    },
+    volume_250k: { current: Math.min(volume, 250_000), target: 250_000, unit: "volume" },
+    streak_30: { current: Math.min(longest, 30), target: 30 },
+    rhythm_12: { current: Math.min(rhythmWeeks, 12), target: 12 },
+    pr_machine: { current: Math.min(truePrs, 15), target: 15 },
+    sessions_100: { current: Math.min(trained.length, 100), target: 100 },
+    volume_1m: { current: Math.min(volume, 1_000_000), target: 1_000_000, unit: "volume" },
+    thousand_reps: { current: Math.min(reps, 1000), target: 1000 },
+  };
+  return progress;
+}
+
+export function formatAchievementProgress(metric: AchievementProgressMetric): string {
+  if (metric.unit === "hours") {
+    const cur = metric.current / 3600;
+    const tgt = metric.target / 3600;
+    const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1).replace(/\.0$/, ""));
+    return `${fmt(cur)} / ${fmt(tgt)} hr`;
+  }
+  if (metric.unit === "volume") {
+    const fmt = (n: number) => {
+      if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1)}M`;
+      if (n >= 1000) return `${Math.round(n / 1000)}k`;
+      return String(Math.round(n));
+    };
+    return `${fmt(metric.current)} / ${fmt(metric.target)} lb`;
+  }
+  return `${Math.floor(metric.current)} / ${metric.target}`;
+}
+
 export function mergeNewlyEarned(
   previous: EarnedMap,
   ids: string[],

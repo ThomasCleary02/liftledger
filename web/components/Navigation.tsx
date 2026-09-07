@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Dumbbell, BarChart3, Users, CircleUser, Settings } from "lucide-react";
+import { Dumbbell, BarChart3, CircleUser, Settings } from "lucide-react";
 import { useAuth } from "../providers/Auth";
 import { BrandMark } from "./BrandMark";
 import { getAllExercises } from "../lib/firestore/exercises";
@@ -19,11 +19,9 @@ type NavItem = {
 const navItems: NavItem[] = [
   { path: "/day/today", label: "Log", icon: Dumbbell, matchPrefix: "/day/" },
   { path: "/analytics", label: "Analytics", icon: BarChart3 },
-  { path: "/friends", label: "Friends", icon: Users },
   { path: "/profile", label: "Profile", icon: CircleUser },
   { path: "/settings", label: "Settings", icon: Settings },
 ];
-
 export function Navigation() {
   const pathname = usePathname();
   const router = useRouter();

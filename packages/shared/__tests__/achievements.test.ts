@@ -4,8 +4,11 @@ import {
   ACHIEVEMENT_CATALOG,
   ACHIEVEMENT_ROADMAP,
   MAX_FEATURED_ACHIEVEMENTS,
+  achievementTierLabel,
   autoFeatureNewUnlocks,
   evaluateEarnedIds,
+  formatAchievementProgress,
+  getAchievementProgress,
   mergeNewlyEarned,
   toggleFeaturedId,
 } from "../achievements";
@@ -64,6 +67,20 @@ describe("achievement catalog", () => {
     const earned = { true_pr: { earnedAt: "x" }, rhythm_4: { earnedAt: "x" } };
     expect(autoFeatureNewUnlocks([], [], earned)).toEqual([]);
     expect(autoFeatureNewUnlocks([], ["streak_7"], { ...earned, streak_7: { earnedAt: "y" } })).toEqual([]);
+  });
+
+  it("reports progress toward catalog medals without including roadmap ids", () => {
+    const days = [
+      makeDay("2026-01-05", { exercises: [strength("Bench", [{ reps: 5, weight: 135 }])] }),
+      makeDay("2026-01-12", { exercises: [strength("Bench", [{ reps: 5, weight: 145 }])] }),
+    ];
+    const progress = getAchievementProgress(days);
+    expect(progress.true_pr).toEqual({ current: 1, target: 1 });
+    expect(progress.toolbox?.current).toBe(1);
+    expect(progress.toolbox?.target).toBe(12);
+    expect(progress.later_scale_witness).toBeUndefined();
+    expect(formatAchievementProgress(progress.toolbox!)).toBe("1 / 12");
+    expect(achievementTierLabel(1)).toBe("Bronze");
   });
 });
 

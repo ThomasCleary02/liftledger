@@ -33,5 +33,6 @@ describe("Navigation", () => {
     expect(links[0]).toHaveAttribute("aria-current", "page");
     expect(screen.getAllByRole("link", { name: /Analytics/ }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("link", { name: /Profile/ }).length).toBeGreaterThan(0);
+    expect(screen.queryAllByRole("link", { name: /^Friends$/ })).toHaveLength(0);
   });
 });

@@ -12,24 +12,26 @@ Narrative of where the product has been and where it is headed. **Execution orde
 | **3.2.2** | Cardio PR name/id matching; sheet search focus stability |
 | **3.2.3** | Exercise identity (treadmill twins, run/jog labels); all-time PR load; week share that works on mobile; logged-first My exercises |
 | **3.2.4** | Move tracking mismatch UX into My exercises; PR empty/loading fix; share preview stays in-app; docs + agent workflow (skills, rules, hooks) |
+| **3.3.0** | Medal progress + rarity; Profile polish; Friends/leaderboards from Profile (Friends off tab bar); longest cardio distance secondary; week-share polish + share earned medal |
 
 ## Current focus (see backlog Now)
 
-- Gym-floor **offline logging** (precache day shell + Firestore cache write-through).
-- Wire medals the product already supports (week share, first friend, twelve weigh-ins) without inventing new surfaces.
+- Pick from backlog **Next** (offline logging, medal award wiring, year wrapped, …).
 
 ## Near term (backlog Next)
 
-- **Year wrapped** — one-time January recap; not a tab-bar feature; ledger-voiced.
-- Import strong enough to prove a year of history.
-- Starter programs with real complete state.
-- Head-to-head week on leaderboards.
+- Offline gym-floor logging; wire easy medal awards (share / friend / weigh-ins).
+- **Year wrapped**; import for a year; programs complete; head-to-head week.
+- Richer **share card family** (month / PR) beyond 3.3 week + medal share.
+- Friends empty states / board naming if not finished in 3.3.
 
 ## Later
 
 - Offline-capable medal once offline logging is real.
 - Night/dawn medals only if local log time exists (not just calendar date).
 - Grow live medals only as features land — roadmap ideas stay in `ACHIEVEMENT_ROADMAP` inside `packages/shared/achievements.ts`, not as fake locked UI.
+- Opt-in calisthenics analytics tab; bodyweight day-card collapse after log.
+- **v4 candidate:** native Expo client for integrations (Health, widgets, etc.) — web/PWA remains 3.x.
 
 ## Guardrails (stable)
 
