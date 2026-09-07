@@ -16,7 +16,7 @@
     "test": "npm run test --workspaces --if-present && npm run test:rules",
     "test:rules": "node scripts/with-java.cjs npx --yes firebase-tools@13.35.1 emulators:exec --only firestore --project demo-liftledger \"npm run test:rules -w @liftledger/shared\"",
     "test:e2e": "node scripts/with-java.cjs node scripts/run-e2e.cjs",
-    "playwright:install": "npm run playwright:install -w liftledger-web",
+    "generate:pwa": "node scripts/generate-pwa-assets.mjs",
     "prepare": "husky",
     "lint": "pnpm --filter '*' lint",
     "typecheck": "pnpm --filter '*' type-check",

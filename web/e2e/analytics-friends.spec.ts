@@ -17,10 +17,26 @@ test.describe("analytics and friends", () => {
   test("PWA manifest is served and a service worker registers", async ({ page, request }) => {
     const res = await request.get("/manifest.json");
     expect(res.ok()).toBeTruthy();
-    const manifest = (await res.json()) as { name: string; display: string; start_url: string };
+    const manifest = (await res.json()) as {
+      name: string;
+      display: string;
+      start_url: string;
+      icons: { src: string; sizes: string; purpose?: string }[];
+    };
     expect(manifest.name).toBe("LiftLedger");
     expect(manifest.display).toBe("standalone");
     expect(manifest.start_url).toBe("/day/today");
+    expect(manifest.icons.some((icon) => icon.purpose === "maskable" && icon.src.includes("maskable"))).toBeTruthy();
+
+    const iconRes = await request.get("/icon-512.png");
+    expect(iconRes.ok()).toBeTruthy();
+    const iconBytes = Buffer.from(await iconRes.body());
+    expect(iconBytes.readUInt32BE(16)).toBe(512);
+    expect(iconBytes.readUInt32BE(20)).toBe(512);
+
+    const offline = await request.get("/offline.html");
+    expect(offline.ok()).toBeTruthy();
+    expect(await offline.text()).toContain("You are offline");
 
     await page.goto("/day/today");
     await expect(page.getByLabel("More for this day")).toBeVisible({ timeout: 30_000 });

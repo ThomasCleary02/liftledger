@@ -13,7 +13,7 @@ import { SafeAreaInsets } from "../components/SafeAreaInsets";
 import { ThemeSync } from "../components/ThemeSync";
 import { EmulatorBanner } from "../components/EmulatorBanner";
 import Script from "next/script";
-import React from "react";
+import { IOS_STARTUP_IMAGES } from "../lib/iosSplash";
 
 const plexSans = IBM_Plex_Sans({
   subsets: ["latin"],
@@ -69,6 +69,7 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: "black-translucent",
     title: "LiftLedger",
+    startupImage: [...IOS_STARTUP_IMAGES],
   },
 };
 
