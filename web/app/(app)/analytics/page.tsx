@@ -38,7 +38,7 @@ import { format, startOfWeek, eachDayOfInterval, addDays } from "date-fns";
 import { logger } from "../../../lib/logger";
 import { toast } from "../../../lib/toast";
 import { getAccountSummary } from "../../../lib/firestore/account";
-import { CARDIO_ACTIVITY_LABELS, cardioPaceKind, type CardioActivityType, splitExerciseDisplay } from "@liftledger/shared";
+import { CARDIO_ACTIVITY_LABELS, cardioPaceKind, type CardioActivityType } from "@liftledger/shared";
 import { ExerciseNameLabel } from "../../../components/ExerciseNameLabel";
 import { downloadWeekSharePng } from "../../../lib/shareWeekPng";
 import { peekCatalog, peekDaysArray, daysListIsComplete } from "../../../lib/sessionCache";
@@ -299,12 +299,7 @@ export default function Analytics() {
                 <OverviewView summary={summary} allDays={days} username={username} />
               )}
               {activeTab === "strength" && (
-                <StrengthView
-                  days={filteredDays}
-                  exercises={exercises}
-                  timePeriod={timePeriod}
-                  trackedExerciseIds={trackedExerciseIds}
-                />
+                <StrengthView days={filteredDays} exercises={exercises} timePeriod={timePeriod} />
               )}
               {activeTab === "cardio" && (
                 <CardioView days={filteredDays} timePeriod={timePeriod} />
@@ -464,36 +459,30 @@ function StrengthView({
   days,
   exercises,
   timePeriod,
-  trackedExerciseIds,
 }: {
   days: Day[];
   exercises: Map<string, ExerciseDoc>;
   timePeriod: TimePeriod;
-  trackedExerciseIds: string[];
 }) {
   const strengthAnalytics = useMemo(
     () => getStrengthAnalytics(days, exercises, timePeriod),
     [days, exercises, timePeriod]
   );
   const { units } = usePreferences();
-  const liftOptions = useMemo(() => {
-    const freq = strengthAnalytics.exercisesByFrequency;
-    const tracked = trackedExerciseIds
-      .map((id) => freq.find((ex) => ex.exerciseId === id))
-      .filter(Boolean) as typeof freq;
-    const options = (tracked.length > 0 ? tracked : freq).slice(0, 8);
-    return options;
-  }, [strengthAnalytics.exercisesByFrequency, trackedExerciseIds]);
-  const [selectedLiftId, setSelectedLiftId] = useState<string>("");
-  const activeLiftId = liftOptions.some((ex) => ex.exerciseId === selectedLiftId)
-    ? selectedLiftId
-    : liftOptions[0]?.exerciseId || "";
-  const liftProgress = useMemo(
-    () => (activeLiftId ? getLiftProgress(days, activeLiftId) : null),
-    [days, activeLiftId]
-  );
+  const lifts = strengthAnalytics.exercisesByFrequency;
+  const PREVIEW = 10;
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
 
-  if (strengthAnalytics.totalVolume === 0 && strengthAnalytics.exercisesByFrequency.length === 0) {
+  useEffect(() => {
+    setExpandedId(null);
+    setShowAll(false);
+  }, [timePeriod]);
+
+  const visibleLifts = showAll || lifts.length <= PREVIEW ? lifts : lifts.slice(0, PREVIEW);
+  const hiddenCount = lifts.length - visibleLifts.length;
+
+  if (strengthAnalytics.totalVolume === 0 && lifts.length === 0) {
     return (
       <div className="rounded-md border border-gray-100 bg-white p-12 text-center shadow-sm">
         <Dumbbell className="mx-auto mb-3 h-12 w-12 text-gray-300" />
@@ -503,70 +492,115 @@ function StrengthView({
     );
   }
 
-  const delta = liftProgress?.delta;
-  const lastDay =
-    liftProgress?.last?.dayId.includes("_")
-      ? liftProgress.last.dayId.slice(liftProgress.last.dayId.indexOf("_") + 1)
-      : liftProgress?.last?.date;
-
   return (
     <div className="space-y-6">
       <div className="rounded-md border border-gray-100 bg-white p-5 shadow-sm">
         <StatRow label="Volume" value={formatWeight(strengthAnalytics.totalVolume, units)} />
+        <StatRow
+          label="Lifts"
+          value={`${lifts.length} exercise${lifts.length === 1 ? "" : "s"}`}
+        />
       </div>
 
-      {liftOptions.length > 0 && (
-        <div>
-          <h2 className="mb-3 text-lg font-semibold text-gray-700">Lifts</h2>
-          {liftOptions.length > 1 && (
-            <div className="mb-4 flex flex-wrap gap-2">
-              {liftOptions.map((ex) => {
-                const display = splitExerciseDisplay(ex.name);
-                return (
-                  <TypeChip
-                    key={ex.exerciseId}
-                    label={display.tag ? `${display.title} · ${display.tag}` : display.title}
-                    selected={ex.exerciseId === activeLiftId}
-                    onClick={() => setSelectedLiftId(ex.exerciseId)}
-                  />
-                );
-              })}
-            </div>
-          )}
-          {liftProgress?.last && (
-            <div className="rounded-md border border-gray-100 bg-white p-5 shadow-sm">
-              <div className="mb-3 flex items-end justify-between gap-3">
-                <div>
-                  <p className="text-sm text-gray-500">
-                    <ExerciseNameLabel name={liftProgress.name} />
-                  </p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {formatWeight(liftProgress.last.weight, units)}
-                  </p>
-                  <p className="text-sm text-gray-500">Last working set</p>
-                </div>
-                {delta != null && (
-                  <p
-                    className={`text-sm font-semibold ${
-                      delta > 0 ? "text-success-fg" : delta < 0 ? "text-gray-700" : "text-gray-500"
-                    }`}
-                  >
-                    {delta > 0 ? "+" : ""}
-                    {formatWeight(Math.abs(delta), units)}
-                    {delta === 0 ? " same" : delta > 0 ? " vs last" : " vs last"}
-                  </p>
+      <div>
+        <h2 className="mb-1 text-lg font-semibold text-gray-700">In this period</h2>
+        <p className="mb-3 text-sm text-gray-500">Most logged first. Tap a row for the trend.</p>
+        <div className="overflow-hidden rounded-md border border-gray-100 bg-white shadow-sm">
+          {visibleLifts.map((exercise, idx) => {
+            const isOpen = expandedId === exercise.exerciseId;
+            const progress = isOpen ? getLiftProgress(days, exercise.exerciseId) : null;
+            const delta = progress?.delta;
+            const lastDay =
+              progress?.last?.dayId.includes("_")
+                ? progress.last.dayId.slice(progress.last.dayId.indexOf("_") + 1)
+                : progress?.last?.date;
+
+            return (
+              <div
+                key={exercise.exerciseId}
+                className={idx < visibleLifts.length - 1 ? "border-b border-gray-100" : ""}
+              >
+                <button
+                  type="button"
+                  onClick={() =>
+                    setExpandedId((prev) => (prev === exercise.exerciseId ? null : exercise.exerciseId))
+                  }
+                  className="flex w-full items-center justify-between px-5 py-4 text-left hover:bg-gray-50"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-gray-900">
+                      <ExerciseNameLabel name={exercise.name} />
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      {exercise.count} session{exercise.count === 1 ? "" : "s"}
+                    </p>
+                  </div>
+                  <div className="ml-3 text-right">
+                    <p className="text-lg font-bold tabular-nums text-gray-900">
+                      {formatWeight(exercise.maxWeight, units)}
+                    </p>
+                    <p className="text-xs text-gray-400">Best in period</p>
+                  </div>
+                </button>
+                {isOpen && progress?.last && (
+                  <div className="border-t border-gray-50 bg-gray-50 px-5 py-4">
+                    <div className="mb-3 flex items-end justify-between gap-3">
+                      <div>
+                        <p className="text-2xl font-bold tabular-nums text-gray-900">
+                          {formatWeight(progress.last.weight, units)}
+                        </p>
+                        <p className="text-sm text-gray-500">Last working set</p>
+                      </div>
+                      {delta != null && (
+                        <p
+                          className={`text-sm font-semibold ${
+                            delta > 0 ? "text-success-fg" : delta < 0 ? "text-gray-700" : "text-gray-500"
+                          }`}
+                        >
+                          {delta > 0 ? "+" : ""}
+                          {formatWeight(Math.abs(delta), units)}
+                          {delta === 0 ? " same" : " vs prior session"}
+                        </p>
+                      )}
+                    </div>
+                    <WeightSparkline points={progress.points.map((point) => point.weight)} />
+                    {lastDay && (
+                      <Link
+                        href={`/day/${lastDay}`}
+                        prefetch
+                        className="mt-3 inline-block text-sm font-semibold text-gray-800"
+                      >
+                        Open that day
+                      </Link>
+                    )}
+                  </div>
                 )}
               </div>
-              <WeightSparkline points={liftProgress.points.map((point) => point.weight)} />
-              {lastDay && (
-                <Link href={`/day/${lastDay}`} prefetch className="mt-3 inline-block text-sm font-semibold text-gray-800">
-                  Open that day
-                </Link>
-              )}
-            </div>
+            );
+          })}
+          {hiddenCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowAll(true)}
+              className="w-full border-t border-gray-100 px-5 py-3 text-sm font-semibold text-gray-800 hover:bg-gray-50"
+            >
+              Show {hiddenCount} more
+            </button>
+          )}
+          {showAll && lifts.length > PREVIEW && (
+            <button
+              type="button"
+              onClick={() => {
+                setShowAll(false);
+                setExpandedId(null);
+              }}
+              className="w-full border-t border-gray-100 px-5 py-3 text-sm font-semibold text-gray-800 hover:bg-gray-50"
+            >
+              Show less
+            </button>
           )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -868,11 +902,11 @@ function PRsView({ prs, trackingEmpty }: { prs: ExercisePR[]; trackingEmpty: boo
     <div className="space-y-6">
       {trackingEmpty && prs.length > 0 && (
         <p className="rounded-md border border-gray-100 bg-white px-4 py-3 text-sm text-gray-600">
-          Showing every lift.{" "}
+          Showing every lift with a best.{" "}
           <Link href="/settings" className="font-semibold text-gray-900">
-            Track a shorter list
+            My exercises
           </Link>{" "}
-          in My exercises.
+          can shorten this list — it does not change Strength or Cardio.
         </p>
       )}
       {prs.length === 0 ? (
