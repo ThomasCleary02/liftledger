@@ -1163,7 +1163,11 @@ export default function DayView() {
   }
 
   if (!user) {
-    return null;
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <div className="spinner" />
+      </div>
+    );
   }
 
   const visibleDay = day && day.date === currentDate ? day : null;

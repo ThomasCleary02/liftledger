@@ -108,7 +108,7 @@ export function FullScreenSheet({
       aria-modal="true"
       aria-label={title}
       aria-labelledby={titleId}
-      className="fixed z-[100] flex flex-col overflow-hidden bg-white"
+      className="fixed z-[100] flex flex-col overflow-hidden bg-gray-50"
       style={{
         top: 0,
         left: 0,

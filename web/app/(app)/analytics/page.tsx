@@ -204,11 +204,11 @@ export default function Analytics() {
                   onClick={() => setActiveTab(tab.id)}
                   aria-current={isActive ? "page" : undefined}
                   className={`flex flex-1 flex-col items-center gap-1 border-b-2 py-4 transition-colors ${
-                    isActive ? "border-black" : "border-transparent text-gray-500"
+                    isActive ? "border-brand text-gray-900" : "border-transparent text-gray-500"
                   }`}
                 >
-                  <Icon className={`h-5 w-5 ${isActive ? "text-black" : ""}`} />
-                  <span className={`text-xs font-semibold ${isActive ? "text-black" : ""}`}>
+                  <Icon className={`h-5 w-5 ${isActive ? "text-gray-900" : ""}`} />
+                  <span className={`text-xs font-semibold ${isActive ? "text-gray-900" : ""}`}>
                     {tab.label}
                   </span>
                 </button>
@@ -226,7 +226,7 @@ export default function Analytics() {
               <div className="spinner" />
             </div>
           ) : loadError ? (
-            <div className="rounded-2xl border border-gray-100 bg-white p-12 text-center shadow-sm">
+            <div className="rounded-md border border-gray-100 bg-white p-12 text-center shadow-sm">
               <h2 className="mb-2 text-2xl font-bold text-gray-900">Could not load analytics</h2>
               <p className="mb-6 text-gray-500">Check your connection and try again.</p>
               <button
@@ -349,7 +349,7 @@ function OverviewView({
         />
       </div>
 
-      <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+      <div className="rounded-md border border-gray-100 bg-white p-5 shadow-sm">
         <div className="mb-3 flex items-center justify-between">
           <p className="text-sm font-semibold text-gray-900">This week</p>
           <div className="flex items-center gap-3">
@@ -397,7 +397,7 @@ function OverviewView({
         </div>
       </div>
       {trackBodyweight && weighIns.length === 0 && (
-        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+        <div className="rounded-md border border-gray-100 bg-white p-5 shadow-sm">
           <p className="text-sm font-semibold text-gray-900">Bodyweight</p>
           <p className="mt-1 text-sm text-gray-500">
             Log a weigh-in on any day. Trends show up here after two readings.
@@ -405,7 +405,7 @@ function OverviewView({
         </div>
       )}
       {trackBodyweight && weighIns.length > 0 && (
-        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+        <div className="rounded-md border border-gray-100 bg-white p-5 shadow-sm">
           <div className="mb-3 flex items-end justify-between gap-3">
             <div>
               <p className="text-sm text-gray-500">Bodyweight</p>
@@ -426,7 +426,7 @@ function OverviewView({
         </div>
       )}
       {summary.favoriteExercise && (
-        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+        <div className="rounded-md border border-gray-100 bg-white p-5 shadow-sm">
           <div className="flex items-center">
             <div className="mr-3 rounded-full bg-gray-100 p-2">
               <Star className="h-5 w-5 text-yellow-500" />
@@ -440,7 +440,7 @@ function OverviewView({
       )}
 
       {/* Quick Stats */}
-      <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+      <div className="rounded-md border border-gray-100 bg-white p-5 shadow-sm">
         <StatRow label="Total Volume" value={formatWeight(summary.totalVolume, units)} />
         <StatRow label="Cardio time" value={formatCardioDuration(summary.totalCardioDuration)} />
         {cardioBreakdown.length > 0 && (
@@ -476,7 +476,7 @@ function StrengthView({
 
   if (strengthAnalytics.totalVolume === 0 && strengthAnalytics.exercisesByFrequency.length === 0) {
     return (
-      <div className="rounded-2xl border border-gray-100 bg-white p-12 text-center shadow-sm">
+      <div className="rounded-md border border-gray-100 bg-white p-12 text-center shadow-sm">
         <Dumbbell className="mx-auto mb-3 h-12 w-12 text-gray-300" />
         <p className="font-medium text-gray-900">No strength work in this period</p>
         <p className="mt-1 text-sm text-gray-500">Log barbell or machine sets to see volume here.</p>
@@ -515,7 +515,7 @@ function StrengthView({
       {strengthAnalytics.exercisesByFrequency.length > 0 && (
         <div>
           <h2 className="mb-4 text-xl font-bold text-gray-900">Most Performed Exercises</h2>
-          <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+          <div className="overflow-hidden rounded-md border border-gray-100 bg-white shadow-sm">
             {strengthAnalytics.exercisesByFrequency.slice(0, 10).map((exercise, idx) => (
               <div
                 key={idx}
@@ -547,7 +547,7 @@ function StrengthView({
       {strengthAnalytics.volumeByMuscleGroup.length > 0 && (
         <div>
           <h2 className="mb-4 text-xl font-bold text-gray-900">Volume by Muscle Group</h2>
-          <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+          <div className="rounded-md border border-gray-100 bg-white p-5 shadow-sm">
             {strengthAnalytics.volumeByMuscleGroup.map((group, idx) => {
               const totalVolume = strengthAnalytics.volumeByMuscleGroup.reduce(
                 (sum, g) => sum + g.volume,
@@ -601,7 +601,7 @@ function CardioView({
 
   if (cardioAnalytics.sessions === 0) {
     return (
-      <div className="rounded-2xl border border-gray-100 bg-white p-8 text-center shadow-sm">
+      <div className="rounded-md border border-gray-100 bg-white p-8 text-center shadow-sm">
         <Heart className="mx-auto mb-3 h-10 w-10 text-gray-300" />
         <p className="font-medium text-gray-900">No cardio in this period</p>
         <p className="mt-1 text-sm text-gray-500">
@@ -653,7 +653,7 @@ function CardioView({
 
           <div>
             <h2 className="mb-3 text-lg font-semibold text-gray-700">By type</h2>
-            <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+            <div className="overflow-hidden rounded-md border border-gray-100 bg-white shadow-sm">
               {types.map((t, idx) => (
                 <button
                   key={t.type}
@@ -775,7 +775,7 @@ function CardioTypeDetail({
 
       <div>
         <h2 className="mb-3 text-lg font-semibold text-gray-700">{label} records</h2>
-        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+        <div className="rounded-md border border-gray-100 bg-white p-5 shadow-sm">
           <StatRow label="Longest time" value={formatCardioDuration(stats.longestDuration)} />
           {stats.longestDistance > 0 && (
             <StatRow label="Longest distance" value={formatDistance(stats.longestDistance, units)} />
@@ -788,7 +788,7 @@ function CardioTypeDetail({
       {stats.exercises.length > 0 && (
         <div>
           <h2 className="mb-3 text-lg font-semibold text-gray-700">Exercises</h2>
-          <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+          <div className="overflow-hidden rounded-md border border-gray-100 bg-white shadow-sm">
             {stats.exercises.map((exercise, idx) => (
               <div
                 key={exercise.exerciseId}
@@ -888,7 +888,7 @@ function PRsView({ prs, trackedExerciseIds }: { prs: ExercisePR[]; trackedExerci
           </div>
           <h2 className="text-xl font-bold text-gray-900">{title}</h2>
         </div>
-        <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+        <div className="overflow-hidden rounded-md border border-gray-100 bg-white shadow-sm">
           {sectionPRs.slice(0, 15).map((pr, idx) => {
             const dateStr = getDateFromDayId(pr.dayId);
             return (
@@ -973,7 +973,7 @@ function StatCard({
   color: string;
 }) {
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+    <div className="rounded-md border border-gray-100 bg-white p-4 shadow-sm">
       <div className={`mb-3 flex h-12 w-12 items-center justify-center rounded-full ${color}`}>
         <Icon className="h-6 w-6" />
       </div>

@@ -400,7 +400,7 @@ export function createAccountService(db: Firestore, auth: Auth) {
       const empty: AchievementProgress = {
         earned: {},
         featuredIds: [],
-        stats: { currentStreak: 0, longestStreak: 0, loggedDays: 0 },
+        stats: { currentStreak: 0, longestStreak: 0, loggedDays: 0, volumeLbs: 0 },
       };
       try {
         const snap = await getDoc(doc(db, ACCOUNTS_COLLECTION, userId));
@@ -425,7 +425,7 @@ export function createAccountService(db: Firestore, auth: Auth) {
       const empty: AchievementProgress = {
         earned: {},
         featuredIds: [],
-        stats: { currentStreak: 0, longestStreak: 0, loggedDays: 0 },
+        stats: { currentStreak: 0, longestStreak: 0, loggedDays: 0, volumeLbs: 0 },
       };
       if (!user) return empty;
       const snap = await getDoc(doc(db, ACCOUNTS_COLLECTION, user.uid));

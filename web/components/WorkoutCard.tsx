@@ -109,7 +109,7 @@ export default function WorkoutCard({
     <div
       onClick={handleClick}
       onContextMenu={handleContextMenu}
-      className="mb-4 cursor-pointer rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-all hover:shadow-md active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-brand"
+      className="mb-4 cursor-pointer rounded-md border border-gray-100 bg-white p-5 shadow-sm transition-all hover:shadow-md active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-brand"
       role="button"
       tabIndex={0}
       onKeyDown={(e) => {

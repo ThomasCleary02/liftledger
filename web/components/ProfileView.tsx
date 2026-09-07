@@ -1,47 +1,65 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { ACHIEVEMENT_BY_ID, ACHIEVEMENT_CATALOG, MAX_FEATURED_ACHIEVEMENTS, type AchievementProgress } from "@liftledger/shared";
 import { Avatar } from "./Avatar";
 import { AchievementGrid, AchievementMedal } from "./AchievementGrid";
+
+function compactNumber(value: number): string {
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(value >= 10_000_000 ? 0 : 1).replace(/\.0$/, "")}M`;
+  if (value >= 10_000) return `${Math.round(value / 1000)}k`;
+  if (value >= 1000) return `${(value / 1000).toFixed(1).replace(/\.0$/, "")}k`;
+  return String(value);
+}
 
 export function ProfileHero({
   username,
   photoURL,
   stats,
   preview,
+  busyPhoto,
+  cameraSlot,
 }: {
   username: string | null;
   photoURL: string | null;
   stats: AchievementProgress["stats"];
   preview?: boolean;
+  busyPhoto?: boolean;
+  cameraSlot?: ReactNode;
 }) {
   return (
-    <div className="px-1">
-      {preview && (
-        <p className="mb-3 rounded-full bg-gray-100 px-3 py-1 text-center text-xs font-semibold uppercase tracking-wide text-gray-600">
-          Preview as a friend
-        </p>
-      )}
-      <div className="flex items-center gap-6">
-        <Avatar name={username} photoURL={photoURL} size={92} />
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-xl font-semibold text-gray-900">{username ? `@${username.replace(/^@/, "")}` : "Set a username"}</p>
-          <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-            <Stat value={stats.loggedDays} label="Days" />
-            <Stat value={stats.currentStreak} label="Streak" />
-            <Stat value={stats.longestStreak} label="Best" />
+    <div className="relative overflow-hidden rounded-md border border-gray-200 bg-white p-5 shadow-[0_1px_0_rgb(20_83_45/0.14)]">
+      <div className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(to_bottom,transparent,transparent_31px,rgb(20_83_45/0.08)_31px,rgb(20_83_45/0.08)_32px)] dark:bg-[repeating-linear-gradient(to_bottom,transparent,transparent_31px,rgb(125_186_138/0.12)_31px,rgb(125_186_138/0.12)_32px)]" />
+      <div className="relative">
+        {preview && <p className="kicker mb-4">Friend view</p>}
+        <div className="flex items-center gap-4">
+          <div className="relative flex-shrink-0">
+            <Avatar name={username} photoURL={photoURL} size={88} busy={busyPhoto} />
+            {cameraSlot}
+          </div>
+          <div className="min-w-0">
+            <p className="kicker mb-1">Athlete</p>
+            <p className="truncate font-mono text-xl font-semibold tracking-tight text-gray-900">
+              {username ? `@${username.replace(/^@/, "")}` : "set-username"}
+            </p>
           </div>
         </div>
+        <dl className="mt-5 space-y-2 font-mono text-sm">
+          <LedgerRow label="Sessions" value={String(stats.loggedDays)} />
+          <LedgerRow label="Streak" value={`${stats.currentStreak}d`} />
+          <LedgerRow label="Best streak" value={`${stats.longestStreak}d`} />
+          <LedgerRow label="Volume" value={`${compactNumber(stats.volumeLbs)} lb`} accent />
+        </dl>
       </div>
     </div>
   );
 }
 
-function Stat({ value, label }: { value: number; label: string }) {
+function LedgerRow({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
-    <div>
-      <p className="text-lg font-semibold tabular-nums text-gray-900">{value}</p>
-      <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500">{label}</p>
+    <div className={`flex items-baseline justify-between gap-4 ${accent ? "border-t border-dashed border-gray-200 pt-2" : ""}`}>
+      <dt className="text-gray-500">{label}</dt>
+      <dd className={`font-semibold tabular-nums ${accent ? "text-brand" : "text-gray-900"}`}>{value}</dd>
     </div>
   );
 }
@@ -50,14 +68,18 @@ export function FeaturedRow({
   featuredIds,
   earned,
   onSelect,
+  emptyHint,
 }: {
   featuredIds: string[];
   earned: AchievementProgress["earned"];
   onSelect: (id: string) => void;
+  emptyHint?: string;
 }) {
-  if (featuredIds.length === 0) return null;
+  if (featuredIds.length === 0) {
+    return emptyHint ? <p className="text-sm text-gray-500">{emptyHint}</p> : null;
+  }
   return (
-    <div className="flex gap-4 overflow-x-auto pb-1">
+    <div className="flex gap-4 overflow-x-auto px-1 pb-3 pt-3">
       {featuredIds.map((id) => {
         const def = ACHIEVEMENT_BY_ID[id];
         if (!def) return null;
@@ -71,34 +93,21 @@ export function FeaturedRow({
   );
 }
 
-export function ProfileAchievements({
+export function MedalCollection({
   progress,
-  publicView,
   onSelect,
 }: {
   progress: AchievementProgress;
-  publicView: boolean;
   onSelect: (id: string) => void;
 }) {
-  const items = publicView
-    ? ACHIEVEMENT_CATALOG.filter((item) => progress.earned[item.id])
-    : ACHIEVEMENT_CATALOG;
-  if (publicView && items.length === 0) {
-    return <p className="py-10 text-center text-sm text-gray-500">No badges on this profile yet.</p>;
-  }
+  const unlocked = ACHIEVEMENT_CATALOG.filter((item) => progress.earned[item.id]).length;
   return (
     <div>
-      {!publicView && (
-        <p className="mb-4 text-sm text-gray-500">
-          Tap a badge you have earned to pin it up top. {MAX_FEATURED_ACHIEVEMENTS} max.
-        </p>
-      )}
-      <AchievementGrid
-        items={items}
-        earned={progress.earned}
-        featuredIds={progress.featuredIds}
-        onSelect={onSelect}
-      />
+      <p className="kicker mb-2">The case</p>
+      <p className="mb-6 text-sm text-gray-500">
+        {unlocked} of {ACHIEVEMENT_CATALOG.length} earned. Pin {MAX_FEATURED_ACHIEVEMENTS} on the ledger.
+      </p>
+      <AchievementGrid items={ACHIEVEMENT_CATALOG} earned={progress.earned} featuredIds={progress.featuredIds} onSelect={onSelect} />
     </div>
   );
 }

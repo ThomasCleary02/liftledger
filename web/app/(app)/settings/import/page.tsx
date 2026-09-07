@@ -267,7 +267,7 @@ export default function ImportSettings() {
       <main className="flex-1 overflow-y-auto">
         <div className="container mx-auto max-w-4xl space-y-6 px-4 py-6 md:px-8">
           {lastImport && (
-            <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <section className="rounded-md border border-gray-200 bg-white p-5 shadow-sm">
               <p className="font-semibold text-gray-900">Undo last import</p>
               <p className="mt-1 text-sm text-gray-500">
                 Removes sets tagged from {lastImport.dates.length} day{lastImport.dates.length === 1 ? "" : "s"}.
@@ -285,7 +285,7 @@ export default function ImportSettings() {
           )}
           {tab === "file" && (
             <>
-              <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+              <section className="rounded-md border border-gray-100 bg-white p-5 shadow-sm">
                 <p className="mb-3 text-sm text-gray-600">
                   Export CSV from Strong or Hevy, or upload a LiftLedger export. Parsing stays on this device.
                 </p>
@@ -299,7 +299,7 @@ export default function ImportSettings() {
 
               {preview && (
                 <>
-                  <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
+                  <section className="rounded-md border border-amber-200 bg-amber-50 p-5">
                     <p className="font-semibold text-amber-900">Confirm units before saving</p>
                     <p className="mt-1 text-sm text-amber-800">
                       Strong files often omit the unit. A wrong choice writes every set at the wrong weight.
@@ -357,7 +357,7 @@ export default function ImportSettings() {
                   </section>
 
                   {preview.format === "unknown" && mapping && (
-                    <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+                    <section className="rounded-md border border-gray-100 bg-white p-5 shadow-sm">
                       <p className="mb-3 font-semibold text-gray-900">Match columns</p>
                       <div className="grid gap-3 sm:grid-cols-2">
                         {(
@@ -409,7 +409,7 @@ export default function ImportSettings() {
                       </div>
                       <button
                         type="button"
-                        className="mt-4 rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white"
+                        className="btn-primary mt-4 min-h-[48px] px-4 text-sm"
                         onClick={() => {
                           if (!mapping) return;
                           rebuildPreview(fileText, mapping, dateOrder);
@@ -424,7 +424,7 @@ export default function ImportSettings() {
                     </section>
                   )}
 
-                  <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+                  <section className="rounded-md border border-gray-100 bg-white p-5 shadow-sm">
                     <p className="font-semibold text-gray-900">
                       {preview.format === "unknown" ? "Spreadsheet" : preview.format} · {preview.dayCount} days ·{" "}
                       {preview.setCount} sets
@@ -511,7 +511,7 @@ export default function ImportSettings() {
           )}
 
           {tab === "paste" && (
-            <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm space-y-3">
+            <section className="rounded-md border border-gray-100 bg-white p-5 shadow-sm space-y-3">
               <p className="text-sm text-gray-600">
                 One exercise per line. Examples:{" "}
                 {weightUnit === "kg" ? (
@@ -592,7 +592,7 @@ export default function ImportSettings() {
                 Starter loads are example pounds. Edit the weights after you add the day.
               </p>
               {STARTER_PROGRAMS.map((program) => (
-                <div key={program.id} className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+                <div key={program.id} className="rounded-md border border-gray-100 bg-white p-5 shadow-sm">
                   <p className="font-semibold text-gray-900">{program.name}</p>
                   <p className="mt-1 text-sm text-gray-500">{program.description}</p>
                   <p className="mt-2 text-sm text-gray-700">

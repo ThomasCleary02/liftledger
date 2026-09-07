@@ -192,7 +192,7 @@ export default function Friends() {
           <div className="mx-auto max-w-4xl">
             <p className="kicker mb-1">The roster</p>
             <h1 className="mb-2 text-2xl font-semibold text-gray-900 md:text-3xl">Friends</h1>
-            <p className="text-sm text-gray-500">Connect with friends and compete</p>
+            <p className="text-sm text-gray-500">Handles and medals. No feed.</p>
           </div>
         </div>
       </header>
@@ -206,7 +206,7 @@ export default function Friends() {
               <Link
                 href="/friends/leaderboards"
                 prefetch
-                className="block w-full rounded-2xl border border-brand/20 bg-brand p-5 text-left shadow-sm transition-opacity hover:opacity-90"
+                className="block w-full rounded-md border border-brand/25 bg-brand p-5 text-left shadow-[0_1px_0_rgb(20_83_45/0.18)] transition-opacity hover:opacity-90"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -234,10 +234,8 @@ export default function Friends() {
             {/* Pending Requests - Incoming */}
             {incomingRequests.length > 0 && (
               <section>
-                <h2 className="mb-3 text-lg font-semibold text-gray-900">
-                  Friend Requests ({incomingRequests.length})
-                </h2>
-                <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+                <h2 className="kicker mb-3">Incoming</h2>
+                <div className="overflow-hidden rounded-md border border-gray-200 bg-white shadow-[0_1px_0_rgb(20_83_45/0.08)]">
                   {incomingRequests.map((request) => (
                     <div
                       key={request.id}
@@ -281,10 +279,8 @@ export default function Friends() {
             {/* Pending Requests - Outgoing */}
             {outgoingRequests.length > 0 && (
               <section>
-                <h2 className="mb-3 text-lg font-semibold text-gray-900">
-                  Sent Requests ({outgoingRequests.length})
-                </h2>
-                <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+                <h2 className="kicker mb-3">Outgoing</h2>
+                <div className="overflow-hidden rounded-md border border-gray-200 bg-white shadow-[0_1px_0_rgb(20_83_45/0.08)]">
                   {outgoingRequests.map((request) => (
                     <div
                       key={request.id}
@@ -318,11 +314,12 @@ export default function Friends() {
 
             {/* Send Friend Request Section */}
             <section>
-              <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-                <h2 className="mb-3 text-lg font-semibold text-gray-900">Send Friend Request</h2>
-                <p className="mb-3 text-sm text-gray-500">Use the username they picked at signup.</p>
-                <div className="flex gap-2">
-                  <div className="flex-1 relative">
+              <div className="rounded-md border border-gray-200 bg-white p-5 shadow-[0_1px_0_rgb(20_83_45/0.08)]">
+                <p className="kicker">Add by handle</p>
+                <h2 className="mb-1 text-lg font-semibold text-gray-900">Send a request</h2>
+                <p className="mb-4 text-sm text-gray-500">The username they set on their account. Not email.</p>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <div className="relative flex-1">
                     <User className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
                     <input
                       type="text"
@@ -330,8 +327,8 @@ export default function Friends() {
                       autoCorrect="off"
                       value={emailInput}
                       onChange={(e) => setEmailInput(e.target.value)}
-                      placeholder="Username"
-                      className="w-full rounded-lg border border-gray-200 bg-gray-50 pl-10 pr-4 py-3 text-base outline-none focus:border-brand focus:bg-white"
+                      placeholder="username"
+                      className="w-full rounded-md border border-gray-300 bg-white py-3 pl-10 pr-4 text-base text-gray-900 outline-none focus:border-brand focus:ring-1 focus:ring-brand"
                       disabled={sendingRequest}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && !sendingRequest && emailInput.trim()) {
@@ -343,10 +340,10 @@ export default function Friends() {
                   <button
                     onClick={handleSendFriendRequest}
                     disabled={sendingRequest || !emailInput.trim()}
-                    className="btn-primary flex items-center gap-2 px-6"
+                    className="btn-primary flex min-h-[48px] items-center justify-center gap-2 px-6"
                   >
                     {sendingRequest ? (
-                      <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                      <div className="h-5 w-5 animate-spin rounded-full border-2 border-brand-fg border-t-transparent"></div>
                     ) : (
                       <>
                         <Plus className="h-5 w-5" />
@@ -360,18 +357,16 @@ export default function Friends() {
 
             {/* Friends List */}
             <section>
-              <h2 className="mb-3 text-lg font-semibold text-gray-900">
-                My Friends ({friends.length})
-              </h2>
+              <h2 className="kicker mb-3">Roster ({friends.length})</h2>
               {friends.length === 0 ? (
-                <div className="rounded-2xl border border-gray-100 bg-white p-12 text-center shadow-sm">
+                <div className="rounded-md border border-gray-200 bg-white p-12 text-center shadow-[0_1px_0_rgb(20_83_45/0.08)]">
                   <Users className="mx-auto h-12 w-12 text-gray-300" />
                   <p className="mt-4 text-gray-500">
                     No friends yet. Add someone by username.
                   </p>
                 </div>
               ) : (
-                <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+                <div className="overflow-hidden rounded-md border border-gray-200 bg-white shadow-[0_1px_0_rgb(20_83_45/0.08)]">
                   {friends.map((friend) => {
                     const friendUserId = friendIdOf(friend);
                     return (

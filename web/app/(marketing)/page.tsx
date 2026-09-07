@@ -41,7 +41,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gray-50">
       <section className="relative overflow-hidden px-4 py-16 md:py-24">
-        <div className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(to_bottom,transparent,transparent_31px,rgb(20_83_45/0.10)_31px,rgb(20_83_45/0.10)_32px)]" />
+        <div className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(to_bottom,transparent,transparent_31px,rgb(20_83_45/0.10)_31px,rgb(20_83_45/0.10)_32px)] dark:bg-[repeating-linear-gradient(to_bottom,transparent,transparent_31px,rgb(125_186_138/0.12)_31px,rgb(125_186_138/0.12)_32px)]" />
         <div className="relative mx-auto grid w-full max-w-7xl items-center gap-12 lg:grid-cols-2">
           <div>
             <p className="kicker mb-4">Workout log · PWA</p>
@@ -231,7 +231,7 @@ export default function Home() {
             <h2 className="mb-4 text-4xl font-semibold text-white md:text-5xl">
               Open today&apos;s entry
             </h2>
-            <p className="mb-8 text-lg text-gray-300 md:text-xl">
+            <p className="mb-8 text-lg text-brand-fg/80 md:text-xl">
               Import a log or start blank. Rest days keep the streak. Injured days stay honest.
             </p>
             <Link

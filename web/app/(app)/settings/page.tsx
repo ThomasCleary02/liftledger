@@ -360,14 +360,14 @@ export default function Settings() {
             <div className="mx-auto max-w-4xl">
               <p className="kicker mb-1">The office</p>
               <h1 className="mb-2 text-2xl font-semibold text-gray-900 md:text-3xl">Settings</h1>
-              <p className="text-sm text-gray-500">Manage your account and preferences</p>
+              <p className="text-sm text-gray-500">Units, templates, and the account ledger.</p>
             </div>
           </div>
         </header>
         <main className="flex-1 overflow-y-auto">
           <div className="container mx-auto space-y-4 px-4 py-6 md:max-w-4xl md:px-8">
-            <div className="h-24 animate-pulse rounded-2xl bg-gray-200" />
-            <div className="h-64 animate-pulse rounded-2xl bg-gray-200" />
+            <div className="h-24 animate-pulse rounded-md bg-gray-200" />
+            <div className="h-64 animate-pulse rounded-md bg-gray-200" />
           </div>
         </main>
       </div>
@@ -382,7 +382,7 @@ export default function Settings() {
         <div className="mx-auto max-w-4xl">
           <p className="kicker mb-1">The office</p>
           <h1 className="mb-2 text-2xl font-semibold text-gray-900 md:text-3xl">Settings</h1>
-          <p className="text-sm text-gray-500">Manage your account and preferences</p>
+          <p className="text-sm text-gray-500">Units, templates, and the account ledger.</p>
           </div>
         </div>
       </header>
@@ -393,8 +393,8 @@ export default function Settings() {
         <div className="space-y-6">
           {/* Account Section */}
           <section>
-            <h2 className="mb-3 text-lg font-semibold text-gray-900">Account</h2>
-            <div className="rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden">
+            <h2 className="kicker mb-3">Account</h2>
+            <div className="overflow-hidden rounded-md border border-gray-200 bg-white shadow-[0_1px_0_rgb(20_83_45/0.08)]">
               <Link
                 href="/profile"
                 prefetch
@@ -406,7 +406,9 @@ export default function Settings() {
                 </div>
                   <div className="min-w-0 text-left">
                     <p className="font-semibold text-gray-900">Profile</p>
-                    <p className="truncate text-sm text-gray-500">Photo, badges, and preview</p>
+                    <p className="truncate font-mono text-sm text-gray-500">
+                      {profileName ? `@${profileName.replace(/^@/, "")}` : "Photo, medals, preview"}
+                    </p>
                 </div>
               </div>
                 <ChevronRight className="h-5 w-5 text-gray-400" />
@@ -418,8 +420,8 @@ export default function Settings() {
               >
               <div className="flex min-w-0 items-center">
                   <div className="min-w-0 text-left">
-                    <p className="font-semibold text-gray-900">Account Settings</p>
-                    <p className="truncate text-sm text-gray-500">Username, email, and bodyweight</p>
+                    <p className="font-semibold text-gray-900">Identity</p>
+                    <p className="truncate text-sm text-gray-500">Username, email, and scale weight</p>
                 </div>
               </div>
                 <ChevronRight className="h-5 w-5 text-gray-400" />
@@ -429,8 +431,8 @@ export default function Settings() {
 
           {/* Preferences Section */}
           <section>
-            <h2 className="mb-3 text-lg font-semibold text-gray-900">Preferences</h2>
-            <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+            <h2 className="kicker mb-3">Preferences</h2>
+            <div className="overflow-hidden rounded-md border border-gray-200 bg-white shadow-[0_1px_0_rgb(20_83_45/0.08)]">
               <SettingItem
                 icon={Scale}
                 title="Units"
@@ -542,8 +544,8 @@ export default function Settings() {
 
           {/* Session */}
           <section>
-            <h2 className="mb-3 text-lg font-semibold text-gray-900">Session</h2>
-            <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+            <h2 className="kicker mb-3">Session</h2>
+            <div className="overflow-hidden rounded-md border border-gray-200 bg-white shadow-[0_1px_0_rgb(20_83_45/0.08)]">
               <SettingItem
                 icon={LogOut}
                 title="Sign Out"
@@ -768,7 +770,7 @@ function ChoiceModal<T extends string | number>({
             key={String(option.value)}
             type="button"
             onClick={() => setSelected(option.value)}
-            className={`flex w-full items-center rounded-xl border-2 p-4 ${
+            className={`flex w-full items-center rounded-md border-2 p-4 ${
               selected === option.value ? "border-brand bg-brand/10" : "border-gray-200 bg-gray-50"
             }`}
           >
@@ -858,7 +860,7 @@ function TemplatesModal({
               {templates.map((template) => (
                 <div
                   key={template.id}
-                  className="flex items-center justify-between rounded-xl border border-gray-200 bg-gray-50 p-4"
+                  className="flex items-center justify-between rounded-md border border-gray-200 bg-gray-50 p-4"
                 >
                   <div className="flex-1">
                     <h3 className="font-semibold text-gray-900">{template.name}</h3>
@@ -1141,7 +1143,7 @@ function TemplateEditorModal({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g., Leg Day, Chest Day"
-              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-base outline-none focus:border-brand focus:bg-white"
+              className="w-full rounded-md border border-gray-200 bg-gray-50 px-4 py-3 text-base outline-none focus:border-brand focus:bg-white"
             />
           </div>
 
@@ -1155,7 +1157,7 @@ function TemplateEditorModal({
                 {exercises.map((ex, idx) => (
                   <div
                     key={idx}
-                    className="flex items-center justify-between rounded-xl border border-gray-200 bg-gray-50 p-4"
+                    className="flex items-center justify-between rounded-md border border-gray-200 bg-gray-50 p-4"
                   >
                     <div className="flex-1">
                       <h4 className="font-semibold text-gray-900">{ex.name}</h4>
@@ -1192,14 +1194,14 @@ function TemplateEditorModal({
                   placeholder="Search exercises..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="mb-4 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-base outline-none focus:border-brand focus:bg-white"
+                  className="mb-4 w-full rounded-md border border-gray-200 bg-gray-50 px-4 py-3 text-base outline-none focus:border-brand focus:bg-white"
                 />
                 <div className="max-h-60 overflow-y-auto space-y-2">
                   {filteredExercises.slice(0, 20).map((ex) => (
                     <button
                       key={ex.id}
                       onClick={() => handleExerciseSelect(ex.id, ex.name, ex.modality)}
-                      className="w-full text-left rounded-xl border border-gray-200 bg-white p-3 hover:border-brand hover:bg-brand/10"
+                      className="w-full rounded-md border border-gray-200 bg-white p-3 text-left hover:border-brand hover:bg-brand/10"
                     >
                       <p className="font-semibold text-gray-900">{ex.name}</p>
                       <p className="text-xs text-gray-500 capitalize">{ex.modality}</p>
@@ -1252,7 +1254,7 @@ function TemplateEditorModal({
                             newSets[i].reps = e.target.value;
                             setCalisthenicsSets(newSets);
                           }}
-                          className="flex-1 rounded-lg border border-gray-200 px-3 py-2"
+                          className="flex-1 rounded-md border border-gray-200 px-3 py-2 text-base"
                         />
                         <button
                           onClick={() => setCalisthenicsSets(calisthenicsSets.filter((_, idx) => idx !== i))}

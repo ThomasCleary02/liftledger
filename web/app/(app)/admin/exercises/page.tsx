@@ -90,7 +90,7 @@ export default function ExerciseAdmin() {
       {loading ? (
         <div className="text-center py-12">Loading...</div>
       ) : (
-        <div className="rounded-2xl border border-gray-200 bg-white">
+        <div className="rounded-md border border-gray-200 bg-white">
           <div className="max-h-[600px] overflow-y-auto">
             <table className="w-full">
               <thead className="sticky top-0 bg-gray-50 border-b">

@@ -95,7 +95,7 @@ export function MyExercisesModal({
                     selectedExercises.includes(exercise.id) ? "border-brand bg-brand/100" : "border-gray-300"
                   }`}
                 >
-                  {selectedExercises.includes(exercise.id) && <Check className="h-4 w-4 text-white" />}
+                  {selectedExercises.includes(exercise.id) && <Check className="h-4 w-4 text-brand-fg" />}
                 </div>
                 <div className="text-left">
                   <p className="font-semibold text-gray-900">{exercise.name}</p>

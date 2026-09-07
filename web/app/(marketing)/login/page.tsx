@@ -42,7 +42,7 @@ export default function Login() {
       <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12">
         <div className="w-full max-w-md">
           <div className="mx-auto mb-12 h-14 w-48 animate-pulse rounded-md bg-gray-200" />
-          <div className="h-80 animate-pulse rounded-3xl bg-white" />
+          <div className="h-80 animate-pulse rounded-md bg-white" />
         </div>
       </div>
     );
@@ -153,7 +153,7 @@ export default function Login() {
         </div>
 
         {/* Form Card */}
-        <div className="mb-6 rounded-3xl border border-gray-100 bg-white p-6 shadow-sm md:p-8">
+        <div className="mb-6 rounded-md border border-gray-200 bg-white p-6 shadow-[0_1px_0_rgb(20_83_45/0.08)] md:p-8">
           <h2 className="mb-1 text-2xl font-semibold text-gray-900">
             {mode === "login" ? "Welcome back" : "Open an account"}
           </h2>
@@ -331,7 +331,7 @@ export default function Login() {
             >
               <div className="flex items-center justify-center">
                 {loading && (
-                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-brand-fg border-t-transparent"></div>
                 )}
                 <span className="text-base font-bold">
                   {loading

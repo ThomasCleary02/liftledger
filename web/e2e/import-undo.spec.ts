@@ -49,7 +49,7 @@ test.describe("import, programs, and undo", () => {
     await expect(page.getByText("Push (PPL)")).toBeVisible({ timeout: 20_000 });
     await expect(page.getByLabel("Load onto date")).toHaveValue(PROGRAM_DATE);
     await page
-      .locator("div.rounded-2xl")
+      .locator("div.rounded-md")
       .filter({ has: page.getByText("Push (PPL)", { exact: true }) })
       .getByRole("button", { name: "Add to that day" })
       .click();

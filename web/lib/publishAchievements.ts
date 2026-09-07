@@ -2,20 +2,22 @@ import {
   autoFeatureNewUnlocks,
   calculateCurrentStreakFromDays,
   calculateLongestStreakFromDays,
+  calculateTotalVolumeFromDays,
   evaluateEarnedIds,
-  isLoggedDay,
   mergeNewlyEarned,
   type AchievementProgress,
   type Day,
 } from "@liftledger/shared";
 import { accountService } from "./firebase";
-import { peekDaysArray } from "./sessionCache";
+import { listDays } from "./firestore/days";
+import { daysListIsComplete, peekDaysArray } from "./sessionCache";
 
 export async function syncEarnedAchievements(days?: Day[]): Promise<{
   progress: AchievementProgress;
   added: string[];
 }> {
-  const history = days ?? peekDaysArray();
+  const history =
+    days ?? (daysListIsComplete() ? peekDaysArray() : await listDays({ limit: 2000, order: "desc" }));
   const current = await accountService.getAchievementProgress();
   const { next, added } = mergeNewlyEarned(
     current.earned,
@@ -28,7 +30,8 @@ export async function syncEarnedAchievements(days?: Day[]): Promise<{
     stats: {
       currentStreak: calculateCurrentStreakFromDays(history),
       longestStreak: calculateLongestStreakFromDays(history),
-      loggedDays: history.filter(isLoggedDay).length,
+      loggedDays: history.filter((day) => day.exercises.length > 0 && day.status !== "injured").length,
+      volumeLbs: Math.round(calculateTotalVolumeFromDays(history)),
     },
   };
   const unchanged =
@@ -36,6 +39,10 @@ export async function syncEarnedAchievements(days?: Day[]): Promise<{
     JSON.stringify(current.featuredIds) === JSON.stringify(progress.featuredIds) &&
     JSON.stringify(current.stats) === JSON.stringify(progress.stats) &&
     JSON.stringify(current.earned) === JSON.stringify(progress.earned);
-  if (!unchanged) await accountService.setAchievementProgress(progress);
+  if (!unchanged) {
+    const latestPins = (await accountService.getAchievementProgress()).featuredIds;
+    progress.featuredIds = autoFeatureNewUnlocks(latestPins, added, next);
+    await accountService.setAchievementProgress(progress);
+  }
   return { progress, added };
 }

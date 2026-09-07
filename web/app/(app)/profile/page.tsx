@@ -14,29 +14,33 @@ import { useAuth } from "../../../providers/Auth";
 import { accountService, app } from "../../../lib/firebase";
 import { listDays } from "../../../lib/firestore/days";
 import { syncEarnedAchievements } from "../../../lib/publishAchievements";
-import { deleteAvatarFile, fileToAvatarBlob, uploadAvatar } from "../../../lib/avatar";
+import { fileToAvatarPayload, uploadAvatar } from "../../../lib/avatar";
 import { toast } from "../../../lib/toast";
 import { logger } from "../../../lib/logger";
 import { AvatarCropModal } from "../../../components/AvatarCropModal";
-import { FeaturedRow, ProfileAchievements, ProfileHero } from "../../../components/ProfileView";
+import { FeaturedRow, MedalCollection, ProfileHero } from "../../../components/ProfileView";
 import { FullScreenSheet } from "../../../components/FullScreenSheet";
 import { format } from "date-fns";
+
+const EMPTY: AchievementProgress = {
+  earned: {},
+  featuredIds: [],
+  stats: { currentStreak: 0, longestStreak: 0, loggedDays: 0, volumeLbs: 0 },
+};
 
 export default function ProfilePage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const fileRef = useRef<HTMLInputElement>(null);
+  const uploadGen = useRef(0);
   const [username, setUsername] = useState<string | null>(null);
   const [photoURL, setPhotoURL] = useState<string | null>(null);
-  const [progress, setProgress] = useState<AchievementProgress>({
-    earned: {},
-    featuredIds: [],
-    stats: { currentStreak: 0, longestStreak: 0, loggedDays: 0 },
-  });
+  const [progress, setProgress] = useState<AchievementProgress>(EMPTY);
   const [preview, setPreview] = useState(false);
   const [cropFile, setCropFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [collectionOpen, setCollectionOpen] = useState(false);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -50,7 +54,10 @@ export default function ProfilePage() {
 
   const load = async () => {
     try {
-      const [summary, days] = await Promise.all([accountService.getAccountSummary(), listDays({ limit: 250, order: "desc" })]);
+      const [summary, days] = await Promise.all([
+        accountService.getAccountSummary(),
+        listDays({ limit: 2000, order: "desc" }),
+      ]);
       setUsername(summary.username);
       setPhotoURL(summary.photoURL);
       const synced = await syncEarnedAchievements(days);
@@ -73,45 +80,50 @@ export default function ProfilePage() {
     }
   };
 
-  const handleCrop = async (crop: { sx: number; sy: number; size: number }) => {
-    const file = cropFile;
-    if (!file || !user) return;
-    setCropFile(null);
+  const persistAvatar = async (blob: Blob, previous: string | null) => {
+    const gen = ++uploadGen.current;
+    if (!user) {
+      setPhotoURL(previous);
+      setUploading(false);
+      return;
+    }
+    setUploading(true);
     try {
-      setUploading(true);
-      const blob = await fileToAvatarBlob(file, crop);
       const url = await uploadAvatar(app, user.uid, blob);
       const withBust = `${url}${url.includes("?") ? "&" : "?"}v=${Date.now()}`;
       await accountService.setPhotoURL(withBust);
+      if (gen !== uploadGen.current) return;
       setPhotoURL(withBust);
-      toast.success("Photo updated");
     } catch (error) {
       logger.error("Error uploading photo", error);
+      if (gen !== uploadGen.current) return;
+      setPhotoURL(previous);
       toast.error("Could not save that crop. Try a smaller image.");
     } finally {
-      setUploading(false);
-      if (fileRef.current) fileRef.current.value = "";
+      if (gen === uploadGen.current) setUploading(false);
     }
   };
 
-  const handleRemovePhoto = async () => {
-    if (!user) return;
+  const handleCrop = async (crop: { sx: number; sy: number; size: number }) => {
+    const file = cropFile;
+    const previous = photoURL;
+    if (!file || !user) return;
     try {
-      setUploading(true);
-      await deleteAvatarFile(app, user.uid);
-      await accountService.setPhotoURL(null);
-      setPhotoURL(null);
-      toast.success("Using your letter avatar");
+      const { blob, previewUrl } = await fileToAvatarPayload(file, crop);
+      setPhotoURL(previewUrl);
+      setCropFile(null);
+      if (fileRef.current) fileRef.current.value = "";
+      void persistAvatar(blob, previous);
     } catch (error) {
-      logger.error("Error removing photo", error);
-      toast.error("Could not remove photo");
-    } finally {
-      setUploading(false);
+      logger.error("Error cropping photo", error);
+      toast.error("Could not crop that image.");
+      throw error;
     }
   };
 
   const selected = selectedId ? ACHIEVEMENT_BY_ID[selectedId] : null;
   const earnedAt = selectedId ? progress.earned[selectedId]?.earnedAt : undefined;
+  const canPin = Boolean(!preview && selected && earnedAt);
 
   if (authLoading || !user || !ready) {
     return (
@@ -122,85 +134,110 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-white">
-      <header className="flex-shrink-0 border-b border-gray-200 px-4 py-3 md:px-8">
+    <div className="flex h-full flex-col overflow-hidden bg-gray-50">
+      <header className="flex-shrink-0 border-b border-gray-200 bg-white px-4 py-3 md:px-8">
         <div className="mx-auto flex max-w-lg items-center justify-between">
-          <h1 className="text-lg font-semibold text-gray-900">Profile</h1>
-          <button
-            type="button"
-            onClick={() => setPreview((value) => !value)}
-            className="flex min-h-[44px] items-center gap-2 rounded-full px-3 text-sm font-semibold text-gray-700"
-          >
-            {preview ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            {preview ? "Exit preview" : "Preview"}
-          </button>
+          <div>
+            <p className="kicker">The athlete</p>
+            <h1 className="text-lg font-semibold text-gray-900">Profile</h1>
+            <p className="text-xs text-gray-500">What friends see. No feed.</p>
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setPreview((value) => !value)}
+              className="flex min-h-[44px] items-center gap-1.5 rounded-md px-3 text-sm font-semibold text-gray-600"
+            >
+              {preview ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              {preview ? "Exit" : "Preview"}
+            </button>
+            {!preview && (
+              <Link href="/settings/account" className="min-h-[44px] px-3 py-2 text-sm font-semibold text-brand">
+                Account
+              </Link>
+            )}
+          </div>
         </div>
       </header>
 
       <main className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-lg px-4 py-6">
-          <ProfileHero username={username} photoURL={photoURL} stats={progress.stats} preview={preview} />
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) setCropFile(file);
+            }}
+          />
+          <ProfileHero
+            username={username}
+            photoURL={photoURL}
+            stats={progress.stats}
+            preview={preview}
+            busyPhoto={uploading}
+            cameraSlot={
+              preview ? null : (
+                <button
+                  type="button"
+                  disabled={uploading}
+                  onClick={() => fileRef.current?.click()}
+                  className="absolute bottom-0 right-0 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-brand text-brand-fg"
+                  aria-label={photoURL ? "Change photo" : "Add photo"}
+                >
+                  <Camera className="h-3.5 w-3.5" />
+                </button>
+              )
+            }
+          />
 
-          {!preview && (
-            <div className="mt-4 flex flex-wrap gap-2">
-              <input
-                ref={fileRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  if (file) setCropFile(file);
-                }}
-              />
-              <button
-                type="button"
-                disabled={uploading}
-                onClick={() => fileRef.current?.click()}
-                className="btn-secondary flex min-h-[44px] items-center gap-2 px-4"
-              >
-                <Camera className="h-4 w-4" />
-                {uploading ? "Saving…" : photoURL ? "Change photo" : "Add photo"}
-              </button>
-              {photoURL && (
-                <button type="button" disabled={uploading} onClick={() => void handleRemovePhoto()} className="rounded-lg px-3 text-sm font-semibold text-gray-600">
-                  Use avatar
+          <section className="mt-4 rounded-md border border-gray-200 bg-white p-5 shadow-[0_1px_0_rgb(20_83_45/0.08)]">
+            <div className="flex items-end justify-between">
+              <div>
+                <p className="kicker">Pinned</p>
+                <h2 className="text-lg font-semibold text-gray-900">Medals</h2>
+              </div>
+              {!preview && (
+                <button type="button" onClick={() => setCollectionOpen(true)} className="text-sm font-semibold text-brand">
+                  The case
                 </button>
               )}
-              <Link href="/settings/account" className="rounded-lg px-3 py-2 text-sm font-semibold text-brand">
-                Account
-              </Link>
             </div>
-          )}
-
-          <div className="mt-6">
-            <FeaturedRow featuredIds={progress.featuredIds} earned={progress.earned} onSelect={setSelectedId} />
-          </div>
-
-          <h2 className="mb-3 mt-8 text-sm font-semibold uppercase tracking-wide text-gray-500">
-            {preview ? "Badges" : "Collection"}
-          </h2>
-          <ProfileAchievements progress={progress} publicView={preview} onSelect={setSelectedId} />
+            <FeaturedRow
+              featuredIds={progress.featuredIds}
+              earned={progress.earned}
+              onSelect={setSelectedId}
+              emptyHint={preview ? "Nothing pinned." : "Open the case and pin up to three."}
+            />
+          </section>
         </div>
       </main>
 
       {cropFile && (
-        <AvatarCropModal file={cropFile} onCancel={() => setCropFile(null)} onConfirm={(crop) => void handleCrop(crop)} />
+        <AvatarCropModal file={cropFile} onCancel={() => setCropFile(null)} onConfirm={handleCrop} />
       )}
+
+      <FullScreenSheet open={collectionOpen && !preview} title="The case" onClose={() => setCollectionOpen(false)}>
+        <div className="rounded-md border border-gray-200 bg-white p-5 shadow-[0_1px_0_rgb(20_83_45/0.08)]">
+          <MedalCollection progress={progress} onSelect={setSelectedId} />
+        </div>
+      </FullScreenSheet>
 
       <FullScreenSheet
         open={Boolean(selected)}
-        title={selected?.title ?? "Badge"}
+        title={selected?.title ?? "Medal"}
         onClose={() => setSelectedId(null)}
         footer={
-          !preview && selected && earnedAt ? (
+          canPin ? (
             <button
               type="button"
               className="btn-primary min-h-[48px] w-full"
               onClick={() => {
                 if (!selected) return;
                 if (!progress.featuredIds.includes(selected.id) && progress.featuredIds.length >= MAX_FEATURED_ACHIEVEMENTS) {
-                  toast.error(`You can pin ${MAX_FEATURED_ACHIEVEMENTS} badges`);
+                  toast.error(`Pin ${MAX_FEATURED_ACHIEVEMENTS} max`);
                   return;
                 }
                 void persistProgress({
@@ -209,18 +246,18 @@ export default function ProfilePage() {
                 });
               }}
             >
-              {progress.featuredIds.includes(selected.id) ? "Hide from profile" : "Show on profile"}
+              {selected && progress.featuredIds.includes(selected.id) ? "Unpin" : "Pin on profile"}
             </button>
           ) : null
         }
       >
         {selected && (
-          <div className="space-y-3">
+          <div className="rounded-md border border-gray-200 bg-white p-5 shadow-[0_1px_0_rgb(20_83_45/0.08)]">
             <p className="text-gray-700">{selected.description}</p>
             {earnedAt ? (
-              <p className="text-sm text-gray-500">Earned {format(new Date(earnedAt), "MMM d, yyyy")}</p>
+              <p className="mt-3 font-mono text-sm text-gray-500">Earned {format(new Date(earnedAt), "MMM d, yyyy")}</p>
             ) : (
-              <p className="text-sm text-gray-500">Not earned yet. Keep logging.</p>
+              <p className="mt-3 text-sm text-gray-500">Still locked. That is the point.</p>
             )}
           </div>
         )}

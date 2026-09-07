@@ -11,7 +11,7 @@ export function AvatarCropModal({
 }: {
   file: File;
   onCancel: () => void;
-  onConfirm: (crop: AvatarCrop) => void;
+  onConfirm: (crop: AvatarCrop) => void | Promise<void>;
 }) {
   const [mounted, setMounted] = useState(false);
   const [url, setUrl] = useState<string | null>(null);
@@ -19,6 +19,7 @@ export function AvatarCropModal({
   const [pos, setPos] = useState({ x: 0, y: 0 });
   const [natural, setNatural] = useState({ w: 0, h: 0 });
   const [view, setView] = useState(260);
+  const [busy, setBusy] = useState(false);
   const drag = useRef<{ x: number; y: number; px: number; py: number } | null>(null);
 
   useEffect(() => {
@@ -34,11 +35,11 @@ export function AvatarCropModal({
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onCancel();
+      if (event.key === "Escape" && !busy) onCancel();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onCancel]);
+  }, [onCancel, busy]);
 
   const minSide = Math.min(natural.w || 1, natural.h || 1);
   const scale = (view / minSide) * zoom;
@@ -48,11 +49,9 @@ export function AvatarCropModal({
   const clampPos = (next: { x: number; y: number }, width = displayW, height = displayH) => {
     const minX = Math.min(0, view - width);
     const minY = Math.min(0, view - height);
-    const maxX = 0;
-    const maxY = 0;
     return {
-      x: Math.min(maxX, Math.max(minX, next.x)),
-      y: Math.min(maxY, Math.max(minY, next.y)),
+      x: Math.min(0, Math.max(minX, next.x)),
+      y: Math.min(0, Math.max(minY, next.y)),
     };
   };
 
@@ -65,38 +64,44 @@ export function AvatarCropModal({
     const newScale = (view / minSide) * nextZoom;
     const cx = (view / 2 - pos.x) / oldScale;
     const cy = (view / 2 - pos.y) / oldScale;
-    const width = natural.w * newScale;
-    const height = natural.h * newScale;
     setZoom(nextZoom);
-    setPos(clampPos({ x: view / 2 - cx * newScale, y: view / 2 - cy * newScale }, width, height));
-  };
-
-  const confirm = () => {
-    if (!natural.w) return;
-    onConfirm(
-      clampAvatarCrop(
-        { sx: -pos.x / scale, sy: -pos.y / scale, size: view / scale },
-        natural.w,
-        natural.h
+    setPos(
+      clampPos(
+        { x: view / 2 - cx * newScale, y: view / 2 - cy * newScale },
+        natural.w * newScale,
+        natural.h * newScale
       )
     );
+  };
+
+  const confirm = async () => {
+    if (!natural.w || busy) return;
+    setBusy(true);
+    try {
+      await onConfirm(
+        clampAvatarCrop({ sx: -pos.x / scale, sy: -pos.y / scale, size: view / scale }, natural.w, natural.h)
+      );
+    } catch {
+      setBusy(false);
+    }
   };
 
   if (!mounted) return null;
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 p-4"
+      className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 p-4"
       onClick={(event) => {
-        if (event.target === event.currentTarget) onCancel();
+        if (!busy && event.target === event.currentTarget) onCancel();
       }}
     >
       <div
-        className="w-full max-w-sm rounded-2xl bg-white p-5"
+        className="w-full max-w-sm rounded-md border border-gray-200 bg-white p-5 shadow-[0_1px_0_rgb(20_83_45/0.14)]"
         style={{ paddingBottom: "max(1.25rem, env(safe-area-inset-bottom, 0px))" }}
       >
+        <p className="kicker">Portrait</p>
         <h2 className="text-lg font-semibold text-gray-900">Crop photo</h2>
-        <p className="mt-1 text-sm text-gray-500">Drag to frame, then zoom. Saved as a circle.</p>
+        <p className="mt-1 text-sm text-gray-500">Drag to frame, then zoom. It shows on your profile as soon as you confirm.</p>
         <div
           className="relative mx-auto mt-4 overflow-hidden rounded-full bg-gray-100"
           style={{ width: view, height: view, touchAction: "none" }}
@@ -147,7 +152,7 @@ export function AvatarCropModal({
             />
           )}
         </div>
-        <label className="mt-4 block text-xs font-medium uppercase tracking-wide text-gray-500">
+        <label className="mt-4 block font-mono text-[11px] font-semibold uppercase tracking-wide text-gray-500">
           Zoom
           <input
             type="range"
@@ -160,16 +165,11 @@ export function AvatarCropModal({
           />
         </label>
         <div className="mt-5 flex gap-3">
-          <button type="button" className="btn-secondary min-h-[48px] flex-1" onClick={onCancel}>
+          <button type="button" className="btn-secondary min-h-[48px] flex-1" disabled={busy} onClick={onCancel}>
             Cancel
           </button>
-          <button
-            type="button"
-            className="btn-primary min-h-[48px] flex-1"
-            disabled={!natural.w}
-            onClick={confirm}
-          >
-            Use photo
+          <button type="button" className="btn-primary min-h-[48px] flex-1" disabled={!natural.w || busy} onClick={confirm}>
+            {busy ? "Cropping…" : "Use photo"}
           </button>
         </div>
       </div>

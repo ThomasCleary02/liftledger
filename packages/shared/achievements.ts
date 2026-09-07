@@ -1,11 +1,14 @@
+import { getISOWeek, getISOWeekYear, parseISO } from "date-fns";
 import {
   calculateLongestStreakFromDays,
+  calculateTotalCalisthenicsRepsFromDays,
+  calculateTotalCardioDurationFromDays,
   calculateTotalVolumeFromDays,
-  findAllPRs,
 } from "./analytics/calculations";
-import { isLoggedDay, type Day } from "./firestore/days";
+import { maxWorkingWeight } from "./sets";
+import { type Day } from "./firestore/days";
 
-export const MAX_FEATURED_ACHIEVEMENTS = 5;
+export const MAX_FEATURED_ACHIEVEMENTS = 3;
 
 export type AchievementIcon =
   | "dumbbell"
@@ -37,6 +40,7 @@ export type ProfileStats = {
   currentStreak: number;
   longestStreak: number;
   loggedDays: number;
+  volumeLbs: number;
 };
 
 export type AchievementProgress = {
@@ -46,27 +50,144 @@ export type AchievementProgress = {
 };
 
 export const ACHIEVEMENT_CATALOG: AchievementDef[] = [
-  { id: "first_session", title: "First log", description: "Save a training day.", icon: "dumbbell", tier: 1 },
-  { id: "rest_day", title: "Recovery", description: "Mark a rest day.", icon: "moon", tier: 1 },
-  { id: "iron", title: "Iron", description: "Log a strength lift.", icon: "dumbbell", tier: 1 },
-  { id: "cardio_club", title: "Miles", description: "Log a cardio session.", icon: "heart", tier: 1 },
-  { id: "bodyweight", title: "Bodyweight", description: "Log calisthenics.", icon: "zap", tier: 1 },
-  { id: "streak_3", title: "On a roll", description: "Reach a 3-day streak.", icon: "flame", tier: 1 },
-  { id: "streak_7", title: "Week warrior", description: "Reach a 7-day streak.", icon: "flame", tier: 2 },
-  { id: "streak_14", title: "Fortnight", description: "Reach a 14-day streak.", icon: "flame", tier: 2 },
-  { id: "streak_30", title: "Unbroken month", description: "Reach a 30-day streak.", icon: "flame", tier: 3 },
-  { id: "sessions_10", title: "Ten days", description: "Log 10 training days.", icon: "calendar", tier: 1 },
-  { id: "sessions_25", title: "Twenty-five", description: "Log 25 training days.", icon: "calendar", tier: 2 },
-  { id: "sessions_50", title: "Fifty", description: "Log 50 training days.", icon: "calendar", tier: 3 },
-  { id: "first_pr", title: "New high", description: "Hit your first PR.", icon: "trophy", tier: 1 },
-  { id: "prs_5", title: "PR hunter", description: "Hold 5 personal records.", icon: "medal", tier: 2 },
-  { id: "volume_10k", title: "10k volume", description: "Accumulate 10,000 lb of working volume.", icon: "target", tier: 2 },
-  { id: "volume_50k", title: "50k volume", description: "Accumulate 50,000 lb of working volume.", icon: "award", tier: 3 },
+  {
+    id: "true_pr",
+    title: "Beat the book",
+    description: "Log the same lift twice and beat your earlier best. First-time weights do not count.",
+    icon: "trophy",
+    tier: 1,
+  },
+  {
+    id: "rhythm_4",
+    title: "Real month",
+    description: "Train at least 3 days in each of 4 different weeks.",
+    icon: "calendar",
+    tier: 1,
+  },
+  {
+    id: "toolbox",
+    title: "Toolbox",
+    description: "Log 12 different exercises.",
+    icon: "dumbbell",
+    tier: 1,
+  },
+  {
+    id: "hybrid_week",
+    title: "Hybrid week",
+    description: "Strength and cardio in the same calendar week.",
+    icon: "heart",
+    tier: 1,
+  },
+  {
+    id: "rest_steward",
+    title: "Steward",
+    description: "Mark 8 rest days. Recovery is part of the ledger.",
+    icon: "moon",
+    tier: 1,
+  },
+  {
+    id: "streak_7",
+    title: "Week on fire",
+    description: "A 7-day streak of training or rest.",
+    icon: "flame",
+    tier: 2,
+  },
+  {
+    id: "week_streak_8",
+    title: "Eight weeks",
+    description: "Train in 8 consecutive calendar weeks.",
+    icon: "flame",
+    tier: 2,
+  },
+  {
+    id: "pr_repeat",
+    title: "Climbing",
+    description: "Beat yourself 5 times across your lifts.",
+    icon: "medal",
+    tier: 2,
+  },
+  {
+    id: "loyal",
+    title: "Loyal lift",
+    description: "Keep one exercise in the log across 16 different weeks.",
+    icon: "target",
+    tier: 2,
+  },
+  {
+    id: "sessions_50",
+    title: "Fifty sessions",
+    description: "50 days with work in them, not rest.",
+    icon: "calendar",
+    tier: 2,
+  },
+  {
+    id: "engine",
+    title: "Engine",
+    description: "Accumulate 10 hours of cardio.",
+    icon: "heart",
+    tier: 2,
+  },
+  {
+    id: "volume_250k",
+    title: "Quarter million",
+    description: "250,000 lb of working strength volume.",
+    icon: "zap",
+    tier: 2,
+  },
+  {
+    id: "streak_30",
+    title: "Unbroken month",
+    description: "A 30-day streak.",
+    icon: "flame",
+    tier: 3,
+  },
+  {
+    id: "rhythm_12",
+    title: "Season",
+    description: "12 weeks with at least 3 trained days each.",
+    icon: "award",
+    tier: 3,
+  },
+  {
+    id: "pr_machine",
+    title: "PR machine",
+    description: "15 true PRs — improvements, not openers.",
+    icon: "trophy",
+    tier: 3,
+  },
+  {
+    id: "sessions_100",
+    title: "Century",
+    description: "100 trained days.",
+    icon: "calendar",
+    tier: 3,
+  },
+  {
+    id: "volume_1m",
+    title: "Million pounds",
+    description: "1,000,000 lb of working volume.",
+    icon: "award",
+    tier: 3,
+  },
+  {
+    id: "thousand_reps",
+    title: "Thousand reps",
+    description: "1,000 calisthenics reps.",
+    icon: "zap",
+    tier: 3,
+  },
 ];
 
 export const ACHIEVEMENT_BY_ID: Record<string, AchievementDef> = Object.fromEntries(
   ACHIEVEMENT_CATALOG.map((item) => [item.id, item])
 );
+
+export function defaultFeaturedIds(earned: EarnedMap): string[] {
+  return ACHIEVEMENT_CATALOG.filter((item) => earned[item.id])
+    .sort((a, b) => b.tier - a.tier)
+    .slice(0, MAX_FEATURED_ACHIEVEMENTS)
+    .map((item) => item.id);
+}
 
 export function parseEarnedMap(raw: unknown): EarnedMap {
   if (!raw || typeof raw !== "object") return {};
@@ -81,13 +202,14 @@ export function parseEarnedMap(raw: unknown): EarnedMap {
 }
 
 export function parseFeaturedIds(raw: unknown, earned: EarnedMap): string[] {
-  const ids = Array.isArray(raw) ? raw.filter((id): id is string => typeof id === "string") : [];
+  if (!Array.isArray(raw)) return defaultFeaturedIds(earned);
+  const ids = raw.filter((id): id is string => typeof id === "string");
   return ids.filter((id) => Boolean(earned[id] && ACHIEVEMENT_BY_ID[id])).slice(0, MAX_FEATURED_ACHIEVEMENTS);
 }
 
 export function parseProfileStats(raw: unknown): ProfileStats {
   if (!raw || typeof raw !== "object") {
-    return { currentStreak: 0, longestStreak: 0, loggedDays: 0 };
+    return { currentStreak: 0, longestStreak: 0, loggedDays: 0, volumeLbs: 0 };
   }
   const data = raw as Record<string, unknown>;
   const n = (value: unknown) => (typeof value === "number" && Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0);
@@ -95,34 +217,155 @@ export function parseProfileStats(raw: unknown): ProfileStats {
     currentStreak: n(data.currentStreak),
     longestStreak: n(data.longestStreak),
     loggedDays: n(data.loggedDays),
+    volumeLbs: n(data.volumeLbs),
   };
 }
 
+function isoWeekKey(date: string): string {
+  const parsed = parseISO(date);
+  return `${getISOWeekYear(parsed)}-${String(getISOWeek(parsed)).padStart(2, "0")}`;
+}
+
+function nextIsoWeek(key: string): string {
+  const [yearPart, weekPart] = key.split("-");
+  const year = Number(yearPart);
+  const week = Number(weekPart);
+  if (week < 52) return `${year}-${String(week + 1).padStart(2, "0")}`;
+  const probe = parseISO(`${year}-12-28`);
+  const last = getISOWeek(probe);
+  if (week < last) return `${year}-${String(week + 1).padStart(2, "0")}`;
+  return `${year + 1}-01`;
+}
+
+function longestConsecutiveWeeks(keys: string[]): number {
+  const unique = Array.from(new Set(keys)).sort();
+  if (unique.length === 0) return 0;
+  let best = 1;
+  let current = 1;
+  for (let i = 1; i < unique.length; i++) {
+    if (unique[i] === nextIsoWeek(unique[i - 1])) current += 1;
+    else current = 1;
+    best = Math.max(best, current);
+  }
+  return best;
+}
+
+function trainingDays(days: Day[]): Day[] {
+  return days.filter((day) => !day.status && day.exercises.length > 0);
+}
+
+function uniqueExerciseIds(days: Day[]): Set<string> {
+  const ids = new Set<string>();
+  trainingDays(days).forEach((day) => {
+    day.exercises.forEach((ex) => ids.add(ex.exerciseId || ex.name));
+  });
+  return ids;
+}
+
+function countTruePrs(days: Day[]): number {
+  const series = new Map<string, number[]>();
+  const ordered = [...trainingDays(days)].sort((a, b) => a.date.localeCompare(b.date));
+  ordered.forEach((day) => {
+    const seen = new Set<string>();
+    day.exercises.forEach((ex) => {
+      const id = `${ex.modality}:${ex.exerciseId || ex.name}`;
+      if (seen.has(id)) return;
+      let value = 0;
+      if (ex.modality === "strength" && ex.strengthSets?.length) value = maxWorkingWeight(ex.strengthSets);
+      else if (ex.modality === "calisthenics" && ex.calisthenicsSets?.length) {
+        value = Math.max(...ex.calisthenicsSets.map((set) => set.reps || 0));
+      } else if (ex.modality === "cardio" && ex.cardioData) {
+        value = ex.cardioData.distance || ex.cardioData.duration || 0;
+      }
+      if (value <= 0) return;
+      seen.add(id);
+      const list = series.get(id) ?? [];
+      list.push(value);
+      series.set(id, list);
+    });
+  });
+
+  let count = 0;
+  series.forEach((values) => {
+    let peak = values[0] ?? 0;
+    for (let i = 1; i < values.length; i++) {
+      if (values[i] > peak) {
+        count += 1;
+        peak = values[i];
+      }
+    }
+  });
+  return count;
+}
+
+function weeksWithMinSessions(days: Day[], min: number): number {
+  const counts = new Map<string, number>();
+  trainingDays(days).forEach((day) => {
+    const key = isoWeekKey(day.date);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  });
+  return Array.from(counts.values()).filter((value) => value >= min).length;
+}
+
+function longestExerciseWeekSpan(days: Day[]): number {
+  const weeks = new Map<string, Set<string>>();
+  trainingDays(days).forEach((day) => {
+    const key = isoWeekKey(day.date);
+    day.exercises.forEach((ex) => {
+      const id = ex.exerciseId || ex.name;
+      const set = weeks.get(id) ?? new Set<string>();
+      set.add(key);
+      weeks.set(id, set);
+    });
+  });
+  let best = 0;
+  weeks.forEach((set) => {
+    best = Math.max(best, set.size);
+  });
+  return best;
+}
+
+function hasHybridWeek(days: Day[]): boolean {
+  const flags = new Map<string, { strength: boolean; cardio: boolean }>();
+  trainingDays(days).forEach((day) => {
+    const key = isoWeekKey(day.date);
+    const current = flags.get(key) ?? { strength: false, cardio: false };
+    day.exercises.forEach((ex) => {
+      if (ex.modality === "strength") current.strength = true;
+      if (ex.modality === "cardio") current.cardio = true;
+    });
+    flags.set(key, current);
+  });
+  return Array.from(flags.values()).some((value) => value.strength && value.cardio);
+}
+
 export function evaluateEarnedIds(days: Day[]): string[] {
-  const logged = days.filter(isLoggedDay);
-  const trainingDays = logged.filter((day) => day.exercises.length > 0);
+  const trained = trainingDays(days);
+  const restDays = days.filter((day) => day.isRestDay && day.status !== "injured").length;
   const longest = calculateLongestStreakFromDays(days);
   const volume = calculateTotalVolumeFromDays(days);
-  const prs = findAllPRs(days);
-  const has = (modality: string) => trainingDays.some((day) => day.exercises.some((ex) => ex.modality === modality));
-
+  const truePrs = countTruePrs(days);
+  const trainedWeeks = trained.map((day) => isoWeekKey(day.date));
   const earned: string[] = [];
-  if (trainingDays.length > 0) earned.push("first_session");
-  if (logged.some((day) => day.isRestDay)) earned.push("rest_day");
-  if (has("strength")) earned.push("iron");
-  if (has("cardio")) earned.push("cardio_club");
-  if (has("calisthenics")) earned.push("bodyweight");
-  if (longest >= 3) earned.push("streak_3");
+
+  if (truePrs >= 1) earned.push("true_pr");
+  if (weeksWithMinSessions(days, 3) >= 4) earned.push("rhythm_4");
+  if (uniqueExerciseIds(days).size >= 12) earned.push("toolbox");
+  if (hasHybridWeek(days)) earned.push("hybrid_week");
+  if (restDays >= 8) earned.push("rest_steward");
   if (longest >= 7) earned.push("streak_7");
-  if (longest >= 14) earned.push("streak_14");
+  if (longestConsecutiveWeeks(trainedWeeks) >= 8) earned.push("week_streak_8");
+  if (truePrs >= 5) earned.push("pr_repeat");
+  if (longestExerciseWeekSpan(days) >= 16) earned.push("loyal");
+  if (trained.length >= 50) earned.push("sessions_50");
+  if (calculateTotalCardioDurationFromDays(days) >= 10 * 3600) earned.push("engine");
+  if (volume >= 250_000) earned.push("volume_250k");
   if (longest >= 30) earned.push("streak_30");
-  if (trainingDays.length >= 10) earned.push("sessions_10");
-  if (trainingDays.length >= 25) earned.push("sessions_25");
-  if (trainingDays.length >= 50) earned.push("sessions_50");
-  if (prs.length > 0) earned.push("first_pr");
-  if (prs.length >= 5) earned.push("prs_5");
-  if (volume >= 10_000) earned.push("volume_10k");
-  if (volume >= 50_000) earned.push("volume_50k");
+  if (weeksWithMinSessions(days, 3) >= 12) earned.push("rhythm_12");
+  if (truePrs >= 15) earned.push("pr_machine");
+  if (trained.length >= 100) earned.push("sessions_100");
+  if (volume >= 1_000_000) earned.push("volume_1m");
+  if (calculateTotalCalisthenicsRepsFromDays(days) >= 1000) earned.push("thousand_reps");
   return earned;
 }
 
@@ -142,12 +385,11 @@ export function mergeNewlyEarned(
 }
 
 export function autoFeatureNewUnlocks(featuredIds: string[], added: string[], earned: EarnedMap): string[] {
-  const next = featuredIds.filter((id) => Boolean(earned[id]));
-  for (const id of added) {
-    if (next.length >= MAX_FEATURED_ACHIEVEMENTS) break;
-    if (!next.includes(id)) next.push(id);
-  }
-  return next.slice(0, MAX_FEATURED_ACHIEVEMENTS);
+  const kept = featuredIds.filter((id) => Boolean(earned[id] && ACHIEVEMENT_BY_ID[id]));
+  if (kept.length > 0) return kept.slice(0, MAX_FEATURED_ACHIEVEMENTS);
+  const firstUnlocks = added.length > 0 && Object.keys(earned).length === added.length;
+  if (featuredIds.length === 0 && firstUnlocks) return defaultFeaturedIds(earned);
+  return kept;
 }
 
 export function toggleFeaturedId(featuredIds: string[], id: string, earned: EarnedMap): string[] {

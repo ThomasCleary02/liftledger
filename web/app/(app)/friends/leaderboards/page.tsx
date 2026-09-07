@@ -161,7 +161,7 @@ export default function Leaderboards() {
               <div className="spinner" />
             </div>
           ) : loadError ? (
-            <div className="rounded-2xl border border-gray-100 bg-white p-12 text-center shadow-sm">
+            <div className="rounded-md border border-gray-100 bg-white p-12 text-center shadow-sm">
               <p className="font-medium text-gray-900">Could not load leaderboards</p>
               <p className="mt-2 text-sm text-gray-500">Check your connection and try again.</p>
               <button
@@ -173,14 +173,14 @@ export default function Leaderboards() {
               </button>
             </div>
           ) : leaderboardData.length === 0 ? (
-            <div className="rounded-2xl border border-gray-100 bg-white p-12 text-center shadow-sm">
+            <div className="rounded-md border border-gray-100 bg-white p-12 text-center shadow-sm">
               <Trophy className="mx-auto h-12 w-12 text-gray-300" />
               <p className="mt-4 text-gray-500">
                 No leaderboard data yet. Add friends and start logging workouts!
               </p>
             </div>
           ) : (
-            <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+            <div className="overflow-hidden rounded-md border border-gray-100 bg-white shadow-sm">
               {leaderboardData.map((entry) => {
                 const isCurrentUser = entry.userId === user?.uid;
                 return (

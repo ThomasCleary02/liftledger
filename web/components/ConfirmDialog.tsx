@@ -44,7 +44,7 @@ export function ConfirmDialog({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 p-4"
+      className="modal-backdrop fixed inset-0 z-[110] flex items-center justify-center p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby={titleId}
@@ -53,7 +53,7 @@ export function ConfirmDialog({
       }}
     >
       <div
-        className="w-full max-w-sm rounded-2xl border border-gray-200 bg-white p-5"
+        className="w-full max-w-sm rounded-md border border-gray-200 bg-white p-5 shadow-[0_1px_0_rgb(20_83_45/0.14)]"
         style={{ paddingBottom: "max(1.25rem, env(safe-area-inset-bottom, 0px))" }}
       >
         <h2 id={titleId} className="text-lg font-semibold text-gray-900">

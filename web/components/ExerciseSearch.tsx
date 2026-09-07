@@ -265,7 +265,7 @@ export default function ExerciseSearch({
                     key={item.id}
                     className={`relative w-full rounded-xl border px-4 py-4 transition-all ${
                       isSelected
-                        ? "border-black bg-gray-50 ring-2 ring-black"
+                        ? "border-brand bg-gray-50 ring-2 ring-brand"
                         : "border-gray-200 bg-white hover:bg-gray-50"
                     }`}
                   >

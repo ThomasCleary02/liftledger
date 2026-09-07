@@ -55,12 +55,12 @@ export function ServiceWorkerUpdate() {
   }
 
   return (
-    <div className="fixed-below-status fixed right-4 z-50 rounded-lg border border-blue-200 bg-blue-50 p-3 shadow-lg">
+    <div className="fixed-below-status fixed right-4 z-50 rounded-md border border-gray-200 bg-white p-3 shadow-[0_1px_0_rgb(20_83_45/0.14)]">
       <div className="flex items-center gap-3">
-        <RefreshCw className="h-5 w-5 text-blue-600" />
+        <RefreshCw className="h-5 w-5 text-brand" />
         <div className="flex-1">
-          <p className="text-sm font-semibold text-blue-900">Update Available</p>
-          <p className="text-xs text-blue-700">Reload to use the latest version.</p>
+          <p className="text-sm font-semibold text-gray-900">Update available</p>
+          <p className="text-sm text-gray-500">Reload for the latest log.</p>
         </div>
         <button
           type="button"
@@ -68,7 +68,7 @@ export function ServiceWorkerUpdate() {
             registration?.waiting?.postMessage({ type: "SKIP_WAITING" });
             setUpdateAvailable(false);
           }}
-          className="rounded bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-90"
+          className="btn-primary min-h-[44px] px-3 py-2 text-sm"
         >
           Update
         </button>
