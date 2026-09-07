@@ -12,6 +12,13 @@ import {
   resolveCardioActivityType,
   secondsPerMile,
 } from "../cardio";
+import {
+  buildCatalogIndexes,
+  expandTrackedAllowList,
+  prMatchesAllowList,
+  resolveExerciseKey,
+  resolveExerciseModality,
+} from "../exerciseIdentity";
 
 /**
  * Calculate total volume from workouts
@@ -515,14 +522,16 @@ export function getBodyweightChangeLbs(points: BodyweightDataPoint[]): number | 
 type DatedPR = { value: number; date: Date; dayId: string };
 
 function betterHigh(current: DatedPR | undefined, value: number, date: Date, dayId: string): DatedPR | undefined {
-  if (!(value > 0)) return current;
-  if (!current || value > current.value) return { value, date, dayId };
+  const n = Number(value);
+  if (!(n > 0) || !isFinite(n)) return current;
+  if (!current || n > current.value) return { value: n, date, dayId };
   return current;
 }
 
 function betterLow(current: DatedPR | undefined, value: number, date: Date, dayId: string): DatedPR | undefined {
-  if (!(value > 0) || !isFinite(value)) return current;
-  if (!current || value < current.value) return { value, date, dayId };
+  const n = Number(value);
+  if (!(n > 0) || !isFinite(n)) return current;
+  if (!current || n < current.value) return { value: n, date, dayId };
   return current;
 }
 
@@ -556,49 +565,34 @@ export function findAllPRs(
   const cardioPRs = new Map<string, { name: string; maxDistance?: DatedPR; maxDuration?: DatedPR; bestPace?: DatedPR }>();
   const calisthenicsPRs = new Map<string, { name: string; maxReps?: DatedPR }>();
 
-  const nameById = new Map<string, string>();
-  const idByNameFolded = new Map<string, string>();
-  for (const ex of catalog ?? []) {
-    if (!ex?.id || !ex?.name) continue;
-    nameById.set(ex.id, ex.name);
-    const folded = ex.name.trim().toLowerCase();
-    if (folded && !idByNameFolded.has(folded)) idByNameFolded.set(folded, ex.id);
-  }
+  const indexes = buildCatalogIndexes(catalog);
 
-  /** Prefer catalog ids so legacy name-only logs still match My exercises. */
-  const keyFor = (ex: Pick<Exercise, "exerciseId" | "name">): string => {
-    const folded = (ex.name || "").trim().toLowerCase();
-    const fromName = folded ? idByNameFolded.get(folded) : undefined;
-    if (ex.exerciseId) {
-      if (nameById.has(ex.exerciseId)) return ex.exerciseId;
-      if (fromName && ex.exerciseId.trim().toLowerCase() === folded) return fromName;
-      return ex.exerciseId;
-    }
-    return fromName || ex.name;
-  };
-
-  days.forEach(day => {
+  days.forEach((day) => {
     const dayDate = parseISO(day.date);
     if (isNaN(dayDate.getTime())) return;
 
-    day.exercises.forEach(ex => {
-      const exerciseId = keyFor(ex);
+    day.exercises.forEach((ex) => {
+      const exerciseId = resolveExerciseKey(ex, indexes);
+      const modality = resolveExerciseModality(ex);
 
-      if (ex.modality === "strength" && ex.strengthSets) {
+      if (modality === "strength" && ex.strengthSets) {
         const current = strengthPRs.get(exerciseId) || { name: ex.name };
-        workingStrengthSets(ex.strengthSets).forEach(set => {
+        workingStrengthSets(ex.strengthSets).forEach((set) => {
           current.maxWeight = betterHigh(current.maxWeight, set.weight || 0, dayDate, day.id);
         });
         current.name = ex.name;
         strengthPRs.set(exerciseId, current);
       }
 
-      if (ex.modality === "cardio" && ex.cardioData) {
+      if (modality === "cardio" && ex.cardioData) {
         const current = cardioPRs.get(exerciseId) || { name: ex.name };
         const data = ex.cardioData;
-        current.maxDistance = betterHigh(current.maxDistance, data.distance || 0, dayDate, day.id);
-        current.maxDuration = betterHigh(current.maxDuration, data.duration || 0, dayDate, day.id);
-        const computedPace = secondsPerMile(data.duration, data.distance || 0) ?? data.pace;
+        const duration = Number(data.duration) || 0;
+        const distance = Number(data.distance) || 0;
+        const storedPace = data.pace != null ? Number(data.pace) : undefined;
+        current.maxDistance = betterHigh(current.maxDistance, distance, dayDate, day.id);
+        current.maxDuration = betterHigh(current.maxDuration, duration, dayDate, day.id);
+        const computedPace = secondsPerMile(duration, distance) ?? storedPace;
         if (computedPace) {
           current.bestPace = betterLow(current.bestPace, computedPace, dayDate, day.id);
         }
@@ -606,9 +600,9 @@ export function findAllPRs(
         cardioPRs.set(exerciseId, current);
       }
 
-      if (ex.modality === "calisthenics" && ex.calisthenicsSets) {
+      if (modality === "calisthenics" && ex.calisthenicsSets) {
         const current = calisthenicsPRs.get(exerciseId) || { name: ex.name };
-        ex.calisthenicsSets.forEach(set => {
+        ex.calisthenicsSets.forEach((set) => {
           current.maxReps = betterHigh(current.maxReps, set.reps || 0, dayDate, day.id);
         });
         current.name = ex.name;
@@ -632,22 +626,8 @@ export function findAllPRs(
   });
 
   if (trackedExerciseIds && trackedExerciseIds.length > 0) {
-    const allowed = new Set<string>(trackedExerciseIds);
-    for (const id of trackedExerciseIds) {
-      const name = nameById.get(id);
-      if (name) {
-        allowed.add(name);
-        const folded = name.trim().toLowerCase();
-        if (folded) allowed.add(folded);
-      }
-    }
-    return prs.filter((pr) => {
-      if (allowed.has(pr.exerciseId) || allowed.has(pr.exerciseName)) return true;
-      const folded = pr.exerciseName.trim().toLowerCase();
-      if (allowed.has(folded)) return true;
-      const canon = idByNameFolded.get(folded);
-      return canon != null && allowed.has(canon);
-    });
+    const allowed = expandTrackedAllowList(trackedExerciseIds, indexes);
+    return prs.filter((pr) => prMatchesAllowList(pr, allowed, indexes));
   }
 
   return prs;

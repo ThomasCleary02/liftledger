@@ -2,11 +2,28 @@ import { format, startOfWeek, addDays } from "date-fns";
 import type { Day } from "@liftledger/shared/firestore/days";
 import { strengthVolume, toDisplayWeight, type UnitSystem } from "@liftledger/shared";
 
-export function downloadWeekSharePng(
+function roundRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number
+): void {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function buildWeekCanvas(
   days: Day[],
   username?: string | null,
   units: UnitSystem = "imperial"
-): void {
+): { canvas: HTMLCanvasElement; filename: string } {
   const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
   const dates = Array.from({ length: 7 }, (_, i) => format(addDays(weekStart, i), "yyyy-MM-dd"));
   const byDate = new Map(days.map((day) => [day.date, day]));
@@ -53,25 +70,100 @@ export function downloadWeekSharePng(
   ctx.fillStyle = "#a3a3a3";
   ctx.fillText(`${volumeDisplay.toLocaleString()} ${volumeLabel} volume`, 80, 680);
 
-  const link = document.createElement("a");
-  link.download = `liftledger-week-${dates[0]}.png`;
-  link.href = canvas.toDataURL("image/png");
-  link.click();
+  return { canvas, filename: `liftledger-week-${dates[0]}.png` };
 }
 
-function roundRect(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  r: number
+function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error("Could not create image"));
+    }, "image/png");
+  });
+}
+
+function triggerDownload(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.download = filename;
+  link.href = url;
+  link.rel = "noopener";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 2_000);
+}
+
+function openPreview(blob: Blob): void {
+  const url = URL.createObjectURL(blob);
+  const opened = window.open(url, "_blank", "noopener,noreferrer");
+  if (!opened) {
+    // Popup blocked — navigate as last resort so the image is still reachable.
+    window.location.assign(url);
+    return;
+  }
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
+export type ShareWeekResult = "shared" | "downloaded" | "previewed";
+
+/**
+ * Prefer the OS share sheet (iOS/Android PWA), then file download, then image preview.
+ * Avoids the no-op flicker from `<a download>` + data URLs on mobile Safari.
+ */
+export async function shareWeekPng(
+  days: Day[],
+  username?: string | null,
+  units: UnitSystem = "imperial"
+): Promise<ShareWeekResult> {
+  const { canvas, filename } = buildWeekCanvas(days, username, units);
+  const blob = await canvasToBlob(canvas);
+  const file = new File([blob], filename, { type: "image/png" });
+
+  const nav = typeof navigator !== "undefined" ? navigator : undefined;
+  const canShareFiles = Boolean(
+    nav &&
+      typeof nav.share === "function" &&
+      (typeof nav.canShare !== "function" || nav.canShare({ files: [file] }))
+  );
+
+  if (canShareFiles && nav) {
+    try {
+      await nav.share({
+        files: [file],
+        title: "LiftLedger",
+        text: "My week on LiftLedger",
+      });
+      return "shared";
+    } catch (error) {
+      // User dismissed the sheet — not a failure.
+      if (error instanceof DOMException && error.name === "AbortError") {
+        return "shared";
+      }
+      // Fall through to download / preview.
+    }
+  }
+
+  // Chromium & desktop: real download. iOS often ignores download — open preview instead.
+  const isIos =
+    typeof navigator !== "undefined" &&
+    /iPad|iPhone|iPod/.test(navigator.userAgent) &&
+    !(window as unknown as { MSStream?: unknown }).MSStream;
+
+  if (!isIos) {
+    triggerDownload(blob, filename);
+    return "downloaded";
+  }
+
+  openPreview(blob);
+  return "previewed";
+}
+
+/** @deprecated Use shareWeekPng — kept for any older imports. */
+export function downloadWeekSharePng(
+  days: Day[],
+  username?: string | null,
+  units: UnitSystem = "imperial"
 ): void {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
-  ctx.closePath();
+  void shareWeekPng(days, username, units);
 }

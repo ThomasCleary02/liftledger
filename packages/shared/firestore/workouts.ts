@@ -108,23 +108,38 @@ type WorkoutDoc = {
 };
 
 // --------- Normalization (backward compatible) ---------
-function normalizeExercise(ex: any): Exercise {
+export function normalizeExercise(ex: any): Exercise {
   const nameIn = typeof ex?.name === "string" ? ex.name : "Exercise";
   const idIn = typeof ex?.exerciseId === "string" ? ex.exerciseId : undefined;
-  const modalityIn: ExerciseModality = ex?.modality || "strength"; // Default to strength for legacy
+  let modalityIn: ExerciseModality | undefined =
+    ex?.modality === "cardio" || ex?.modality === "calisthenics" || ex?.modality === "strength"
+      ? ex.modality
+      : undefined;
+  // Legacy rows sometimes omit modality but still carry cardio/calisthenics payloads.
+  if (!modalityIn) {
+    if (ex?.cardioData) modalityIn = "cardio";
+    else if (Array.isArray(ex?.calisthenicsSets) && ex.calisthenicsSets.length > 0) modalityIn = "calisthenics";
+    else modalityIn = "strength";
+  }
 
   // NEW: Handle modality-specific data
   if (modalityIn === "cardio") {
     // Cardio entry - new format
-    if (ex?.cardioData && typeof ex.cardioData.duration === "number") {
+    const rawDuration = ex?.cardioData != null ? Number(ex.cardioData.duration) : NaN;
+    if (ex?.cardioData && Number.isFinite(rawDuration) && rawDuration >= 0) {
+      const rawDistance = ex.cardioData.distance != null ? Number(ex.cardioData.distance) : undefined;
+      const rawPace = ex.cardioData.pace != null ? Number(ex.cardioData.pace) : undefined;
       return {
         exerciseId: idIn,
         name: nameIn,
         modality: "cardio",
         cardioData: {
-          duration: ex.cardioData.duration,
-          distance: typeof ex.cardioData.distance === "number" ? ex.cardioData.distance : undefined,
-          pace: typeof ex.cardioData.pace === "number" ? ex.cardioData.pace : undefined,
+          duration: rawDuration,
+          distance:
+            rawDistance != null && Number.isFinite(rawDistance) && rawDistance > 0
+              ? rawDistance
+              : undefined,
+          pace: rawPace != null && Number.isFinite(rawPace) && rawPace > 0 ? rawPace : undefined,
           activityType: isCardioActivityType(ex.cardioData.activityType)
             ? ex.cardioData.activityType
             : inferCardioActivityType(nameIn, idIn),

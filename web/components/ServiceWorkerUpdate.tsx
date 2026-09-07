@@ -11,6 +11,13 @@ export function ServiceWorkerUpdate() {
     if (typeof window === "undefined" || !("serviceWorker" in navigator)) {
       return;
     }
+    // Local next/emulator sessions: a SW makes restarts look like "no internet".
+    if (process.env.NODE_ENV !== "production") {
+      void navigator.serviceWorker.getRegistrations().then((regs) => {
+        regs.forEach((reg) => void reg.unregister());
+      });
+      return;
+    }
 
     let refreshing = false;
     let cancelled = false;

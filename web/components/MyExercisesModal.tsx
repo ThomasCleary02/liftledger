@@ -3,14 +3,26 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Plus, X } from "lucide-react";
 import { searchExerciseCatalog } from "@liftledger/shared/firestore/exercises";
+import type { LoggedExerciseSummary } from "@liftledger/shared";
+import { format, parseISO } from "date-fns";
 import { FullScreenSheet } from "./FullScreenSheet";
 import { ExerciseNameLabel } from "./ExerciseNameLabel";
 import type { ExerciseDoc } from "../lib/firestore/exercises";
+
+function shortLastDate(iso: string): string {
+  try {
+    return format(parseISO(iso), "MMM d");
+  } catch {
+    return iso;
+  }
+}
 
 export function MyExercisesModal({
   open,
   trackedExercises,
   allExercises,
+  loggedSummaries = [],
+  historyLoading = false,
   loading,
   onClose,
   onSave,
@@ -18,6 +30,8 @@ export function MyExercisesModal({
   open: boolean;
   trackedExercises: string[];
   allExercises: ExerciseDoc[];
+  loggedSummaries?: LoggedExerciseSummary[];
+  historyLoading?: boolean;
   loading: boolean;
   onClose: () => void;
   onSave: (exerciseIds: string[]) => Promise<void>;
@@ -39,16 +53,62 @@ export function MyExercisesModal({
   }, [open, trackedExercises]);
 
   const byId = useMemo(() => new Map(allExercises.map((ex) => [ex.id, ex])), [allExercises]);
+  const loggedById = useMemo(
+    () => new Map(loggedSummaries.map((row) => [row.exerciseId, row])),
+    [loggedSummaries]
+  );
 
   const selectedDocs = useMemo(() => {
-    return selectedExercises.map((id) => byId.get(id) ?? { id, name: id, modality: "strength" as const, nameFolded: id });
-  }, [selectedExercises, byId]);
+    return selectedExercises.map((id) => {
+      const logged = loggedById.get(id);
+      const catalog = byId.get(id);
+      return {
+        id,
+        name: catalog?.name || logged?.name || id,
+        modality: catalog?.modality || logged?.modality || ("strength" as const),
+        sessionCount: logged?.sessionCount ?? 0,
+      };
+    });
+  }, [selectedExercises, byId, loggedById]);
 
   const addCandidates = useMemo(() => {
     const selected = new Set(selectedExercises);
     const remaining = allExercises.filter((ex) => !selected.has(ex.id));
-    return searchExerciseCatalog(remaining, searchQuery, undefined, 80);
-  }, [allExercises, selectedExercises, searchQuery]);
+    const searched = searchExerciseCatalog(remaining, searchQuery, undefined, 80);
+    const loggedIds = new Set(
+      loggedSummaries.filter((row) => !selected.has(row.exerciseId)).map((row) => row.exerciseId)
+    );
+
+    const loggedHits: ExerciseDoc[] = [];
+    const catalogHits: ExerciseDoc[] = [];
+    for (const ex of searched) {
+      if (loggedIds.has(ex.id)) loggedHits.push(ex);
+      else catalogHits.push(ex);
+    }
+
+    // Logged exercises missing from search when query empty: show all logged not selected.
+    if (!searchQuery.trim()) {
+      const seen = new Set(loggedHits.map((ex) => ex.id));
+      for (const row of loggedSummaries) {
+        if (selected.has(row.exerciseId) || seen.has(row.exerciseId)) continue;
+        const doc = byId.get(row.exerciseId) || {
+          id: row.exerciseId,
+          name: row.name,
+          modality: row.modality,
+          nameFolded: row.name.toLowerCase(),
+        };
+        loggedHits.push(doc);
+        seen.add(row.exerciseId);
+      }
+      loggedHits.sort((a, b) => {
+        const ca = loggedById.get(a.id)?.sessionCount ?? 0;
+        const cb = loggedById.get(b.id)?.sessionCount ?? 0;
+        return cb - ca;
+      });
+    }
+
+    return { loggedHits, catalogHits };
+  }, [allExercises, selectedExercises, searchQuery, loggedSummaries, byId, loggedById]);
 
   const persistAndClose = async () => {
     if (savingRef.current) return;
@@ -70,6 +130,35 @@ export function MyExercisesModal({
     void persistAndClose();
   };
 
+  const renderAddRow = (exercise: ExerciseDoc) => {
+    const logged = loggedById.get(exercise.id);
+    return (
+      <button
+        key={exercise.id}
+        type="button"
+        onClick={() => {
+          setSelectedExercises((prev) =>
+            prev.includes(exercise.id) ? prev : [...prev, exercise.id]
+          );
+          setAdding(false);
+          setSearchQuery("");
+        }}
+        className="flex w-full items-center rounded-xl border-2 border-gray-200 bg-gray-50 p-4 text-left transition-colors hover:bg-gray-100"
+      >
+        <div>
+          <p className="font-semibold text-gray-900">
+            <ExerciseNameLabel name={exercise.name} />
+          </p>
+          <p className="text-xs capitalize text-gray-500">
+            {logged
+              ? `${logged.sessionCount} session${logged.sessionCount === 1 ? "" : "s"} · last ${shortLastDate(logged.lastDate)}`
+              : exercise.modality}
+          </p>
+        </div>
+      </button>
+    );
+  };
+
   return (
     <FullScreenSheet
       open={open}
@@ -88,33 +177,26 @@ export function MyExercisesModal({
             autoFocus
             className="mb-4 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-base outline-none focus:border-brand focus:bg-white"
           />
-          <div className="space-y-2">
-            {loading ? (
+          <div className="space-y-4">
+            {loading || historyLoading ? (
               <p className="py-8 text-center text-gray-500">Loading exercises...</p>
-            ) : addCandidates.length === 0 ? (
+            ) : addCandidates.loggedHits.length === 0 && addCandidates.catalogHits.length === 0 ? (
               <p className="py-8 text-center text-gray-500">No exercises found.</p>
             ) : (
-              addCandidates.map((exercise) => (
-                <button
-                  key={exercise.id}
-                  type="button"
-                  onClick={() => {
-                    setSelectedExercises((prev) =>
-                      prev.includes(exercise.id) ? prev : [...prev, exercise.id]
-                    );
-                    setAdding(false);
-                    setSearchQuery("");
-                  }}
-                  className="flex w-full items-center rounded-xl border-2 border-gray-200 bg-gray-50 p-4 text-left transition-colors hover:bg-gray-100"
-                >
-                  <div>
-                    <p className="font-semibold text-gray-900">
-                      <ExerciseNameLabel name={exercise.name} />
-                    </p>
-                    <p className="text-xs capitalize text-gray-500">{exercise.modality}</p>
+              <>
+                {addCandidates.loggedHits.length > 0 ? (
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Logged</p>
+                    {addCandidates.loggedHits.map(renderAddRow)}
                   </div>
-                </button>
-              ))
+                ) : null}
+                {addCandidates.catalogHits.length > 0 ? (
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Catalog</p>
+                    {addCandidates.catalogHits.map(renderAddRow)}
+                  </div>
+                ) : null}
+              </>
             )}
           </div>
         </>
@@ -144,9 +226,13 @@ export function MyExercisesModal({
                     <p className="font-semibold text-gray-900">
                       <ExerciseNameLabel name={exercise.name} />
                     </p>
-                    {"modality" in exercise && exercise.modality ? (
-                      <p className="text-xs capitalize text-gray-500">{exercise.modality}</p>
-                    ) : null}
+                    <p className="text-xs capitalize text-gray-500">
+                      {exercise.sessionCount > 0
+                        ? exercise.modality
+                        : historyLoading
+                          ? exercise.modality
+                          : "No history yet"}
+                    </p>
                   </div>
                   <button
                     type="button"

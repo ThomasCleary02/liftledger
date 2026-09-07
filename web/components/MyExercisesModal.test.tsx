@@ -41,6 +41,32 @@ describe("MyExercisesModal", () => {
     });
   });
 
+  it("shows Logged above Catalog when adding", () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(
+      <MyExercisesModal
+        open
+        trackedExercises={[]}
+        allExercises={[bench]}
+        loggedSummaries={[
+          {
+            exerciseId: "bench_press",
+            name: "Bench Press",
+            modality: "strength",
+            sessionCount: 4,
+            lastDate: "2026-03-01",
+          },
+        ]}
+        loading={false}
+        onClose={vi.fn()}
+        onSave={onSave}
+      />
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Add exercise" }));
+    expect(screen.getByText("Logged")).toBeTruthy();
+    expect(screen.getByText(/4 sessions/)).toBeTruthy();
+  });
+
   it("does not close when save fails", async () => {
     const onSave = vi.fn().mockRejectedValue(new Error("nope"));
     const onClose = vi.fn();

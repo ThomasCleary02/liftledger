@@ -9,6 +9,8 @@ import { auth } from "../../../lib/firebase";
 import { toast } from "../../../lib/toast";
 import { BrandMark } from "../../../components/BrandMark";
 import { isValidUsername } from "@liftledger/shared";
+import { friendlyAuthError } from "../../../lib/authErrors";
+import { shouldUseFirebaseEmulators } from "../../../lib/firebaseEmulators";
 
 export default function Login() {
   const router = useRouter();
@@ -101,11 +103,8 @@ export default function Login() {
       setError(null);
       toast.success("Password reset email sent. Check your inbox.");
       setShowResetPassword(false);
-    } catch (e: any) {
-      const errorMessage = e?.message || "Failed to send reset email";
-      setError(errorMessage.includes("user-not-found") 
-        ? "No account found with this email address"
-        : errorMessage);
+    } catch (e: unknown) {
+      setError(friendlyAuthError(e));
     } finally {
       setResetLoading(false);
     }
@@ -125,17 +124,8 @@ export default function Login() {
         await signUp(email, password, username.trim());
       }
       router.replace("/day/today");
-    } catch (e: any) {
-      const errorMessage = e?.message || "An error occurred";
-      const friendlyMessage = errorMessage.includes("email-already-in-use")
-        ? "An account with this email already exists. Please log in instead."
-        : errorMessage.includes("invalid-credential") || errorMessage.includes("wrong-password")
-        ? "Invalid email or password. Please try again."
-        : errorMessage.includes("weak-password")
-        ? "Password is too weak. Please use a stronger password."
-        : errorMessage;
-      
-      setError(friendlyMessage);
+    } catch (e: unknown) {
+      setError(friendlyAuthError(e));
     } finally {
       setLoading(false);
     }
@@ -162,6 +152,11 @@ export default function Login() {
               ? "Sign in to continue tracking your progress"
               : "Start your fitness journey today"}
           </p>
+          {shouldUseFirebaseEmulators() && (
+            <p className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              Local emulator: production accounts are not here. Use Sign Up to create a throwaway login.
+            </p>
+          )}
 
           {/* Error Message */}
           {error && (

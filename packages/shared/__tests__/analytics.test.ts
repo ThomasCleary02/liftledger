@@ -129,6 +129,52 @@ describe("analytics from days", () => {
     expect(cardioIds).toEqual(["running", "treadmill_run", "walk"]);
   });
 
+  it("maps legacy Run label to catalog Running and recovers modality from cardioData", () => {
+    const catalog = [
+      { id: "running", name: "Running" },
+      { id: "walk", name: "Walk" },
+    ];
+    const days = [
+      makeDay("2026-01-01", {
+        exercises: [
+          // Old log: display name "Run", no catalog id, modality omitted
+          { name: "Run", cardioData: { duration: 1500, distance: 2.4 } } as any,
+          {
+            exerciseId: "walk",
+            name: "Walk",
+            modality: "cardio",
+            cardioData: { duration: 2400, distance: 2.5 },
+          },
+        ],
+      }),
+    ];
+    const collapsed = collapsePRsByExercise(findAllPRs(days, ["running", "walk"], catalog));
+    expect(collapsed.map((pr) => pr.exerciseId).sort()).toEqual(["running", "walk"]);
+    expect(collapsed.find((pr) => pr.exerciseId === "running")?.prType).toBe("bestPace");
+  });
+
+  it("treats logged Treadmill as the same PR as tracked Treadmill Run", () => {
+    const catalog = [
+      { id: "treadmill_run", name: "Treadmill Run" },
+      { id: "treadmill", name: "Treadmill" },
+    ];
+    const days = [
+      makeDay("2026-01-01", {
+        exercises: [
+          {
+            exerciseId: "treadmill",
+            name: "Treadmill",
+            modality: "cardio",
+            cardioData: { duration: 1800, distance: 3 },
+          },
+        ],
+      }),
+    ];
+    const collapsed = collapsePRsByExercise(findAllPRs(days, ["treadmill_run"], catalog));
+    expect(collapsed).toHaveLength(1);
+    expect(collapsed[0].prType).toBe("bestPace");
+  });
+
   it("tracks last vs previous working weight for a lift", () => {
     const days = [
       makeDay("2026-01-01", { exercises: [strength("Bench Press", [{ reps: 5, weight: 135 }])] }),

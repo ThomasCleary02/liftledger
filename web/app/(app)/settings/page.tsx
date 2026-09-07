@@ -46,6 +46,7 @@ import {
   type WorkoutTemplate
 } from "../../../lib/firestore/workoutTemplates";
 import { listDays } from "../../../lib/firestore/days";
+import { summarizeLoggedExercises, type LoggedExerciseSummary } from "@liftledger/shared";
 import { daysToCsv, downloadCsv } from "../../../lib/exportDaysCsv";
 import { Exercise } from "../../../lib/firestore/workouts";
 import StrengthSetInput from "../../../components/StrengthSetInput";
@@ -87,7 +88,9 @@ export default function Settings() {
   const [myExercisesOpen, setMyExercisesOpen] = useState(false);
   const [trackedExerciseIds, setTrackedExerciseIds] = useState<string[]>([]);
   const [allExercises, setAllExercises] = useState<ExerciseDoc[]>([]);
+  const [loggedSummaries, setLoggedSummaries] = useState<LoggedExerciseSummary[]>([]);
   const [loadingExercises, setLoadingExercises] = useState(false);
+  const [loadingLoggedHistory, setLoadingLoggedHistory] = useState(false);
 
   // Add state for Workout Templates
   const [templatesOpen, setTemplatesOpen] = useState(false);
@@ -191,19 +194,23 @@ export default function Settings() {
   const loadTrackedExercises = useCallback(async () => {
     if (!user) return;
     setLoadingExercises(true);
+    setLoadingLoggedHistory(true);
     try {
-      const [tracked, all] = await Promise.all([
+      const [tracked, all, days] = await Promise.all([
         getTrackedExercises(),
-        getAllExercises()
+        getAllExercises(),
+        listDays({ limit: 1000, order: "desc" }),
       ]);
       setTrackedExerciseIds(tracked);
       setTrackedCount(tracked.length);
       setAllExercises(all);
+      setLoggedSummaries(summarizeLoggedExercises(days, all));
     } catch (error) {
       console.error("Failed to load exercises", error);
       toast.error("Failed to load exercises");
     } finally {
       setLoadingExercises(false);
+      setLoadingLoggedHistory(false);
     }
   }, [user]);
 
@@ -518,6 +525,8 @@ export default function Settings() {
             open={myExercisesOpen}
             trackedExercises={trackedExerciseIds}
             allExercises={allExercises}
+            loggedSummaries={loggedSummaries}
+            historyLoading={loadingLoggedHistory}
             loading={loadingExercises}
             onClose={() => setMyExercisesOpen(false)}
             onSave={handleSaveTrackedExercises}
@@ -560,7 +569,7 @@ export default function Settings() {
 
           {/* App Info */}
           <div className="py-6 text-center">
-            <p className="text-sm text-gray-400">LiftLedger v3.2.2</p>
+            <p className="text-sm text-gray-400">LiftLedger v3.2.3</p>
           </div>
           </div>
         </div>

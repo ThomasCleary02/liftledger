@@ -3,6 +3,7 @@ import type { Auth } from "firebase/auth";
 import { Timestamp, collection, getDoc, getDocs, updateDoc, deleteDoc, doc, runTransaction, orderBy, where, query, limit as limitFn, onSnapshot, Unsubscribe, QueryDocumentSnapshot, SnapshotOptions, deleteField } from "firebase/firestore";
 import { format, parseISO } from "date-fns";
 import type { Exercise } from "./workouts";
+import { normalizeExercise } from "./workouts";
 
 // --------- Types ---------
 export type DayStatus = "injured";
@@ -115,7 +116,7 @@ export function createDayService(db: Firestore, auth: Auth) {
         userId: typeof data?.userId === "string" ? data.userId : "",
         date: typeof data?.date === "string" ? data.date : normalizeDateToYYYYMMDD(new Date()),
         isRestDay: typeof data?.isRestDay === "boolean" ? data.isRestDay : false,
-        exercises: Array.isArray(data?.exercises) ? data.exercises : [],
+        exercises: Array.isArray(data?.exercises) ? data.exercises.map((ex: any) => normalizeExercise(ex)) : [],
         notes: typeof data?.notes === "string" ? data.notes : undefined,
         status: data?.status === "injured" ? "injured" : undefined,
         importId: typeof data?.importId === "string" ? data.importId : undefined,

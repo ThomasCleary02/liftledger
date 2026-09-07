@@ -45,15 +45,24 @@ import {
 import { format, startOfWeek, eachDayOfInterval, addDays } from "date-fns";
 import { logger } from "../../../lib/logger";
 import { toast } from "../../../lib/toast";
-import { getAccountSummary } from "../../../lib/firestore/account";
-import { CARDIO_ACTIVITY_LABELS, cardioPaceKind, type CardioActivityType } from "@liftledger/shared";
+import { getAccountSummary, setTrackedExercises } from "../../../lib/firestore/account";
+import {
+  CARDIO_ACTIVITY_LABELS,
+  cardioPaceKind,
+  summarizeLoggedExercises,
+  trackedMatchStatuses,
+  type CardioActivityType,
+  type LoggedExerciseSummary,
+  type TrackedMatchStatus,
+} from "@liftledger/shared";
 import { ExerciseNameLabel } from "../../../components/ExerciseNameLabel";
-import { downloadWeekSharePng } from "../../../lib/shareWeekPng";
+import { shareWeekPng } from "../../../lib/shareWeekPng";
 import { peekCatalog, peekDaysArray, daysListIsComplete } from "../../../lib/sessionCache";
 
 type TabType = "overview" | "strength" | "cardio" | "prs";
 
 const ALL_HISTORY_LIMIT = 250;
+const LIFETIME_HISTORY_LIMIT = 1000;
 
 const PERIODS: { id: TimePeriod; short: string; label: string }[] = [
   { id: "week", short: "7d", label: "Last 7 days" },
@@ -163,10 +172,10 @@ export default function Analytics() {
 
   const loadOlderHistory = async () => {
     try {
-      const older = await listDays({ limit: 1000, order: "desc" });
+      const older = await listDays({ limit: LIFETIME_HISTORY_LIMIT, order: "desc" });
       setDays((prev) => mergeDays(prev, older));
       setLifetimeDays((prev) => mergeDays(prev, older));
-      const complete = daysListIsComplete() || older.length < 1000;
+      const complete = daysListIsComplete() || older.length < LIFETIME_HISTORY_LIMIT;
       setHistoryComplete(complete);
       setLifetimeComplete(complete);
     } catch (error) {
@@ -177,36 +186,61 @@ export default function Analytics() {
 
   const filteredDays = useMemo(() => filterDaysByPeriod(days, timePeriod), [days, timePeriod]);
   const summary = useMemo(() => getAnalyticsSummaryFromDays(filteredDays, exercises), [filteredDays, exercises]);
+  const catalogList = useMemo(() => Array.from(exercises.values()), [exercises]);
+  const historyForLifetime = lifetimeDays.length > 0 ? lifetimeDays : days;
 
+  // PRs and identity helpers need all-time history, not the Month/Year chart window.
   useEffect(() => {
-    if (activeTab !== "prs" || !user || lifetimeComplete) return;
+    if (!user || authLoading || lifetimeComplete) return;
     let cancelled = false;
-    void listDays({ limit: 1000, order: "desc" })
+    void listDays({ limit: LIFETIME_HISTORY_LIMIT, order: "desc" })
       .then((older) => {
         if (cancelled) return;
         setLifetimeDays((prev) => mergeDays(prev, older));
-        setLifetimeComplete(daysListIsComplete() || older.length < 1000);
+        setLifetimeComplete(daysListIsComplete() || older.length < LIFETIME_HISTORY_LIMIT);
       })
       .catch((error) => {
-        logger.error("Error loading PR history", error);
+        logger.error("Error loading lifetime history", error);
       });
     return () => {
       cancelled = true;
     };
-  }, [activeTab, user, lifetimeComplete]);
+  }, [user, authLoading, lifetimeComplete]);
 
   const prs = useMemo(() => {
     if (activeTab !== "prs") return [];
-    const source = lifetimeDays.length > 0 ? lifetimeDays : days;
-    if (source.length === 0) return [];
+    if (historyForLifetime.length === 0) return [];
     return collapsePRsByExercise(
       findAllPRs(
-        source,
+        historyForLifetime,
         trackedExerciseIds.length > 0 ? trackedExerciseIds : undefined,
-        Array.from(exercises.values())
+        catalogList
       )
     );
-  }, [activeTab, lifetimeDays, days, trackedExerciseIds, exercises]);
+  }, [activeTab, historyForLifetime, trackedExerciseIds, catalogList]);
+
+  const loggedSummaries = useMemo(() => {
+    if (activeTab !== "prs" || trackedExerciseIds.length === 0) return [] as LoggedExerciseSummary[];
+    return summarizeLoggedExercises(historyForLifetime, catalogList);
+  }, [activeTab, trackedExerciseIds, historyForLifetime, catalogList]);
+
+  const orphanStatuses = useMemo(() => {
+    if (trackedExerciseIds.length === 0) return [] as TrackedMatchStatus[];
+    return trackedMatchStatuses(trackedExerciseIds, loggedSummaries, catalogList).filter(
+      (status) => !status.hasMatchingHistory
+    );
+  }, [trackedExerciseIds, loggedSummaries, catalogList]);
+
+  const updateTracked = async (next: string[]) => {
+    try {
+      await setTrackedExercises(next);
+      setTrackedExerciseIds(next);
+      toast.success("Tracking updated");
+    } catch (error) {
+      logger.error("Failed to update tracked exercises", error);
+      toast.error("Could not update tracking");
+    }
+  };
 
   if (!authLoading && !user) {
     return null;
@@ -229,24 +263,30 @@ export default function Analytics() {
         <div className="px-4 pt-3 md:px-8">
           <div className="mx-auto flex max-w-4xl items-center justify-between gap-3">
             <h1 className="min-w-0 truncate text-xl font-semibold text-gray-900 md:text-2xl">Analytics</h1>
-            <div className="flex shrink-0 rounded-lg bg-gray-100 p-0.5">
-              {PERIODS.map((period) => (
-                <button
-                  key={period.id}
-                  type="button"
-                  onClick={() => setTimePeriod(period.id)}
-                  aria-label={period.label}
-                  aria-current={timePeriod === period.id ? "true" : undefined}
-                  className={`rounded px-2.5 py-1.5 text-xs font-semibold transition-colors ${
-                    timePeriod === period.id
-                      ? "bg-brand text-brand-fg"
-                      : "text-gray-600 hover:bg-gray-200"
-                  }`}
-                >
-                  {period.short}
-                </button>
-              ))}
-            </div>
+            {activeTab === "prs" ? (
+              <p className="shrink-0 rounded-lg bg-gray-100 px-2.5 py-1.5 text-xs font-semibold text-gray-600">
+                All time
+              </p>
+            ) : (
+              <div className="flex shrink-0 rounded-lg bg-gray-100 p-0.5">
+                {PERIODS.map((period) => (
+                  <button
+                    key={period.id}
+                    type="button"
+                    onClick={() => setTimePeriod(period.id)}
+                    aria-label={period.label}
+                    aria-current={timePeriod === period.id ? "true" : undefined}
+                    className={`rounded px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                      timePeriod === period.id
+                        ? "bg-brand text-brand-fg"
+                        : "text-gray-600 hover:bg-gray-200"
+                    }`}
+                  >
+                    {period.short}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           <div className="mx-auto mt-3 flex max-w-4xl">
             {tabs.map((tab) => {
@@ -308,7 +348,11 @@ export default function Analytics() {
           ) : (
             <>
               {activeTab === "overview" && (
-                <OverviewView summary={summary} allDays={days} username={username} />
+                <OverviewView
+                  summary={summary}
+                  allDays={historyForLifetime}
+                  username={username}
+                />
               )}
               {activeTab === "strength" && (
                 <StrengthView days={filteredDays} exercises={exercises} timePeriod={timePeriod} />
@@ -317,9 +361,21 @@ export default function Analytics() {
                 <CardioView days={filteredDays} timePeriod={timePeriod} />
               )}
               {activeTab === "prs" && (
-                <PRsView prs={prs} trackingEmpty={trackedExerciseIds.length === 0} />
+                <PRsView
+                  prs={prs}
+                  trackingEmpty={trackedExerciseIds.length === 0}
+                  lifetimeLoading={!lifetimeComplete}
+                  orphans={orphanStatuses}
+                  onTrackSuggestion={async (trackedId, suggestionId) => {
+                    const next = Array.from(new Set([...trackedExerciseIds.filter((id) => id !== trackedId), suggestionId]));
+                    await updateTracked(next);
+                  }}
+                  onRemoveTracked={async (trackedId) => {
+                    await updateTracked(trackedExerciseIds.filter((id) => id !== trackedId));
+                  }}
+                />
               )}
-              {timePeriod === "all" && !historyComplete && days.length > 0 && (
+              {timePeriod === "all" && activeTab !== "prs" && !historyComplete && days.length > 0 && (
                 <button
                   type="button"
                   onClick={() => void loadOlderHistory()}
@@ -347,6 +403,7 @@ function OverviewView({
   username: string | null;
 }) {
   const { units, trackBodyweight } = usePreferences();
+  const [sharing, setSharing] = useState(false);
   const weighIns = useMemo(() => getBodyweightPoints(allDays), [allDays]);
   const weightChange = getBodyweightChangeLbs(weighIns);
 
@@ -356,6 +413,22 @@ function OverviewView({
     allDays.filter((d) => !d.isRestDay && d.exercises.length > 0).map((d) => d.date)
   );
   const trainedThisWeek = weekDates.filter((date) => trained.has(format(date, "yyyy-MM-dd"))).length;
+
+  const handleShare = async () => {
+    if (sharing) return;
+    setSharing(true);
+    try {
+      const result = await shareWeekPng(allDays, username, units);
+      if (result === "previewed") {
+        toast.success("Opened image — long-press to save");
+      }
+    } catch (error) {
+      logger.error("Share week failed", error);
+      toast.error("Could not create that image");
+    } finally {
+      setSharing(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -388,19 +461,13 @@ function OverviewView({
             <p className="text-sm text-gray-500">{trainedThisWeek} of 7 days with work</p>
             <button
               type="button"
-              className="flex items-center gap-1 text-sm font-semibold text-gray-800"
+              className="flex items-center gap-1 text-sm font-semibold text-gray-800 disabled:opacity-50"
               aria-label="Share this week as an image"
-              onClick={() => {
-                try {
-                  downloadWeekSharePng(allDays, username, units);
-                } catch (error) {
-                  logger.error("Share week failed", error);
-                  toast.error("Could not create that image");
-                }
-              }}
+              disabled={sharing}
+              onClick={() => void handleShare()}
             >
               <Share className="h-4 w-4" />
-              Share
+              {sharing ? "Sharing…" : "Share"}
             </button>
           </div>
         </div>
@@ -853,7 +920,21 @@ function CardioTypeDetail({
 }
 
 // PRs View Component
-function PRsView({ prs, trackingEmpty }: { prs: ExercisePR[]; trackingEmpty: boolean }) {
+function PRsView({
+  prs,
+  trackingEmpty,
+  lifetimeLoading,
+  orphans,
+  onTrackSuggestion,
+  onRemoveTracked,
+}: {
+  prs: ExercisePR[];
+  trackingEmpty: boolean;
+  lifetimeLoading: boolean;
+  orphans: TrackedMatchStatus[];
+  onTrackSuggestion: (trackedId: string, suggestionId: string) => Promise<void>;
+  onRemoveTracked: (trackedId: string) => Promise<void>;
+}) {
   const { units } = usePreferences();
 
   const groupedPRs = useMemo(() => {
@@ -923,6 +1004,9 @@ function PRsView({ prs, trackingEmpty }: { prs: ExercisePR[]; trackingEmpty: boo
 
   return (
     <div className="space-y-6">
+      {lifetimeLoading ? (
+        <p className="text-sm text-gray-500">Loading full history…</p>
+      ) : null}
       {trackingEmpty && prs.length > 0 && (
         <p className="rounded-md border border-gray-100 bg-white px-4 py-3 text-sm text-gray-600">
           Showing every lift with a best.{" "}
@@ -932,10 +1016,60 @@ function PRsView({ prs, trackingEmpty }: { prs: ExercisePR[]; trackingEmpty: boo
           can shorten this list — it does not change Strength or Cardio.
         </p>
       )}
+      {orphans.length > 0 && (
+        <div className="space-y-3">
+          {orphans.map((orphan) => (
+            <div
+              key={orphan.trackedId}
+              className="rounded-md border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+            >
+              <p>
+                <span className="font-semibold">
+                  <ExerciseNameLabel name={orphan.trackedName} />
+                </span>{" "}
+                isn’t in your history.
+                {orphan.suggestions.length > 0 ? (
+                  <>
+                    {" "}
+                    Closest logs:{" "}
+                    {orphan.suggestions
+                      .map((s) => `${s.name} (${s.sessionCount})`)
+                      .join(", ")}
+                    .
+                  </>
+                ) : (
+                  <> No similar logs found.</>
+                )}
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {orphan.suggestions.map((suggestion) => (
+                  <button
+                    key={suggestion.exerciseId}
+                    type="button"
+                    className="rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-gray-900 shadow-sm"
+                    onClick={() => void onTrackSuggestion(orphan.trackedId, suggestion.exerciseId)}
+                  >
+                    Track {suggestion.name}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  className="rounded-lg px-3 py-1.5 text-xs font-semibold text-amber-900/80"
+                  onClick={() => void onRemoveTracked(orphan.trackedId)}
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
       {prs.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12">
           <Trophy className="h-12 w-12 text-gray-300" />
-          <p className="mt-4 text-center text-gray-500">No personal records yet</p>
+          <p className="mt-4 text-center text-gray-500">
+            {orphans.length > 0 ? "No matching personal records" : "No personal records yet"}
+          </p>
           <Link href="/settings" className="mt-3 text-sm font-semibold text-gray-800">
             Choose lifts in My exercises
           </Link>
