@@ -29,6 +29,8 @@ export function FullScreenSheet({
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   const [mounted, setMounted] = useState(false);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
   const showDefaultFooter = footer === undefined;
@@ -53,7 +55,7 @@ export function FullScreenSheet({
     });
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (panelRef.current) trapFocusKeydown(event, panelRef.current);
@@ -64,7 +66,8 @@ export function FullScreenSheet({
       window.removeEventListener("keydown", onKey);
       previouslyFocused.current?.focus?.();
     };
-  }, [open, onClose]);
+    // Only when `open` flips — dependent onClose identity was stealing focus after each keystroke.
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;

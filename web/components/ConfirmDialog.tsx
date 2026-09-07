@@ -28,6 +28,8 @@ export function ConfirmDialog({
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
+  const onCancelRef = useRef(onCancel);
+  onCancelRef.current = onCancel;
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -42,7 +44,7 @@ export function ConfirmDialog({
     });
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        onCancel();
+        onCancelRef.current();
         return;
       }
       if (panelRef.current) trapFocusKeydown(event, panelRef.current);
@@ -53,7 +55,7 @@ export function ConfirmDialog({
       window.removeEventListener("keydown", onKey);
       previouslyFocused.current?.focus?.();
     };
-  }, [open, onCancel]);
+  }, [open]);
 
   if (!mounted || !open) return null;
 

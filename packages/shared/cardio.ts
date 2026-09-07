@@ -24,10 +24,13 @@ function haystack(name?: string, exerciseId?: string): string {
 export function inferCardioActivityType(name?: string, exerciseId?: string): CardioActivityType {
   const text = haystack(name, exerciseId);
 
+  // Treadmill walk before generic treadmill→run, so walks aren't labeled as runs.
+  if (/\btreadmill\b/.test(text) && /\bwalk/.test(text)) return "walk";
+  // Run before walk so ids/names like "easy_run" aren't stolen by a walk substring elsewhere.
+  if (/(treadmill|\brun\b|\brunning\b|jog|jogging|sprint)/.test(text)) return "run";
   if (/(walk|hike|hiking|ruck)/.test(text)) return "walk";
   if (/(row|rowing|\berg\b|concept 2)/.test(text)) return "row";
   if (/(bike|biking|cycl|spin|peloton)/.test(text)) return "bike";
-  if (/(run|running|jog|jogging|sprint|treadmill)/.test(text)) return "run";
   return "other";
 }
 

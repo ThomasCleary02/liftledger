@@ -560,7 +560,7 @@ export default function Settings() {
 
           {/* App Info */}
           <div className="py-6 text-center">
-            <p className="text-sm text-gray-400">LiftLedger v3.2.1</p>
+            <p className="text-sm text-gray-400">LiftLedger v3.2.2</p>
           </div>
           </div>
         </div>

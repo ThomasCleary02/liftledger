@@ -200,9 +200,13 @@ export default function Analytics() {
     const source = lifetimeDays.length > 0 ? lifetimeDays : days;
     if (source.length === 0) return [];
     return collapsePRsByExercise(
-      findAllPRs(source, trackedExerciseIds.length > 0 ? trackedExerciseIds : undefined)
+      findAllPRs(
+        source,
+        trackedExerciseIds.length > 0 ? trackedExerciseIds : undefined,
+        Array.from(exercises.values())
+      )
     );
-  }, [activeTab, lifetimeDays, days, trackedExerciseIds]);
+  }, [activeTab, lifetimeDays, days, trackedExerciseIds, exercises]);
 
   if (!authLoading && !user) {
     return null;

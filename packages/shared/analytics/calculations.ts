@@ -546,18 +546,43 @@ function pushDatedPR(
   });
 }
 
-export function findAllPRs(days: Day[], trackedExerciseIds?: string[]): ExercisePR[] {
+export function findAllPRs(
+  days: Day[],
+  trackedExerciseIds?: string[],
+  catalog?: Array<Pick<ExerciseDoc, "id" | "name">>
+): ExercisePR[] {
   const prs: ExercisePR[] = [];
   const strengthPRs = new Map<string, { name: string; maxWeight?: DatedPR }>();
   const cardioPRs = new Map<string, { name: string; maxDistance?: DatedPR; maxDuration?: DatedPR; bestPace?: DatedPR }>();
   const calisthenicsPRs = new Map<string, { name: string; maxReps?: DatedPR }>();
+
+  const nameById = new Map<string, string>();
+  const idByNameFolded = new Map<string, string>();
+  for (const ex of catalog ?? []) {
+    if (!ex?.id || !ex?.name) continue;
+    nameById.set(ex.id, ex.name);
+    const folded = ex.name.trim().toLowerCase();
+    if (folded && !idByNameFolded.has(folded)) idByNameFolded.set(folded, ex.id);
+  }
+
+  /** Prefer catalog ids so legacy name-only logs still match My exercises. */
+  const keyFor = (ex: Pick<Exercise, "exerciseId" | "name">): string => {
+    const folded = (ex.name || "").trim().toLowerCase();
+    const fromName = folded ? idByNameFolded.get(folded) : undefined;
+    if (ex.exerciseId) {
+      if (nameById.has(ex.exerciseId)) return ex.exerciseId;
+      if (fromName && ex.exerciseId.trim().toLowerCase() === folded) return fromName;
+      return ex.exerciseId;
+    }
+    return fromName || ex.name;
+  };
 
   days.forEach(day => {
     const dayDate = parseISO(day.date);
     if (isNaN(dayDate.getTime())) return;
 
     day.exercises.forEach(ex => {
-      const exerciseId = ex.exerciseId || ex.name;
+      const exerciseId = keyFor(ex);
 
       if (ex.modality === "strength" && ex.strengthSets) {
         const current = strengthPRs.get(exerciseId) || { name: ex.name };
@@ -606,9 +631,23 @@ export function findAllPRs(days: Day[], trackedExerciseIds?: string[]): Exercise
     pushDatedPR(prs, exerciseId, pr.name, "calisthenics", "maxReps", pr.maxReps);
   });
 
-  // At the end, filter by tracked exercises if provided
   if (trackedExerciseIds && trackedExerciseIds.length > 0) {
-    return prs.filter(pr => trackedExerciseIds.includes(pr.exerciseId));
+    const allowed = new Set<string>(trackedExerciseIds);
+    for (const id of trackedExerciseIds) {
+      const name = nameById.get(id);
+      if (name) {
+        allowed.add(name);
+        const folded = name.trim().toLowerCase();
+        if (folded) allowed.add(folded);
+      }
+    }
+    return prs.filter((pr) => {
+      if (allowed.has(pr.exerciseId) || allowed.has(pr.exerciseName)) return true;
+      const folded = pr.exerciseName.trim().toLowerCase();
+      if (allowed.has(folded)) return true;
+      const canon = idByNameFolded.get(folded);
+      return canon != null && allowed.has(canon);
+    });
   }
 
   return prs;

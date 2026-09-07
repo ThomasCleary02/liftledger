@@ -85,6 +85,7 @@ export function MyExercisesModal({
             placeholder="Search exercises"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            autoFocus
             className="mb-4 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-base outline-none focus:border-brand focus:bg-white"
           />
           <div className="space-y-2">

@@ -11,6 +11,7 @@ import {
 describe("cardio", () => {
   it("infers activity from names", () => {
     expect(inferCardioActivityType("Treadmill Run")).toBe("run");
+    expect(inferCardioActivityType("Treadmill Walk")).toBe("walk");
     expect(inferCardioActivityType("Morning walk")).toBe("walk");
     expect(inferCardioActivityType("Concept 2 row")).toBe("row");
     expect(inferCardioActivityType("Peloton")).toBe("bike");

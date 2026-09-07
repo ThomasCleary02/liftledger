@@ -103,6 +103,32 @@ describe("analytics from days", () => {
     expect(collapsed.find((pr) => pr.exerciseId === "Bench Press")?.prType).toBe("maxWeight");
   });
 
+  it("keeps tracked cardio PRs when logs used the exercise name as id", () => {
+    const catalog = [
+      { id: "treadmill_run", name: "Treadmill Run" },
+      { id: "running", name: "Running" },
+      { id: "walk", name: "Walk" },
+    ];
+    const days = [
+      makeDay("2026-01-01", {
+        exercises: [
+          { name: "Treadmill Run", modality: "cardio", cardioData: { duration: 1800, distance: 3 } },
+          { name: "Running", modality: "cardio", cardioData: { duration: 1200, distance: 2 } },
+          {
+            exerciseId: "walk",
+            name: "Walk",
+            modality: "cardio",
+            cardioData: { duration: 2400, distance: 2.5 },
+          },
+        ],
+      }),
+    ];
+    const tracked = ["treadmill_run", "running", "walk"];
+    const collapsed = collapsePRsByExercise(findAllPRs(days, tracked, catalog));
+    const cardioIds = collapsed.filter((pr) => pr.modality === "cardio").map((pr) => pr.exerciseId).sort();
+    expect(cardioIds).toEqual(["running", "treadmill_run", "walk"]);
+  });
+
   it("tracks last vs previous working weight for a lift", () => {
     const days = [
       makeDay("2026-01-01", { exercises: [strength("Bench Press", [{ reps: 5, weight: 135 }])] }),
