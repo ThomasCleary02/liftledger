@@ -60,7 +60,7 @@ export function ServiceWorkerUpdate() {
         <RefreshCw className="h-5 w-5 text-brand" />
         <div className="flex-1">
           <p className="text-sm font-semibold text-gray-900">Update available</p>
-          <p className="text-sm text-gray-500">Reload for the latest log.</p>
+          <p className="text-sm text-gray-500">Reload for the latest version.</p>
         </div>
         <button
           type="button"

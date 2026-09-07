@@ -28,7 +28,7 @@ export function TemplatePicker({
 
   return (
     <FullScreenSheet open title="Templates" onClose={onClose} closeAriaLabel="Close templates">
-      <p className="kicker mb-4">The plan</p>
+      <p className="kicker mb-4">Templates</p>
       {canSaveCurrent && (
         <form
           className="mb-4 rounded-md border border-gray-200 bg-gray-50 p-3"

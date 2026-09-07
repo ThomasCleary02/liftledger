@@ -49,7 +49,7 @@ export function ProfileSheet({
             featuredIds={data.featuredIds}
             earned={data.earned}
             onSelect={setSelectedId}
-            emptyHint="They have not pinned any medals yet."
+            emptyHint="No medals pinned yet."
           />
         </section>
       </FullScreenSheet>

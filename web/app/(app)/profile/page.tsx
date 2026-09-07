@@ -76,7 +76,7 @@ export default function ProfilePage() {
       await accountService.setAchievementProgress(next);
     } catch (error) {
       logger.error("Failed to save badges", error);
-      toast.error("Could not update badges");
+      toast.error("Could not update medals");
     }
   };
 
@@ -98,7 +98,7 @@ export default function ProfilePage() {
       logger.error("Error uploading photo", error);
       if (gen !== uploadGen.current) return;
       setPhotoURL(previous);
-      toast.error("Could not save that crop. Try a smaller image.");
+      toast.error("Could not save that photo. Try a smaller image.");
     } finally {
       if (gen === uploadGen.current) setUploading(false);
     }
@@ -116,7 +116,7 @@ export default function ProfilePage() {
       void persistAvatar(blob, previous);
     } catch (error) {
       logger.error("Error cropping photo", error);
-      toast.error("Could not crop that image.");
+      toast.error("Could not use that image.");
       throw error;
     }
   };
@@ -138,9 +138,9 @@ export default function ProfilePage() {
       <header className="flex-shrink-0 border-b border-gray-200 bg-white px-4 py-3 md:px-8">
         <div className="mx-auto flex max-w-lg items-center justify-between">
           <div>
-            <p className="kicker">The athlete</p>
+            <p className="kicker">Profile</p>
             <h1 className="text-lg font-semibold text-gray-900">Profile</h1>
-            <p className="text-xs text-gray-500">What friends see. No feed.</p>
+            <p className="text-xs text-gray-500">How friends see you</p>
           </div>
           <div className="flex items-center gap-1">
             <button
@@ -201,7 +201,7 @@ export default function ProfilePage() {
               </div>
               {!preview && (
                 <button type="button" onClick={() => setCollectionOpen(true)} className="text-sm font-semibold text-brand">
-                  The case
+                  All medals
                 </button>
               )}
             </div>
@@ -209,7 +209,7 @@ export default function ProfilePage() {
               featuredIds={progress.featuredIds}
               earned={progress.earned}
               onSelect={setSelectedId}
-              emptyHint={preview ? "Nothing pinned." : "Open the case and pin up to three."}
+              emptyHint={preview ? "No medals pinned yet." : "Pin up to three medals."}
             />
           </section>
         </div>
@@ -219,7 +219,7 @@ export default function ProfilePage() {
         <AvatarCropModal file={cropFile} onCancel={() => setCropFile(null)} onConfirm={handleCrop} />
       )}
 
-      <FullScreenSheet open={collectionOpen && !preview} title="The case" onClose={() => setCollectionOpen(false)}>
+      <FullScreenSheet open={collectionOpen && !preview} title="All medals" onClose={() => setCollectionOpen(false)}>
         <div className="rounded-md border border-gray-200 bg-white p-5 shadow-[0_1px_0_rgb(20_83_45/0.08)]">
           <MedalCollection progress={progress} onSelect={setSelectedId} />
         </div>
@@ -237,7 +237,7 @@ export default function ProfilePage() {
               onClick={() => {
                 if (!selected) return;
                 if (!progress.featuredIds.includes(selected.id) && progress.featuredIds.length >= MAX_FEATURED_ACHIEVEMENTS) {
-                  toast.error(`Pin ${MAX_FEATURED_ACHIEVEMENTS} max`);
+                  toast.error(`You can pin up to ${MAX_FEATURED_ACHIEVEMENTS} medals.`);
                   return;
                 }
                 void persistProgress({
@@ -246,7 +246,7 @@ export default function ProfilePage() {
                 });
               }}
             >
-              {selected && progress.featuredIds.includes(selected.id) ? "Unpin" : "Pin on profile"}
+              {selected && progress.featuredIds.includes(selected.id) ? "Unpin" : "Pin to profile"}
             </button>
           ) : null
         }
@@ -257,7 +257,7 @@ export default function ProfilePage() {
             {earnedAt ? (
               <p className="mt-3 font-mono text-sm text-gray-500">Earned {format(new Date(earnedAt), "MMM d, yyyy")}</p>
             ) : (
-              <p className="mt-3 text-sm text-gray-500">Still locked. That is the point.</p>
+              <p className="mt-3 text-sm text-gray-500">Not earned yet.</p>
             )}
           </div>
         )}

@@ -109,9 +109,9 @@ export default function Leaderboards() {
               <ArrowLeft className="h-5 w-5" />
               <span className="text-sm">Back</span>
             </Link>
-            <p className="kicker mb-1">The board</p>
+            <p className="kicker mb-1">Friends</p>
             <h1 className="mb-2 text-2xl font-semibold text-gray-900 md:text-3xl">Leaderboards</h1>
-            <p className="text-sm text-gray-500">Compete with your friends</p>
+            <p className="text-sm text-gray-500">Compare streaks and volume</p>
           </div>
 
           <div className="mx-auto mt-4 max-w-4xl border-t border-gray-100 pt-4">

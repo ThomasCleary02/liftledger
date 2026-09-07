@@ -108,7 +108,7 @@ export default function AccountSettings() {
       logger.error("Error uploading photo", error);
       if (gen !== uploadGen.current) return;
       setPhotoURL(previous);
-      toast.error("Could not upload that image. Try a smaller photo.");
+      toast.error("Could not save that photo. Try a smaller image.");
     } finally {
       if (gen === uploadGen.current) setUploadingPhoto(false);
     }
@@ -126,7 +126,7 @@ export default function AccountSettings() {
       void persistAvatar(blob, previous);
     } catch (error) {
       logger.error("Error cropping photo", error);
-      toast.error("Could not crop that image.");
+      toast.error("Could not use that image.");
       throw error;
     }
   };
@@ -140,7 +140,7 @@ export default function AccountSettings() {
       setPhotoURL(null);
     } catch (error) {
       logger.error("Error removing photo", error);
-      toast.error("Could not remove profile picture");
+      toast.error("Could not remove photo");
     } finally {
       setUploadingPhoto(false);
     }
@@ -170,9 +170,9 @@ export default function AccountSettings() {
               <ArrowLeft className="h-5 w-5" />
               <span className="text-sm font-semibold">Back</span>
             </button>
-            <p className="kicker mb-1">The account</p>
-            <h1 className="text-2xl font-semibold text-gray-900">Identity</h1>
-            <p className="mt-1 text-sm text-gray-500">Username and scale weight. The portrait lives on Profile.</p>
+            <p className="kicker mb-1">Settings</p>
+            <h1 className="text-2xl font-semibold text-gray-900">Account</h1>
+            <p className="mt-1 text-sm text-gray-500">Username, photo, and bodyweight.</p>
           </div>
         </div>
       </header>
@@ -180,7 +180,7 @@ export default function AccountSettings() {
       <main className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-lg space-y-4 px-4 py-6">
           <section className="rounded-md border border-gray-200 bg-white p-5 shadow-[0_1px_0_rgb(20_83_45/0.08)]">
-            <p className="kicker">Portrait</p>
+            <p className="kicker">Photo</p>
             <div className="mt-4 flex items-center gap-4">
               <Avatar name={username || user?.email} photoURL={photoURL} size={72} busy={uploadingPhoto} />
               <div className="min-w-0 flex-1">
@@ -200,7 +200,7 @@ export default function AccountSettings() {
                   onClick={() => fileRef.current?.click()}
                   className="btn-primary min-h-[48px] w-full"
                 >
-                  {uploadingPhoto ? "Saving photo…" : photoURL ? "Crop a new photo" : "Add a photo"}
+                  {uploadingPhoto ? "Saving…" : photoURL ? "Change photo" : "Add photo"}
                 </button>
                 {photoURL && (
                   <button
@@ -209,7 +209,7 @@ export default function AccountSettings() {
                     onClick={() => void handleRemovePhoto()}
                     className="mt-2 min-h-[44px] w-full text-sm font-semibold text-gray-600"
                   >
-                    Use letter avatar
+                    Remove photo
                   </button>
                 )}
               </div>
@@ -217,12 +217,12 @@ export default function AccountSettings() {
           </section>
 
           <section className="rounded-md border border-gray-200 bg-white p-5 shadow-[0_1px_0_rgb(20_83_45/0.08)]">
-            <p className="kicker">Ledger name</p>
+            <p className="kicker">Username</p>
             <div className="mt-4 space-y-4">
               <div>
                 <p className="text-sm font-medium text-gray-700">Email</p>
                 <p className="mt-1 font-mono text-sm text-gray-900">{user?.email || "Not set"}</p>
-                <p className="mt-1 text-xs text-gray-500">Fixed to this login.</p>
+                <p className="mt-1 text-xs text-gray-500">Tied to this login.</p>
               </div>
               <div>
                 <label className="mb-2 block text-sm font-medium text-gray-700">Username</label>
@@ -235,7 +235,7 @@ export default function AccountSettings() {
                     autoCorrect="off"
                     value={usernameInput}
                     onChange={(e) => setUsernameInput(e.target.value)}
-                    placeholder="handle"
+                    placeholder="username"
                     className={fieldClass}
                     maxLength={20}
                     onBlur={() => {
@@ -259,7 +259,7 @@ export default function AccountSettings() {
           </section>
 
           <section className="rounded-md border border-gray-200 bg-white p-5 shadow-[0_1px_0_rgb(20_83_45/0.08)]">
-            <p className="kicker">Scale</p>
+            <p className="kicker">Bodyweight</p>
             <label className="mt-4 mb-2 block text-sm font-medium text-gray-700">
               Bodyweight ({units === "metric" ? "kg" : "lb"})
             </label>
@@ -274,7 +274,7 @@ export default function AccountSettings() {
                 if (bodyweightInput !== savedBodyweight) void handleSaveBodyweight();
               }}
             />
-            <p className="mt-1 text-xs text-gray-500">Used for extra load on calisthenics.</p>
+            <p className="mt-1 text-xs text-gray-500">Used for extra load on calisthenics sets.</p>
             {bodyweightInput !== savedBodyweight && (
               <button
                 type="button"

@@ -31,16 +31,16 @@ export function ProfileHero({
     <div className="relative overflow-hidden rounded-md border border-gray-200 bg-white p-5 shadow-[0_1px_0_rgb(20_83_45/0.14)]">
       <div className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(to_bottom,transparent,transparent_31px,rgb(20_83_45/0.08)_31px,rgb(20_83_45/0.08)_32px)] dark:bg-[repeating-linear-gradient(to_bottom,transparent,transparent_31px,rgb(125_186_138/0.12)_31px,rgb(125_186_138/0.12)_32px)]" />
       <div className="relative">
-        {preview && <p className="kicker mb-4">Friend view</p>}
+        {preview && <p className="kicker mb-4">Preview</p>}
         <div className="flex items-center gap-4">
           <div className="relative flex-shrink-0">
             <Avatar name={username} photoURL={photoURL} size={88} busy={busyPhoto} />
             {cameraSlot}
           </div>
           <div className="min-w-0">
-            <p className="kicker mb-1">Athlete</p>
+            <p className="kicker mb-1">Username</p>
             <p className="truncate font-mono text-xl font-semibold tracking-tight text-gray-900">
-              {username ? `@${username.replace(/^@/, "")}` : "set-username"}
+              {username ? `@${username.replace(/^@/, "")}` : "Add username"}
             </p>
           </div>
         </div>
@@ -103,9 +103,9 @@ export function MedalCollection({
   const unlocked = ACHIEVEMENT_CATALOG.filter((item) => progress.earned[item.id]).length;
   return (
     <div>
-      <p className="kicker mb-2">The case</p>
+      <p className="kicker mb-2">Medals</p>
       <p className="mb-6 text-sm text-gray-500">
-        {unlocked} of {ACHIEVEMENT_CATALOG.length} earned. Pin {MAX_FEATURED_ACHIEVEMENTS} on the ledger.
+        {unlocked} of {ACHIEVEMENT_CATALOG.length} earned. Pin up to {MAX_FEATURED_ACHIEVEMENTS} on your profile.
       </p>
       <AchievementGrid items={ACHIEVEMENT_CATALOG} earned={progress.earned} featuredIds={progress.featuredIds} onSelect={onSelect} />
     </div>

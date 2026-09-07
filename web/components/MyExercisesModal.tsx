@@ -52,7 +52,7 @@ export function MyExercisesModal({
   return (
     <FullScreenSheet
       open={open}
-      title="My Exercises"
+      title="My exercises"
       closeText="Done"
       onClose={() => {
         void persistAndClose();

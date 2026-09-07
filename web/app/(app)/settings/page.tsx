@@ -129,7 +129,7 @@ export default function Settings() {
   const handleSignOutConfirm = () => {
     setSignOutConfirmOpen(false);
     signOutUser();
-    toast.success("Signed out successfully");
+        toast.success("Signed out");
   };
 
   const handleDeleteAccount = () => {
@@ -144,7 +144,7 @@ export default function Settings() {
       ? new Date(current.metadata.lastSignInTime).getTime()
       : 0;
     if (!lastSignIn || Date.now() - lastSignIn > 5 * 60 * 1000) {
-      toast.error("Sign in again, then delete your account. Firebase requires a recent login.");
+      toast.error("Sign in again, then delete your account.");
       return;
     }
     accountService
@@ -152,7 +152,7 @@ export default function Settings() {
       .then(() => deleteAvatarFile(app, current.uid))
       .then(() => deleteUserAccount())
       .then(() => {
-        toast.success("Account deleted successfully");
+        toast.success("Account deleted");
       })
       .catch((error: unknown) => {
         logger.error("Failed to delete account", error);
@@ -223,7 +223,7 @@ export default function Settings() {
   // Add function to create template from current workout
   const handleCreateTemplate = async () => {
     if (!newTemplateName.trim()) {
-      toast.error("Please enter a template name");
+      toast.error("Enter a template name");
       return;
     }
     // This will be called from the workout page, so we'll handle it differently
@@ -259,7 +259,7 @@ export default function Settings() {
 
   const handleSaveTemplate = async (name: string, exercises: Exercise[]) => {
     if (!name.trim()) {
-      toast.error("Please enter a template name");
+      toast.error("Enter a template name");
       return;
     }
     if (exercises.length === 0) {
@@ -273,13 +273,13 @@ export default function Settings() {
           name: name.trim(),
           exercises: exercises,
         });
-        toast.success("Template updated successfully");
+        toast.success("Template updated");
       } else {
         await createTemplate({
           name: name.trim(),
           exercises: exercises,
         });
-        toast.success("Template created successfully");
+        toast.success("Template created");
       }
       setShowCreateTemplate(false);
       setEditingTemplate(null);
@@ -358,9 +358,9 @@ export default function Settings() {
         <header className="flex-shrink-0 border-b border-gray-200 bg-white">
           <div className="px-4 py-4 md:px-8 md:py-6">
             <div className="mx-auto max-w-4xl">
-              <p className="kicker mb-1">The office</p>
+              <p className="kicker mb-1">App</p>
               <h1 className="mb-2 text-2xl font-semibold text-gray-900 md:text-3xl">Settings</h1>
-              <p className="text-sm text-gray-500">Units, templates, and the account ledger.</p>
+              <p className="text-sm text-gray-500">Units, templates, and account</p>
             </div>
           </div>
         </header>
@@ -380,9 +380,9 @@ export default function Settings() {
       <header className="flex-shrink-0 border-b border-gray-200 bg-white">
         <div className="px-4 py-4 md:px-8 md:py-6">
         <div className="mx-auto max-w-4xl">
-          <p className="kicker mb-1">The office</p>
+          <p className="kicker mb-1">App</p>
           <h1 className="mb-2 text-2xl font-semibold text-gray-900 md:text-3xl">Settings</h1>
-          <p className="text-sm text-gray-500">Units, templates, and the account ledger.</p>
+          <p className="text-sm text-gray-500">Units, templates, and account</p>
           </div>
         </div>
       </header>
@@ -407,7 +407,7 @@ export default function Settings() {
                   <div className="min-w-0 text-left">
                     <p className="font-semibold text-gray-900">Profile</p>
                     <p className="truncate font-mono text-sm text-gray-500">
-                      {profileName ? `@${profileName.replace(/^@/, "")}` : "Photo, medals, preview"}
+                      {profileName ? `@${profileName.replace(/^@/, "")}` : "Add a username"}
                     </p>
                 </div>
               </div>
@@ -420,8 +420,8 @@ export default function Settings() {
               >
               <div className="flex min-w-0 items-center">
                   <div className="min-w-0 text-left">
-                    <p className="font-semibold text-gray-900">Identity</p>
-                    <p className="truncate text-sm text-gray-500">Username, email, and scale weight</p>
+                    <p className="font-semibold text-gray-900">Account</p>
+                    <p className="truncate text-sm text-gray-500">Username, email, and bodyweight</p>
                 </div>
               </div>
                 <ChevronRight className="h-5 w-5 text-gray-400" />
@@ -460,7 +460,7 @@ export default function Settings() {
               <SettingItem
                 icon={Bell}
                 title="PR notifications"
-                subtitle={prNotifications ? "Toast when you hit a new PR" : "Off"}
+                subtitle={prNotifications ? "Notify on new PRs" : "Off"}
                 onClick={() => setPrNotifyModalOpen(true)}
               />
               <SettingItem
@@ -483,8 +483,8 @@ export default function Settings() {
               />
               <SettingItem
                 icon={Star}
-                title="Favorite Exercises"
-                subtitle={`${favoriteExercises.length || favoriteCount} favorited`}
+                title="Favorite exercises"
+                subtitle={`${favoriteExercises.length || favoriteCount} favorites`}
                 onClick={() => {
                   setFavoritesOpen(true);
                   loadFavorites();
@@ -492,7 +492,7 @@ export default function Settings() {
               />
               <SettingItem
                 icon={List}
-                title="My Exercises"
+                title="My exercises"
                 subtitle={`${trackedExerciseIds.length || trackedCount} exercises tracked for PRs`}
                 onClick={() => {
                   setMyExercisesOpen(true);
@@ -501,7 +501,7 @@ export default function Settings() {
               />
               <SettingItem
                 icon={FileText}
-                title="Workout Templates"
+                title="Workout templates"
                 subtitle={`${templates.length} template${templates.length !== 1 ? 's' : ''}`}
                 onClick={() => {
                   setTemplatesOpen(true);
@@ -544,7 +544,7 @@ export default function Settings() {
 
           {/* Session */}
           <section>
-            <h2 className="kicker mb-3">Session</h2>
+            <h2 className="kicker mb-3">Account actions</h2>
             <div className="overflow-hidden rounded-md border border-gray-200 bg-white shadow-[0_1px_0_rgb(20_83_45/0.08)]">
               <SettingItem
                 icon={LogOut}
@@ -641,12 +641,12 @@ export default function Settings() {
         open={prNotifyModalOpen}
         onClose={() => setPrNotifyModalOpen(false)}
         title="PR notifications"
-        description="A short toast when a set is a new personal record. Progress blurbs stay off so the gym floor stays quiet."
+        description="Show a short alert when you set a personal record."
         current={prNotifications ? "on" : "off"}
         onSave={(value) => void updatePRNotifications(value === "on")}
         options={[
-          { value: "on", label: "On", description: "Toast new PRs only" },
-          { value: "off", label: "Off", description: "No insight toasts" },
+          { value: "on", label: "On", description: "Show PR alerts" },
+          { value: "off", label: "Off", description: "No alerts" },
         ]}
       />
 
@@ -832,7 +832,7 @@ function TemplatesModal({
 
   return (
     <>
-    <FullScreenSheet open={open} title="Workout Templates" onClose={onClose} footer={null}>
+    <FullScreenSheet open={open} title="Workout templates" onClose={onClose} footer={null}>
         <div className="mb-4">
           <button
             type="button"
@@ -840,7 +840,7 @@ function TemplatesModal({
             className="btn-primary flex w-full items-center justify-center gap-2"
           >
             <Plus className="h-5 w-5" />
-            Create New Template
+            Create template
           </button>
         </div>
 
@@ -852,7 +852,7 @@ function TemplatesModal({
               <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
               <p className="text-gray-500">No templates yet</p>
               <p className="text-sm text-gray-400 mt-2">
-                Click "Create New Template" to get started
+                Click Create template to get started
               </p>
             </div>
           ) : (
@@ -1088,7 +1088,7 @@ function TemplateEditorModal({
 
   const handleSave = async () => {
     if (!name.trim()) {
-      toast.error("Please enter a template name");
+      toast.error("Enter a template name");
       return;
     }
     if (exercises.length === 0) {
@@ -1108,7 +1108,7 @@ function TemplateEditorModal({
   return (
     <FullScreenSheet
       open={open}
-      title={initialName ? "Edit Template" : "Create Template"}
+      title={initialName ? "Edit template" : "Create template"}
       onClose={() => {
         void handleSave();
       }}
@@ -1129,7 +1129,7 @@ function TemplateEditorModal({
             }}
             className="btn-primary flex-1 min-h-[48px]"
           >
-            Save Template
+            Save template
           </button>
         </div>
       }
@@ -1185,7 +1185,7 @@ function TemplateEditorModal({
 
           {/* Add Exercise Section */}
           <div className="border-t pt-6">
-            <h3 className="mb-4 text-lg font-semibold text-gray-900">Add Exercise</h3>
+            <h3 className="mb-4 text-lg font-semibold text-gray-900">Add exercise</h3>
             
             {!selectedExercise ? (
               <div>
@@ -1277,7 +1277,7 @@ function TemplateEditorModal({
                   onClick={addExercise}
                   className="btn-primary mt-4 w-full"
                 >
-                  {editingIndex !== null ? "Update Exercise" : "Add Exercise"}
+                  {editingIndex !== null ? "Update exercise" : "Add exercise"}
                 </button>
               </div>
             )}

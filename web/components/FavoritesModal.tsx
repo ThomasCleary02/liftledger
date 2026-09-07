@@ -20,7 +20,7 @@ export function FavoritesModal({
   onRemoveFavorite,
 }: FavoritesModalProps) {
   return (
-    <FullScreenSheet open={open} title="Favorite Exercises" onClose={onClose} closeAriaLabel="Close favorites">
+    <FullScreenSheet open={open} title="Favorite exercises" onClose={onClose} closeAriaLabel="Close favorites">
       {loading ? (
         <div className="flex items-center justify-center py-12">
           <div className="spinner-sm"></div>

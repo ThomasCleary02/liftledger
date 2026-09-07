@@ -1067,7 +1067,7 @@ export default function DayView() {
       showSyncing(false);
     } catch (error) {
       logger.error("Failed to toggle rest day", error);
-      toast.error("Failed to toggle rest day");
+      toast.error("Could not update rest day");
       showSyncing(false);
     } finally {
       endSave();
@@ -1088,7 +1088,7 @@ export default function DayView() {
         status: next || undefined,
         isRestDay: next ? false : currentDay.isRestDay,
       });
-      toast.success(next === "injured" ? "Marked as injury / skip" : "Cleared injury flag");
+      toast.success(next === "injured" ? "Marked as injured" : "Injury mark removed");
       showSyncing(false);
     } catch (error) {
       logger.error("Failed to update day status", error);
@@ -1216,7 +1216,7 @@ export default function DayView() {
 
             {!selectedExercise ? (
               <div>
-                <ExerciseSearch onSelect={handleExerciseSelect} placeholder="Search a lift..." />
+                <ExerciseSearch onSelect={handleExerciseSelect} placeholder="Search exercises" />
                 {hasLastWorkout && !hasExercises && (
                   <button
                     type="button"
@@ -1444,7 +1444,7 @@ export default function DayView() {
         <>
         {visibleDay?.status === "injured" && (
           <div className="mb-4 rounded-lg border border-danger/30 bg-danger-muted px-4 py-3 text-sm text-danger-fg">
-            Injury / skip. This day does not count toward your streak. You can still log modified work.
+            Injury / skip. This day does not count toward your streak. You can still log workouts.
           </div>
         )}
         {trackBodyweight && (
@@ -1456,7 +1456,7 @@ export default function DayView() {
           />
         )}
         {!isRestDay && !hasExercises && !selectedExercise && (
-          <p className="mb-4 text-sm text-gray-500">Search a lift to start today’s log.</p>
+          <p className="mb-4 text-sm text-gray-500">Search an exercise to start today’s log.</p>
         )}
         <div>
         {hasExercises && (

@@ -168,7 +168,7 @@ export default function Analytics() {
       <header className="flex-shrink-0 border-b border-gray-200 bg-white">
         <div className="px-4 py-4 md:px-8 md:py-6">
           <div className="mx-auto max-w-4xl">
-            <p className="kicker mb-1">The books</p>
+            <p className="kicker mb-1">Stats</p>
             <h1 className="mb-2 text-2xl font-semibold text-gray-900 md:text-3xl">Analytics</h1>
             <p className="text-sm text-gray-500">Track your progress</p>
           </div>
@@ -251,7 +251,7 @@ export default function Analytics() {
                 prefetch
                 className="btn-primary rounded-xl px-6"
               >
-                Create Your First Workout
+                Log your first workout
               </Link>
             </div>
           ) : (

@@ -244,7 +244,7 @@ export default function ImportSettings() {
               <ArrowLeft className="h-5 w-5" />
               <span className="text-sm">Back</span>
             </button>
-            <p className="kicker mb-1">Bring a log</p>
+            <p className="kicker mb-1">Import</p>
             <h1 className="mb-2 text-2xl font-semibold text-gray-900 md:text-3xl">Import</h1>
             <p className="text-sm text-gray-500">Bring a Strong, Hevy, or spreadsheet log into LiftLedger</p>
           </div>
@@ -271,7 +271,7 @@ export default function ImportSettings() {
               <p className="font-semibold text-gray-900">Undo last import</p>
               <p className="mt-1 text-sm text-gray-500">
                 Removes sets tagged from {lastImport.dates.length} day{lastImport.dates.length === 1 ? "" : "s"}.
-                A new import replaces this undo pointer.
+                A new import replaces the previous undo.
               </p>
               <button
                 type="button"

@@ -99,9 +99,9 @@ export function AvatarCropModal({
         className="w-full max-w-sm rounded-md border border-gray-200 bg-white p-5 shadow-[0_1px_0_rgb(20_83_45/0.14)]"
         style={{ paddingBottom: "max(1.25rem, env(safe-area-inset-bottom, 0px))" }}
       >
-        <p className="kicker">Portrait</p>
-        <h2 className="text-lg font-semibold text-gray-900">Crop photo</h2>
-        <p className="mt-1 text-sm text-gray-500">Drag to frame, then zoom. It shows on your profile as soon as you confirm.</p>
+        <p className="kicker">Photo</p>
+        <h2 className="text-lg font-semibold text-gray-900">Adjust photo</h2>
+        <p className="mt-1 text-sm text-gray-500">Drag to frame, then zoom.</p>
         <div
           className="relative mx-auto mt-4 overflow-hidden rounded-full bg-gray-100"
           style={{ width: view, height: view, touchAction: "none" }}
@@ -169,7 +169,7 @@ export function AvatarCropModal({
             Cancel
           </button>
           <button type="button" className="btn-primary min-h-[48px] flex-1" disabled={!natural.w || busy} onClick={confirm}>
-            {busy ? "Cropping…" : "Use photo"}
+            {busy ? "Saving…" : "Save"}
           </button>
         </div>
       </div>

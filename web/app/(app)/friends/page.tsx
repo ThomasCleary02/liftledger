@@ -105,7 +105,7 @@ export default function Friends() {
 
   const handleSendFriendRequest = async () => {
     if (!emailInput.trim()) {
-      toast.error("Please enter a username");
+      toast.error("Enter a username");
       return;
     }
 
@@ -172,7 +172,7 @@ export default function Friends() {
       .removeFriend(friendUserId)
       .then(() => {
         loadFriends();
-        toast.success("Friend removed successfully");
+        toast.success("Friend removed");
       })
       .catch((error: any) => {
         logger.error("Error removing friend", error);
@@ -190,9 +190,9 @@ export default function Friends() {
       <header className="flex-shrink-0 border-b border-gray-200 bg-white sticky top-0 z-10">
         <div className="px-4 py-4 md:px-8 md:py-6">
           <div className="mx-auto max-w-4xl">
-            <p className="kicker mb-1">The roster</p>
+            <p className="kicker mb-1">Friends</p>
             <h1 className="mb-2 text-2xl font-semibold text-gray-900 md:text-3xl">Friends</h1>
-            <p className="text-sm text-gray-500">Handles and medals. No feed.</p>
+            <p className="text-sm text-gray-500">Add friends by username.</p>
           </div>
         </div>
       </header>
@@ -215,7 +215,7 @@ export default function Friends() {
                     </div>
                     <div>
                       <h2 className="text-lg font-semibold text-brand-fg">Leaderboards</h2>
-                      <p className="text-sm text-brand-fg/80">Compete with your friends</p>
+                      <p className="text-sm text-brand-fg/80">Compare streaks and volume</p>
                     </div>
                   </div>
                   <ChevronRight className="h-5 w-5 text-brand-fg" />
@@ -315,9 +315,9 @@ export default function Friends() {
             {/* Send Friend Request Section */}
             <section>
               <div className="rounded-md border border-gray-200 bg-white p-5 shadow-[0_1px_0_rgb(20_83_45/0.08)]">
-                <p className="kicker">Add by handle</p>
-                <h2 className="mb-1 text-lg font-semibold text-gray-900">Send a request</h2>
-                <p className="mb-4 text-sm text-gray-500">The username they set on their account. Not email.</p>
+                <p className="kicker">Add by username</p>
+                <h2 className="mb-1 text-lg font-semibold text-gray-900">Send friend request</h2>
+                <p className="mb-4 text-sm text-gray-500">Use their username, not email.</p>
                 <div className="flex flex-col gap-2 sm:flex-row">
                   <div className="relative flex-1">
                     <User className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
@@ -327,7 +327,7 @@ export default function Friends() {
                       autoCorrect="off"
                       value={emailInput}
                       onChange={(e) => setEmailInput(e.target.value)}
-                      placeholder="username"
+                      placeholder="Username"
                       className="w-full rounded-md border border-gray-300 bg-white py-3 pl-10 pr-4 text-base text-gray-900 outline-none focus:border-brand focus:ring-1 focus:ring-brand"
                       disabled={sendingRequest}
                       onKeyDown={(e) => {
@@ -357,7 +357,7 @@ export default function Friends() {
 
             {/* Friends List */}
             <section>
-              <h2 className="kicker mb-3">Roster ({friends.length})</h2>
+              <h2 className="kicker mb-3">Friends ({friends.length})</h2>
               {friends.length === 0 ? (
                 <div className="rounded-md border border-gray-200 bg-white p-12 text-center shadow-[0_1px_0_rgb(20_83_45/0.08)]">
                   <Users className="mx-auto h-12 w-12 text-gray-300" />

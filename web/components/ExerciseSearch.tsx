@@ -31,7 +31,7 @@ const getModalityConfig = (modality: string) => {
 
 export default function ExerciseSearch({
   onSelect,
-  placeholder = "Search a lift...",
+  placeholder = "Search exercises",
   maxResults = 8,
 }: Props) {
   const { user } = useAuth();
