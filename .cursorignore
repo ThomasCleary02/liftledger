@@ -1,0 +1,27 @@
+﻿# Keep agent context on source + docs; skip bulky / generated trees.
+# (Does not replace .gitignore — this only affects Cursor indexing.)
+
+node_modules/
+.next/
+out/
+dist/
+web-build/
+coverage/
+.nyc_output/
+web/playwright-report/
+web/test-results/
+web/e2e/.auth/
+emulator-data/
+.expo/
+ios/
+android/
+expo-app/android/
+expo-app/ios/
+*.tsbuildinfo
+package-lock.json
+firestore-debug.log
+ui-debug.log
+*.log
+*.apk
+*.aab
+*.ipa

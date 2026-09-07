@@ -98,9 +98,9 @@ function openPreview(blob: Blob): void {
   const url = URL.createObjectURL(blob);
   const opened = window.open(url, "_blank", "noopener,noreferrer");
   if (!opened) {
-    // Popup blocked — navigate as last resort so the image is still reachable.
-    window.location.assign(url);
-    return;
+    // Stay in the PWA — never navigate the current document to a blob URL.
+    URL.revokeObjectURL(url);
+    throw new Error("Could not open image preview. Allow pop-ups, or try again from the browser Share sheet.");
   }
   window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
@@ -155,8 +155,14 @@ export async function shareWeekPng(
     return "downloaded";
   }
 
-  openPreview(blob);
-  return "previewed";
+  try {
+    openPreview(blob);
+    return "previewed";
+  } catch {
+    // Last resort on iOS without share/preview: still try a download gesture.
+    triggerDownload(blob, filename);
+    return "downloaded";
+  }
 }
 
 /** @deprecated Use shareWeekPng — kept for any older imports. */

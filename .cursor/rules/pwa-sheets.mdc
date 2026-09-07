@@ -1,0 +1,15 @@
+---
+description: PWA sheets, keyboard viewport, and focus-trap rules
+globs: web/components/FullScreenSheet.tsx,web/components/fullScreenChrome.ts,web/components/SafeAreaInsets.tsx,web/components/*Modal*.tsx,web/components/*Sheet*.tsx,web/lib/shareWeekPng.ts,web/components/ServiceWorkerUpdate.tsx
+alwaysApply: false
+---
+
+# PWA / sheets
+
+Read `docs/pitfalls.md` (keyboard / viewport / SW / share) before changing these files.
+
+- Size overlays with `visualViewport` (see `FullScreenSheet`). Do not rely on `100vh` alone.
+- Focus / trap effects: depend on **`open` only** (+ refs). Never list `onClose` in those deps.
+- Lock/unlock via `fullScreenChrome`; tests call `resetFullScreenChromeForTests`.
+- Share: `navigator.share` → blob download → `window.open` preview. Never `location.assign(blobUrl)`.
+- Do not register the service worker in development.

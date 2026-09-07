@@ -2,6 +2,8 @@
 
 One list. **Now** is next to ship. **Next** is planned. **Later** is parked until a feature exists. Medal ideas that are not live stay in `packages/shared/achievements.ts` (`ACHIEVEMENT_ROADMAP`) so they are not shown as fake locked medals.
 
+Durable product/engineering knowledge (architecture, data model, hosting, roadmap narrative) lives in [`docs/`](./docs/README.md). Keep this file short.
+
 ## Now
 
 - Gym-floor offline logging: precache the day shell and write through Firestore cache so a workout can be logged without a connection.

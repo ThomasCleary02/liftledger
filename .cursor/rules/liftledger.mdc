@@ -1,0 +1,10 @@
+---
+description: LiftLedger map — short always-on pointer to docs and hard constraints
+alwaysApply: true
+---
+
+# LiftLedger
+
+Before large changes, open `docs/README.md`. Hard constraints: My exercises = PRs only; no run↔walk / equipment PR merges; no fake locked medals; local `YYYY-MM-DD` dates; store lb/miles; `expo-app/` archived.
+
+Recurring bugs: `docs/pitfalls.md`. Pre-release: skill `pre-release-checklist` or `/pre-release`. Commit/push only when asked.

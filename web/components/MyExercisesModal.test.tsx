@@ -67,6 +67,44 @@ describe("MyExercisesModal", () => {
     expect(screen.getByText(/4 sessions/)).toBeTruthy();
   });
 
+  it("offers a logged substitute when a tracked lift has no history", () => {
+    const running: ExerciseDoc = {
+      id: "running",
+      name: "Running",
+      modality: "cardio",
+      nameFolded: "running",
+    };
+    const treadmill: ExerciseDoc = {
+      id: "treadmill",
+      name: "Treadmill",
+      modality: "cardio",
+      nameFolded: "treadmill",
+    };
+    render(
+      <MyExercisesModal
+        open
+        trackedExercises={["running"]}
+        allExercises={[running, treadmill]}
+        loggedSummaries={[
+          {
+            exerciseId: "treadmill",
+            name: "Treadmill",
+            modality: "cardio",
+            sessionCount: 12,
+            lastDate: "2026-03-01",
+          },
+        ]}
+        loading={false}
+        onClose={vi.fn()}
+        onSave={vi.fn()}
+      />
+    );
+    expect(screen.getByText("Not in your history")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Use Treadmill instead/ }));
+    expect(screen.queryByText("Not in your history")).toBeNull();
+    expect(screen.getByText(/12 sessions/)).toBeTruthy();
+  });
+
   it("does not close when save fails", async () => {
     const onSave = vi.fn().mockRejectedValue(new Error("nope"));
     const onClose = vi.fn();

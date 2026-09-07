@@ -45,16 +45,8 @@ import {
 import { format, startOfWeek, eachDayOfInterval, addDays } from "date-fns";
 import { logger } from "../../../lib/logger";
 import { toast } from "../../../lib/toast";
-import { getAccountSummary, setTrackedExercises } from "../../../lib/firestore/account";
-import {
-  CARDIO_ACTIVITY_LABELS,
-  cardioPaceKind,
-  summarizeLoggedExercises,
-  trackedMatchStatuses,
-  type CardioActivityType,
-  type LoggedExerciseSummary,
-  type TrackedMatchStatus,
-} from "@liftledger/shared";
+import { getAccountSummary } from "../../../lib/firestore/account";
+import { CARDIO_ACTIVITY_LABELS, cardioPaceKind, type CardioActivityType } from "@liftledger/shared";
 import { ExerciseNameLabel } from "../../../components/ExerciseNameLabel";
 import { shareWeekPng } from "../../../lib/shareWeekPng";
 import { peekCatalog, peekDaysArray, daysListIsComplete } from "../../../lib/sessionCache";
@@ -197,7 +189,8 @@ export default function Analytics() {
       .then((older) => {
         if (cancelled) return;
         setLifetimeDays((prev) => mergeDays(prev, older));
-        setLifetimeComplete(daysListIsComplete() || older.length < LIFETIME_HISTORY_LIMIT);
+        // One page is the PR ceiling for now — stop the loading banner even at the cap.
+        setLifetimeComplete(true);
       })
       .catch((error) => {
         logger.error("Error loading lifetime history", error);
@@ -218,29 +211,6 @@ export default function Analytics() {
       )
     );
   }, [activeTab, historyForLifetime, trackedExerciseIds, catalogList]);
-
-  const loggedSummaries = useMemo(() => {
-    if (activeTab !== "prs" || trackedExerciseIds.length === 0) return [] as LoggedExerciseSummary[];
-    return summarizeLoggedExercises(historyForLifetime, catalogList);
-  }, [activeTab, trackedExerciseIds, historyForLifetime, catalogList]);
-
-  const orphanStatuses = useMemo(() => {
-    if (trackedExerciseIds.length === 0) return [] as TrackedMatchStatus[];
-    return trackedMatchStatuses(trackedExerciseIds, loggedSummaries, catalogList).filter(
-      (status) => !status.hasMatchingHistory
-    );
-  }, [trackedExerciseIds, loggedSummaries, catalogList]);
-
-  const updateTracked = async (next: string[]) => {
-    try {
-      await setTrackedExercises(next);
-      setTrackedExerciseIds(next);
-      toast.success("Tracking updated");
-    } catch (error) {
-      logger.error("Failed to update tracked exercises", error);
-      toast.error("Could not update tracking");
-    }
-  };
 
   if (!authLoading && !user) {
     return null;
@@ -365,14 +335,6 @@ export default function Analytics() {
                   prs={prs}
                   trackingEmpty={trackedExerciseIds.length === 0}
                   lifetimeLoading={!lifetimeComplete}
-                  orphans={orphanStatuses}
-                  onTrackSuggestion={async (trackedId, suggestionId) => {
-                    const next = Array.from(new Set([...trackedExerciseIds.filter((id) => id !== trackedId), suggestionId]));
-                    await updateTracked(next);
-                  }}
-                  onRemoveTracked={async (trackedId) => {
-                    await updateTracked(trackedExerciseIds.filter((id) => id !== trackedId));
-                  }}
                 />
               )}
               {timePeriod === "all" && activeTab !== "prs" && !historyComplete && days.length > 0 && (
@@ -924,16 +886,10 @@ function PRsView({
   prs,
   trackingEmpty,
   lifetimeLoading,
-  orphans,
-  onTrackSuggestion,
-  onRemoveTracked,
 }: {
   prs: ExercisePR[];
   trackingEmpty: boolean;
   lifetimeLoading: boolean;
-  orphans: TrackedMatchStatus[];
-  onTrackSuggestion: (trackedId: string, suggestionId: string) => Promise<void>;
-  onRemoveTracked: (trackedId: string) => Promise<void>;
 }) {
   const { units } = usePreferences();
 
@@ -1016,71 +972,21 @@ function PRsView({
           can shorten this list — it does not change Strength or Cardio.
         </p>
       )}
-      {orphans.length > 0 && (
-        <div className="space-y-3">
-          {orphans.map((orphan) => (
-            <div
-              key={orphan.trackedId}
-              className="rounded-md border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-950"
-            >
-              <p>
-                <span className="font-semibold">
-                  <ExerciseNameLabel name={orphan.trackedName} />
-                </span>{" "}
-                isn’t in your history.
-                {orphan.suggestions.length > 0 ? (
-                  <>
-                    {" "}
-                    Closest logs:{" "}
-                    {orphan.suggestions
-                      .map((s) => `${s.name} (${s.sessionCount})`)
-                      .join(", ")}
-                    .
-                  </>
-                ) : (
-                  <> No similar logs found.</>
-                )}
-              </p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {orphan.suggestions.map((suggestion) => (
-                  <button
-                    key={suggestion.exerciseId}
-                    type="button"
-                    className="rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-gray-900 shadow-sm"
-                    onClick={() => void onTrackSuggestion(orphan.trackedId, suggestion.exerciseId)}
-                  >
-                    Track {suggestion.name}
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  className="rounded-lg px-3 py-1.5 text-xs font-semibold text-amber-900/80"
-                  onClick={() => void onRemoveTracked(orphan.trackedId)}
-                >
-                  Remove
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-      {prs.length === 0 ? (
+      {prs.length === 0 && !lifetimeLoading ? (
         <div className="flex flex-col items-center justify-center py-12">
           <Trophy className="h-12 w-12 text-gray-300" />
-          <p className="mt-4 text-center text-gray-500">
-            {orphans.length > 0 ? "No matching personal records" : "No personal records yet"}
-          </p>
+          <p className="mt-4 text-center text-gray-500">No personal records yet</p>
           <Link href="/settings" className="mt-3 text-sm font-semibold text-gray-800">
             Choose lifts in My exercises
           </Link>
         </div>
-      ) : (
+      ) : prs.length > 0 ? (
         <>
           <PRSection title="Strength" prs={groupedPRs.strength} />
           <PRSection title="Cardio" prs={groupedPRs.cardio} />
           <PRSection title="Calisthenics" prs={groupedPRs.calisthenics} />
         </>
-      )}
+      ) : null}
     </div>
   );
 }

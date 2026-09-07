@@ -1,0 +1,15 @@
+---
+description: Exercise identity and PR filtering constraints
+globs: packages/shared/exerciseIdentity.ts,packages/shared/analytics/**/*.ts,web/components/MyExercisesModal.tsx,web/app/(app)/analytics/**/*.tsx,web/lib/tips.ts
+alwaysApply: false
+---
+
+# Exercise identity / PRs
+
+Canonical helpers: `packages/shared/exerciseIdentity.ts`. Product rules: `docs/product.md`, pitfalls in `docs/pitfalls.md`.
+
+- Alias only documented twins (run/jog, walk/walking, treadmill ↔ treadmill run).
+- Do **not** merge run↔walk or barbell/Smith/machine.
+- `trackedExercises` filters **PRs only** — never Strength/Cardio lists.
+- PRs are all-time; do not tie PR math to the chart period.
+- Prefer logged-first My exercises UX; no amber orphan banners on Analytics.
