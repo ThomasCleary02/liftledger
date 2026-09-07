@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Dumbbell, BarChart3, Users, Settings } from "lucide-react";
+import { Dumbbell, BarChart3, Users, CircleUser, Settings } from "lucide-react";
 import { useAuth } from "../providers/Auth";
 import { BrandMark } from "./BrandMark";
 import { getAllExercises } from "../lib/firestore/exercises";
@@ -17,9 +17,10 @@ type NavItem = {
 };
 
 const navItems: NavItem[] = [
-  { path: "/day/today", label: "Daily log", icon: Dumbbell, matchPrefix: "/day/" },
+  { path: "/day/today", label: "Log", icon: Dumbbell, matchPrefix: "/day/" },
   { path: "/analytics", label: "Analytics", icon: BarChart3 },
   { path: "/friends", label: "Friends", icon: Users },
+  { path: "/profile", label: "Profile", icon: CircleUser },
   { path: "/settings", label: "Settings", icon: Settings },
 ];
 
@@ -67,12 +68,12 @@ export function Navigation() {
                 href={item.path}
                 prefetch
                 aria-current={isActive ? "page" : undefined}
-                className={`flex flex-col items-center justify-center gap-1 px-4 py-2 transition-colors ${
+                className={`flex flex-col items-center justify-center gap-1 px-1 py-2 transition-colors ${
                   isActive ? "text-brand" : "text-gray-500"
                 }`}
               >
                 <Icon className={`h-6 w-6 ${isActive ? "fill-current" : ""}`} />
-                <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em]">{item.label}</span>
+                <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.08em]">{item.label}</span>
               </Link>
             );
           })}

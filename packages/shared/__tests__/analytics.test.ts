@@ -50,6 +50,18 @@ describe("analytics from days", () => {
       })
     );
     expect(calculateCurrentStreakFromDays(days)).toBe(3);
+    const fourDaysEndingYesterday = [1, 2, 3, 4].map((offset) =>
+      makeDay(ymd(subDays(today, offset)), {
+        exercises: [strength("Squat", [{ reps: 5, weight: 135 }])],
+      })
+    );
+    expect(calculateCurrentStreakFromDays(fourDaysEndingYesterday)).toBe(4);
+    expect(
+      calculateCurrentStreakFromDays([
+        makeDay(ymd(today), { exercises: [strength("Squat", [{ reps: 5, weight: 135 }])] }),
+        ...fourDaysEndingYesterday,
+      ])
+    ).toBe(5);
     expect(
       calculateCurrentStreakFromDays([
         makeDay(ymd(subDays(today, 2)), { exercises: [strength("Squat", [{ reps: 5, weight: 135 }])] }),

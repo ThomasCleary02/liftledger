@@ -24,7 +24,6 @@ import {
   Clock,
   Download,
   Upload,
-  Trophy,
   Weight,
   Bell,
 } from "lucide-react";
@@ -33,7 +32,6 @@ import { toast } from "../../../lib/toast";
 import { logger } from "../../../lib/logger";
 import { ConfirmDialog } from "../../../components/ConfirmDialog";
 import { FullScreenSheet } from "../../../components/FullScreenSheet";
-import { AchievementsSettings } from "../../../components/AchievementsSettings";
 import { getFavoriteExercises, toggleFavoriteExercise, getTrackedExercises, setTrackedExercises as persistTrackedExercises, getAccountSummary } from "../../../lib/firestore/account";
 import { type ExerciseDoc } from "../../../lib/firestore/exercises";
 import { FavoritesModal } from "../../../components/FavoritesModal";
@@ -72,7 +70,6 @@ export default function Settings() {
   const [themeModalOpen, setThemeModalOpen] = useState(false);
   const [restModalOpen, setRestModalOpen] = useState(false);
   const [bodyweightModalOpen, setBodyweightModalOpen] = useState(false);
-  const [achievementsOpen, setAchievementsOpen] = useState(false);
   const [prNotifyModalOpen, setPrNotifyModalOpen] = useState(false);
   const { units, defaultChartView, theme, restTimerSeconds, trackBodyweight, prNotifications, updateUnits, updateChartView, updateTheme, updateRestTimer, updateTrackBodyweight, updatePRNotifications } = usePreferences();
 
@@ -399,17 +396,30 @@ export default function Settings() {
             <h2 className="mb-3 text-lg font-semibold text-gray-900">Account</h2>
             <div className="rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden">
               <Link
-                href="/settings/account"
+                href="/profile"
                 prefetch
-                className="w-full px-5 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+                className="w-full px-5 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors border-b border-gray-100"
               >
               <div className="flex min-w-0 items-center">
                 <div className="mr-4">
                   <Avatar name={profileName || user?.email} photoURL={profilePhoto} size={40} />
                 </div>
                   <div className="min-w-0 text-left">
+                    <p className="font-semibold text-gray-900">Profile</p>
+                    <p className="truncate text-sm text-gray-500">Photo, badges, and preview</p>
+                </div>
+              </div>
+                <ChevronRight className="h-5 w-5 text-gray-400" />
+              </Link>
+              <Link
+                href="/settings/account"
+                prefetch
+                className="w-full px-5 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+              >
+              <div className="flex min-w-0 items-center">
+                  <div className="min-w-0 text-left">
                     <p className="font-semibold text-gray-900">Account Settings</p>
-                    <p className="truncate text-sm text-gray-500">Username, profile picture, and more</p>
+                    <p className="truncate text-sm text-gray-500">Username, email, and bodyweight</p>
                 </div>
               </div>
                 <ChevronRight className="h-5 w-5 text-gray-400" />
@@ -450,12 +460,6 @@ export default function Settings() {
                 title="PR notifications"
                 subtitle={prNotifications ? "Toast when you hit a new PR" : "Off"}
                 onClick={() => setPrNotifyModalOpen(true)}
-              />
-              <SettingItem
-                icon={Trophy}
-                title="Profile badges"
-                subtitle="Streaks and PRs friends can see"
-                onClick={() => setAchievementsOpen(true)}
               />
               <SettingItem
                 icon={Weight}
@@ -643,7 +647,6 @@ export default function Settings() {
           { value: "off", label: "Off", description: "No insight toasts" },
         ]}
       />
-      <AchievementsSettings open={achievementsOpen} onClose={() => setAchievementsOpen(false)} />
 
       <ConfirmDialog
         open={signOutConfirmOpen}

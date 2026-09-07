@@ -9,6 +9,7 @@ import { ArrowLeft } from "lucide-react";
 import { toast } from "../../../../lib/toast";
 import { logger } from "../../../../lib/logger";
 import { Avatar } from "../../../../components/Avatar";
+import { AvatarCropModal } from "../../../../components/AvatarCropModal";
 import { deleteAvatarFile, fileToAvatarBlob, uploadAvatar } from "../../../../lib/avatar";
 import { usePreferences } from "../../../../lib/hooks/usePreferences";
 import { formatWeightInput, toStoredWeight } from "../../../../lib/utils/units";
@@ -27,6 +28,7 @@ export default function AccountSettings() {
   const [savingUsername, setSavingUsername] = useState(false);
   const [savingWeight, setSavingWeight] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [cropFile, setCropFile] = useState<File | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -88,11 +90,18 @@ export default function AccountSettings() {
     }
   };
 
-  const handlePickPhoto = async (file: File | undefined) => {
+  const handlePickPhoto = (file: File | undefined) => {
     if (!file || !user) return;
+    setCropFile(file);
+  };
+
+  const handleCropConfirm = async (crop: { sx: number; sy: number; size: number }) => {
+    const file = cropFile;
+    if (!file || !user) return;
+    setCropFile(null);
     try {
       setUploadingPhoto(true);
-      const blob = await fileToAvatarBlob(file);
+      const blob = await fileToAvatarBlob(file, crop);
       const url = await uploadAvatar(app, user.uid, blob);
       const withBust = `${url}${url.includes("?") ? "&" : "?"}v=${Date.now()}`;
       await accountService.setPhotoURL(withBust);
@@ -100,7 +109,7 @@ export default function AccountSettings() {
       toast.success("Profile picture updated");
     } catch (error) {
       logger.error("Error uploading photo", error);
-      toast.error("Could not upload that image. Use a photo under 512 KB after crop.");
+      toast.error("Could not upload that image. Try a smaller photo.");
     } finally {
       setUploadingPhoto(false);
       if (fileRef.current) fileRef.current.value = "";
@@ -163,7 +172,7 @@ export default function AccountSettings() {
                   <Avatar name={username || user?.email} photoURL={photoURL} size={64} />
                   <div className="flex-1">
                     <p className="font-semibold text-gray-900">Profile Picture</p>
-                    <p className="text-sm text-gray-500">Square crop, shown to friends on leaderboards</p>
+                    <p className="text-sm text-gray-500">Photos and badges live on your Profile page</p>
                     <div className="mt-3 flex flex-wrap gap-2">
                       <input
                         ref={fileRef}
@@ -275,6 +284,16 @@ export default function AccountSettings() {
           </div>
         </div>
       </main>
+      {cropFile && (
+        <AvatarCropModal
+          file={cropFile}
+          onCancel={() => {
+            setCropFile(null);
+            if (fileRef.current) fileRef.current.value = "";
+          }}
+          onConfirm={(crop) => void handleCropConfirm(crop)}
+        />
+      )}
     </div>
   );
 }

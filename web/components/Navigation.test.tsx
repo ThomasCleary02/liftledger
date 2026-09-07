@@ -27,10 +27,11 @@ describe("Navigation", () => {
     vi.stubGlobal("requestIdleCallback", undefined);
   });
 
-  it("marks Daily log as the current page", () => {
+  it("marks Log as the current page", () => {
     render(<Navigation />);
-    const links = screen.getAllByRole("link", { name: /Daily log/ });
+    const links = screen.getAllByRole("link", { name: /^Log$/ });
     expect(links[0]).toHaveAttribute("aria-current", "page");
     expect(screen.getAllByRole("link", { name: /Analytics/ }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("link", { name: /Profile/ }).length).toBeGreaterThan(0);
   });
 });

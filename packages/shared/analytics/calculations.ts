@@ -1,8 +1,8 @@
 import { Workout, Exercise } from "../firestore/workouts";
-import { Day, isLoggedDay } from "../firestore/days";
+import { Day, isLoggedDay, normalizeDateToYYYYMMDD } from "../firestore/days";
 import { ExerciseDoc } from "../firestore/exercises";
 import { AnalyticsSummary, ExercisePR, VolumeDataPoint, BodyweightDataPoint, MuscleGroupStats, TimePeriod } from "./types";
-import { parseISO } from "date-fns";
+import { parseISO, subDays } from "date-fns";
 import { strengthVolume, workingStrengthSets, maxWorkingWeight } from "../sets";
 import {
   CARDIO_ACTIVITY_TYPES,
@@ -42,46 +42,34 @@ function getUniqueWorkoutDates(workouts: Workout[]): Date[] {
   return Array.from(dateMap.values()).sort((a, b) => b.getTime() - a.getTime());
 }
 
+function previousCalendarDay(ymd: string): string {
+  return normalizeDateToYYYYMMDD(subDays(parseISO(ymd), 1));
+}
+
+function countConsecutiveLoggedDays(logged: Set<string>, startYmd: string): number {
+  let streak = 0;
+  let cursor = startYmd;
+  while (logged.has(cursor)) {
+    streak++;
+    cursor = previousCalendarDay(cursor);
+  }
+  return streak;
+}
+
 /**
- * Calculate current streak from days (consecutive days with exercises or rest days)
- * Streak continues if: day.exercises.length > 0 || day.isRestDay === true
- * 
- * CRITICAL: Analytics functions must accept plain arrays (Day[]), not Firestore snapshots.
- * This keeps packages/shared/analytics pure and testable.
+ * Consecutive logged days (lifts or rest) ending today or yesterday.
+ * Today is still in play: if you trained yesterday but not yet today, the streak holds.
+ * It drops to 0 only after a full calendar day with no log.
  */
 export function calculateCurrentStreakFromDays(days: Day[]): number {
-  if (days.length === 0) return 0;
-  
-  // Filter to only active days (has exercises or is rest day)
-  const activeDays = days.filter(isLoggedDay);
-  if (activeDays.length === 0) return 0;
-  
-  // Parse dates and sort (most recent first)
-  const dates = activeDays
-    .map(day => parseISO(day.date))
-    .sort((a, b) => b.getTime() - a.getTime());
-  
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  
-  let streak = 0;
-  let expectedDate = new Date(today);
-  
-  for (const dayDate of dates) {
-    const daysDiff = Math.floor((expectedDate.getTime() - dayDate.getTime()) / (1000 * 60 * 60 * 24));
-    
-    // If the day date matches the expected date (today, yesterday, etc.)
-    if (daysDiff === 0) {
-      streak++;
-      expectedDate.setDate(expectedDate.getDate() - 1);
-    } else if (daysDiff > 0) {
-      // If there's a gap, the streak is broken
-      break;
-    }
-    // If daysDiff < 0, it's a future date, skip it
-  }
-  
-  return streak;
+  const logged = new Set(days.filter(isLoggedDay).map((day) => day.date));
+  if (logged.size === 0) return 0;
+
+  const today = normalizeDateToYYYYMMDD(new Date());
+  const yesterday = previousCalendarDay(today);
+  if (logged.has(today)) return countConsecutiveLoggedDays(logged, today);
+  if (logged.has(yesterday)) return countConsecutiveLoggedDays(logged, yesterday);
+  return 0;
 }
 
 /**
@@ -131,31 +119,15 @@ export function calculateLongestStreakFromDays(days: Day[]): number {
  */
 export function calculateCurrentStreak(workouts: Workout[]): number {
   if (workouts.length === 0) return 0;
-  
-  const uniqueDates = getUniqueWorkoutDates(workouts);
-  if (uniqueDates.length === 0) return 0;
-  
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  
-  let streak = 0;
-  let expectedDate = new Date(today);
-  
-  for (const workoutDate of uniqueDates) {
-    const daysDiff = Math.floor((expectedDate.getTime() - workoutDate.getTime()) / (1000 * 60 * 60 * 24));
-    
-    // If the workout date matches the expected date (today, yesterday, etc.)
-    if (daysDiff === 0) {
-      streak++;
-      expectedDate.setDate(expectedDate.getDate() - 1);
-    } else if (daysDiff > 0) {
-      // If there's a gap, the streak is broken
-      break;
-    }
-    // If daysDiff < 0, it's a future date, skip it
-  }
-  
-  return streak;
+
+  const logged = new Set(getUniqueWorkoutDates(workouts).map((date) => normalizeDateToYYYYMMDD(date)));
+  if (logged.size === 0) return 0;
+
+  const today = normalizeDateToYYYYMMDD(new Date());
+  const yesterday = previousCalendarDay(today);
+  if (logged.has(today)) return countConsecutiveLoggedDays(logged, today);
+  if (logged.has(yesterday)) return countConsecutiveLoggedDays(logged, yesterday);
+  return 0;
 }
 
 /**

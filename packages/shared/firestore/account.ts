@@ -5,10 +5,10 @@ import { deleteUser } from "firebase/auth";
 import { deleteEmailIndex, writeEmailIndex } from "./emailIndex";
 import { claimUsername, deleteUsernameIndex, lookupUserIdByUsername } from "./usernameIndex";
 import {
-  DEFAULT_ACHIEVEMENT_SHARE,
-  parseAchievementShare,
-  type AchievementShareSettings,
-  type PublicAchievements,
+  parseEarnedMap,
+  parseFeaturedIds,
+  parseProfileStats,
+  type AchievementProgress,
 } from "../achievements";
 
 const WORKOUTS_COLLECTION = "workouts";
@@ -394,42 +394,60 @@ export function createAccountService(db: Firestore, auth: Auth) {
     async getPublicProfile(userId: string): Promise<{
       username: string | null;
       photoURL: string | null;
-      achievements: PublicAchievements | null;
+      progress: AchievementProgress;
     }> {
       const profile = await readProfile(userId);
+      const empty: AchievementProgress = {
+        earned: {},
+        featuredIds: [],
+        stats: { currentStreak: 0, longestStreak: 0, loggedDays: 0 },
+      };
       try {
         const snap = await getDoc(doc(db, ACCOUNTS_COLLECTION, userId));
-        if (!snap.exists()) return { ...profile, achievements: null };
+        if (!snap.exists()) return { ...profile, progress: empty };
         const data = snap.data();
-        const share = parseAchievementShare(data.achievementShare);
-        if (!share.enabled) return { ...profile, achievements: null };
-        const raw = data.publicAchievements;
-        if (!raw || typeof raw !== "object") return { ...profile, achievements: null };
-        return { ...profile, achievements: raw as PublicAchievements };
+        const earned = parseEarnedMap(data.earnedAchievements);
+        return {
+          ...profile,
+          progress: {
+            earned,
+            featuredIds: parseFeaturedIds(data.featuredAchievementIds, earned),
+            stats: parseProfileStats(data.profileStats),
+          },
+        };
       } catch {
-        return { ...profile, achievements: null };
+        return { ...profile, progress: empty };
       }
     },
 
-    async getAchievementShare(): Promise<AchievementShareSettings> {
+    async getAchievementProgress(): Promise<AchievementProgress> {
       const user = auth.currentUser;
-      if (!user) return { ...DEFAULT_ACHIEVEMENT_SHARE };
+      const empty: AchievementProgress = {
+        earned: {},
+        featuredIds: [],
+        stats: { currentStreak: 0, longestStreak: 0, loggedDays: 0 },
+      };
+      if (!user) return empty;
       const snap = await getDoc(doc(db, ACCOUNTS_COLLECTION, user.uid));
-      if (!snap.exists()) return { ...DEFAULT_ACHIEVEMENT_SHARE };
-      return parseAchievementShare(snap.data()?.achievementShare);
+      if (!snap.exists()) return empty;
+      const data = snap.data();
+      const earned = parseEarnedMap(data.earnedAchievements);
+      return {
+        earned,
+        featuredIds: parseFeaturedIds(data.featuredAchievementIds, earned),
+        stats: parseProfileStats(data.profileStats),
+      };
     },
 
-    async setAchievementShare(
-      share: AchievementShareSettings,
-      snapshot: PublicAchievements | null
-    ): Promise<void> {
+    async setAchievementProgress(progress: AchievementProgress): Promise<void> {
       const user = auth.currentUser;
       if (!user) throw new Error("No user signed in");
       await setDoc(
         doc(db, ACCOUNTS_COLLECTION, user.uid),
         {
-          achievementShare: share,
-          publicAchievements: snapshot ?? deleteField(),
+          earnedAchievements: progress.earned,
+          featuredAchievementIds: progress.featuredIds,
+          profileStats: progress.stats,
           updatedAt: new Date().toISOString(),
         },
         { merge: true }

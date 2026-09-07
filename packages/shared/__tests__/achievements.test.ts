@@ -1,48 +1,52 @@
-import { format, subDays } from "date-fns";
 import { describe, expect, it } from "vitest";
-import { buildPublicAchievements, DEFAULT_ACHIEVEMENT_SHARE } from "../achievements";
+import {
+  ACHIEVEMENT_CATALOG,
+  MAX_FEATURED_ACHIEVEMENTS,
+  autoFeatureNewUnlocks,
+  evaluateEarnedIds,
+  mergeNewlyEarned,
+  toggleFeaturedId,
+} from "../achievements";
 import { makeDay, strength } from "./dayFixture";
 
-function ymd(date: Date): string {
-  return format(date, "yyyy-MM-dd");
-}
-
-describe("buildPublicAchievements", () => {
-  it("returns null when sharing is off", () => {
-    const days = [makeDay("2026-09-01", { exercises: [strength("Bench", [{ reps: 5, weight: 185 }])] })];
-    expect(buildPublicAchievements(days, [], DEFAULT_ACHIEVEMENT_SHARE)).toBeNull();
+describe("achievement catalog", () => {
+  it("has unique ids", () => {
+    const ids = ACHIEVEMENT_CATALOG.map((item) => item.id);
+    expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it("includes streak and pinned PRs when enabled", () => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+  it("evaluates first session, iron, and a PR", () => {
+    const days = [makeDay("2026-01-01", { exercises: [strength("Bench", [{ reps: 5, weight: 185 }])] })];
+    const earned = evaluateEarnedIds(days);
+    expect(earned).toContain("first_session");
+    expect(earned).toContain("iron");
+    expect(earned).toContain("first_pr");
+    expect(earned).not.toContain("cardio_club");
+  });
+
+  it("unlocks a 3-day streak from history, not only today", () => {
     const days = [
-      makeDay(ymd(today), { exercises: [strength("Bench Press", [{ reps: 5, weight: 225 }])] }),
-      makeDay(ymd(subDays(today, 1)), { exercises: [strength("Squat", [{ reps: 5, weight: 275 }])] }),
+      makeDay("2026-01-01", { exercises: [strength("A", [{ reps: 5, weight: 135 }])] }),
+      makeDay("2026-01-02", { isRestDay: true }),
+      makeDay("2026-01-03", { exercises: [strength("B", [{ reps: 5, weight: 135 }])] }),
     ];
-    const allOn = { enabled: true, showStreak: true, showPRs: true, pinnedKeys: [] as string[] };
-    const open = buildPublicAchievements(days, [], allOn);
-    expect(open?.currentStreak).toBeGreaterThanOrEqual(1);
-    expect(open?.prs?.length).toBeGreaterThan(0);
-
-    const bench = open?.prs?.find((pr) => pr.exerciseName === "Bench Press");
-    expect(bench).toBeTruthy();
-    const pinnedOnly = buildPublicAchievements(days, [], {
-      ...allOn,
-      pinnedKeys: bench ? [bench.key] : [],
-    });
-    expect(pinnedOnly?.prs?.every((pr) => pr.key === bench?.key)).toBe(true);
+    expect(evaluateEarnedIds(days)).toContain("streak_3");
   });
 
-  it("omits PRs when showPRs is false", () => {
-    const days = [makeDay(ymd(new Date()), { exercises: [strength("Row", [{ reps: 5, weight: 135 }])] })];
-    const snapshot = buildPublicAchievements(days, [], {
-      enabled: true,
-      showStreak: true,
-      showPRs: false,
-      pinnedKeys: [],
-    });
-    expect(snapshot?.prs).toBeUndefined();
-    expect(snapshot?.currentStreak).toBeDefined();
+  it("keeps previously earned badges and caps featured pins", () => {
+    const { next, added } = mergeNewlyEarned({}, ["first_session", "iron"], "2026-01-01T00:00:00.000Z");
+    expect(added).toEqual(["first_session", "iron"]);
+    const again = mergeNewlyEarned(next, ["first_session", "streak_3"], "2026-01-02T00:00:00.000Z");
+    expect(again.added).toEqual(["streak_3"]);
+    expect(again.next.first_session.earnedAt).toBe("2026-01-01T00:00:00.000Z");
+
+    let featured = autoFeatureNewUnlocks([], added, next);
+    expect(featured).toEqual(["first_session", "iron"]);
+    featured = toggleFeaturedId(featured, "first_session", next);
+    expect(featured).toEqual(["iron"]);
+    const ids = ACHIEVEMENT_CATALOG.slice(0, MAX_FEATURED_ACHIEVEMENTS).map((item) => item.id);
+    const extra = ACHIEVEMENT_CATALOG[MAX_FEATURED_ACHIEVEMENTS].id;
+    const packed = Object.fromEntries([...ids, extra].map((id) => [id, { earnedAt: "x" }]));
+    expect(toggleFeaturedId(ids, extra, packed)).toEqual(ids);
   });
 });

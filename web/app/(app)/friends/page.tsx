@@ -7,19 +7,17 @@ import { useAuth } from "../../../providers/Auth";
 import { friendsService, friendRequestsService, accountService } from "../../../lib/firebase";
 import type { Friend } from "@liftledger/shared/firestore/friends";
 import type { FriendRequest } from "@liftledger/shared/firestore/friendRequests";
-import type { PublicAchievements } from "@liftledger/shared";
+import type { AchievementProgress } from "@liftledger/shared";
 import { Users, User, Trash2, Plus, Trophy, ChevronRight, Check, X } from "lucide-react";
 import { Avatar } from "../../../components/Avatar";
 import { toast } from "../../../lib/toast";
 import { logger } from "../../../lib/logger";
 import { ConfirmDialog } from "../../../components/ConfirmDialog";
 import { ProfileSheet } from "../../../components/ProfileSheet";
-import { usePreferences } from "../../../lib/hooks/usePreferences";
 
 export default function Friends() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
-  const { units } = usePreferences();
   const [friends, setFriends] = useState<Friend[]>([]);
   const [incomingRequests, setIncomingRequests] = useState<FriendRequest[]>([]);
   const [outgoingRequests, setOutgoingRequests] = useState<FriendRequest[]>([]);
@@ -31,7 +29,7 @@ export default function Friends() {
   const [profileOpen, setProfileOpen] = useState<{
     username: string | null;
     photoURL: string | null;
-    achievements: PublicAchievements | null;
+    progress: AchievementProgress;
   } | null>(null);
 
   const friendIdOf = (friend: Friend) =>
@@ -422,8 +420,7 @@ export default function Friends() {
         open={Boolean(profileOpen)}
         username={profileOpen?.username ?? null}
         photoURL={profileOpen?.photoURL ?? null}
-        achievements={profileOpen?.achievements ?? null}
-        units={units}
+        progress={profileOpen?.progress ?? null}
         onClose={() => setProfileOpen(null)}
       />
       <ConfirmDialog
