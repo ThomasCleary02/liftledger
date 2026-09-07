@@ -17,15 +17,26 @@ export function SafeAreaInsets() {
       root.style.setProperty("--viewport-bottom-inset", `${Math.round(gap)}px`);
     };
 
+    const scrollFocusedField = (event: FocusEvent) => {
+      const el = event.target;
+      if (!(el instanceof HTMLElement)) return;
+      if (!el.matches("input, textarea, select")) return;
+      window.setTimeout(() => {
+        el.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" });
+      }, 350);
+    };
+
     syncViewportInset();
     window.visualViewport?.addEventListener("resize", syncViewportInset);
     window.visualViewport?.addEventListener("scroll", syncViewportInset);
     window.addEventListener("orientationchange", syncViewportInset);
+    document.addEventListener("focusin", scrollFocusedField);
 
     return () => {
       window.visualViewport?.removeEventListener("resize", syncViewportInset);
       window.visualViewport?.removeEventListener("scroll", syncViewportInset);
       window.removeEventListener("orientationchange", syncViewportInset);
+      document.removeEventListener("focusin", scrollFocusedField);
     };
   }, []);
 

@@ -24,17 +24,20 @@ import {
   Clock,
   Download,
   Upload,
+  Trophy,
   Weight,
+  Bell,
 } from "lucide-react";
 import { Avatar } from "../../../components/Avatar";
 import { toast } from "../../../lib/toast";
 import { logger } from "../../../lib/logger";
 import { ConfirmDialog } from "../../../components/ConfirmDialog";
 import { FullScreenSheet } from "../../../components/FullScreenSheet";
-import { MyExercisesModal } from "../../../components/MyExercisesModal";
+import { AchievementsSettings } from "../../../components/AchievementsSettings";
 import { getFavoriteExercises, toggleFavoriteExercise, getTrackedExercises, setTrackedExercises as persistTrackedExercises, getAccountSummary } from "../../../lib/firestore/account";
 import { type ExerciseDoc } from "../../../lib/firestore/exercises";
 import { FavoritesModal } from "../../../components/FavoritesModal";
+import { MyExercisesModal } from "../../../components/MyExercisesModal";
 import { getAllExercises } from "../../../lib/firestore/exercises";
 import {
   listTemplates,
@@ -69,7 +72,9 @@ export default function Settings() {
   const [themeModalOpen, setThemeModalOpen] = useState(false);
   const [restModalOpen, setRestModalOpen] = useState(false);
   const [bodyweightModalOpen, setBodyweightModalOpen] = useState(false);
-  const { units, defaultChartView, theme, restTimerSeconds, trackBodyweight, updateUnits, updateChartView, updateTheme, updateRestTimer, updateTrackBodyweight } = usePreferences();
+  const [achievementsOpen, setAchievementsOpen] = useState(false);
+  const [prNotifyModalOpen, setPrNotifyModalOpen] = useState(false);
+  const { units, defaultChartView, theme, restTimerSeconds, trackBodyweight, prNotifications, updateUnits, updateChartView, updateTheme, updateRestTimer, updateTrackBodyweight, updatePRNotifications } = usePreferences();
 
   // Add state for confirmations
   const [signOutConfirmOpen, setSignOutConfirmOpen] = useState(false);
@@ -441,6 +446,18 @@ export default function Settings() {
                 onClick={() => setRestModalOpen(true)}
               />
               <SettingItem
+                icon={Bell}
+                title="PR notifications"
+                subtitle={prNotifications ? "Toast when you hit a new PR" : "Off"}
+                onClick={() => setPrNotifyModalOpen(true)}
+              />
+              <SettingItem
+                icon={Trophy}
+                title="Profile badges"
+                subtitle="Streaks and PRs friends can see"
+                onClick={() => setAchievementsOpen(true)}
+              />
+              <SettingItem
                 icon={Weight}
                 title="Bodyweight tracking"
                 subtitle={trackBodyweight ? "On — one weigh-in per day" : "Off"}
@@ -614,6 +631,19 @@ export default function Settings() {
           { value: "on", label: "On", description: "One weigh-in on each day" },
         ]}
       />
+      <ChoiceModal
+        open={prNotifyModalOpen}
+        onClose={() => setPrNotifyModalOpen(false)}
+        title="PR notifications"
+        description="A short toast when a set is a new personal record. Progress blurbs stay off so the gym floor stays quiet."
+        current={prNotifications ? "on" : "off"}
+        onSave={(value) => void updatePRNotifications(value === "on")}
+        options={[
+          { value: "on", label: "On", description: "Toast new PRs only" },
+          { value: "off", label: "Off", description: "No insight toasts" },
+        ]}
+      />
+      <AchievementsSettings open={achievementsOpen} onClose={() => setAchievementsOpen(false)} />
 
       <ConfirmDialog
         open={signOutConfirmOpen}

@@ -31,6 +31,7 @@ import { BodyweightCard } from "../../../../components/BodyweightCard";
 import { Trash2, Dumbbell, Heart, Activity, Pencil, Plus, Moon, FileText, Upload, Link2, Unlink, MoreHorizontal, Bandage, History } from "lucide-react";
 import { usePreferences } from "../../../../lib/hooks/usePreferences";
 import { formatWeight, formatDistance, formatCardioDuration, formatWeightInput, formatDistanceInput, toStoredWeight, toStoredDistance } from "../../../../lib/utils/units";
+import { publishPublicAchievements } from "../../../../lib/publishAchievements";
 import { toast } from "../../../../lib/toast";
 import { logger } from "../../../../lib/logger";
 import { DayNavigationSkeleton, ExerciseListSkeleton } from "../../../../components/LoadingSkeleton";
@@ -138,12 +139,8 @@ export default function DayView() {
   const [cardioActivityType, setCardioActivityType] = useState<CardioActivityType>("other");
   const [calisthenicsSets, setCalisthenicsSets] = useState<CalisthenicsSet[]>([{ reps: "10" }]);
 
-  const { units, restTimerSeconds, trackBodyweight } = usePreferences();
-  const [localToday, setLocalToday] = useState<string | null>(null);
-
-  useEffect(() => {
-    setLocalToday(format(new Date(), "yyyy-MM-dd"));
-  }, []);
+  const { units, restTimerSeconds, trackBodyweight, prNotifications } = usePreferences();
+  const [localToday] = useState(() => format(new Date(), "yyyy-MM-dd"));
   const { showSyncing } = useSyncStatus();
 
   const [allDays, setAllDays] = useState<Day[]>([]);
@@ -505,6 +502,7 @@ export default function DayView() {
    */
   const fetchAndDisplayInsight = async (exercise: Exercise, allDays: Day[]) => {
     try {
+      if (!prNotifications) return;
       // Use exerciseId if available, otherwise use name
       // This must match how extractExerciseHistory matches exercises
       const exerciseId = exercise.exerciseId || exercise.name;
@@ -549,7 +547,7 @@ export default function DayView() {
       // Check if we should fetch insights
       const isPR = isNewPR(history);
       const meetsMinReqs = shouldFetchInsight(history);
-      const shouldFetch = meetsMinReqs || isPR;
+      const shouldFetch = isPR;
 
       if (!shouldFetch) {
         // Log why requirements aren't met for debugging
@@ -629,14 +627,9 @@ export default function DayView() {
     const formattedText = formatInsightText(insight.insightText, metric);
     
     logger.info(`[Insights] Displaying toast: isPR=${insight.isNewPR}, text="${formattedText.substring(0, 50)}..."`);
-    
-    if (insight.isNewPR) {
-      // PR insights get success toast (8 seconds - shorter since they're exciting and easy to read)
-      toast.success(formattedText, 8000);
-    } else {
-      // Regular insights get info toast (15 seconds - longer since they're more detailed and harder to read)
-      toast.info(formattedText, 15000);
-    }
+
+    if (!insight.isNewPR) return;
+    toast.success(formattedText, 5000);
   };
 
   const startEditingExercise = (idx: number) => {
@@ -713,6 +706,8 @@ export default function DayView() {
     exercise?: SelectedExercise;
     strengthSets?: StrengthSet[];
     calisthenicsSets?: CalisthenicsSet[];
+    cardioData?: CardioData;
+    cardioActivityType?: CardioActivityType;
   }) => {
     const target = options?.exercise ?? selectedExercise;
     if (!target) return;
@@ -722,20 +717,22 @@ export default function DayView() {
     const skipInsight = options?.skipInsight ?? false;
     const strengthSource = options?.strengthSets ?? strengthSets;
     const calisthenicsSource = options?.calisthenicsSets ?? calisthenicsSets;
+    const cardioSource = options?.cardioData ?? cardioData;
+    const cardioType = options?.cardioActivityType ?? cardioActivityType;
 
     let exercise: Exercise;
 
     if (target.modality === "cardio") {
-      const durationMinutes = Number(cardioData.duration);
+      const durationMinutes = Number(cardioSource.duration);
       const duration = durationMinutes * 60;
-      const distanceDisplay = cardioData.distance ? Number(cardioData.distance) : undefined;
+      const distanceDisplay = cardioSource.distance ? Number(cardioSource.distance) : undefined;
 
       if (!isFinite(durationMinutes) || durationMinutes <= 0) {
         if (!silent) toast.error("Duration must be a positive number of minutes.");
         return;
       }
 
-      const cardioDataObj: any = { duration, activityType: cardioActivityType };
+      const cardioDataObj: any = { duration, activityType: cardioType };
       if (distanceDisplay && isFinite(distanceDisplay) && distanceDisplay > 0) {
         const distance = toStoredDistance(distanceDisplay, units);
         cardioDataObj.distance = distance;
@@ -832,6 +829,7 @@ export default function DayView() {
           rememberExercises(user.uid, [cleanedExercise]);
           rememberLastWorkout(user.uid, currentDay.date, nextExercises);
         }
+        void publishPublicAchievements().catch(() => undefined);
       }
       const wasUpdate = editingIndex !== null;
       if (stayOpen) {
@@ -921,9 +919,15 @@ export default function DayView() {
     }
   };
 
-  const queueComposerSave = (patch: { strengthSets?: StrengthSet[]; calisthenicsSets?: CalisthenicsSet[] }) => {
+  const queueComposerSave = (patch: {
+    strengthSets?: StrengthSet[];
+    calisthenicsSets?: CalisthenicsSet[];
+    cardioData?: CardioData;
+    cardioActivityType?: CardioActivityType;
+  }) => {
     if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
     persistTimerRef.current = setTimeout(() => {
+      persistTimerRef.current = null;
       void addExercise({ stayOpen: true, silent: true, skipInsight: true, ...patch });
     }, 400);
   };
@@ -942,21 +946,29 @@ export default function DayView() {
     setLastHint(formatLastHint(lastExercise, units));
 
     if (modality === "cardio") {
-      setCardioActivityType(
+      const activityType =
         lastExercise?.modality === "cardio"
           ? resolveCardioActivityType(lastExercise.cardioData?.activityType, name, exerciseId)
-          : inferCardioActivityType(name, exerciseId)
-      );
-      if (lastExercise?.modality === "cardio" && lastExercise.cardioData) {
-        setCardioData({
-          duration: String(Math.round(lastExercise.cardioData.duration / 60)),
-          distance: lastExercise.cardioData.distance
-            ? formatDistanceInput(lastExercise.cardioData.distance, units)
-            : "",
-        });
-      } else {
-        setCardioData({ duration: "30", distance: "" });
-      }
+          : inferCardioActivityType(name, exerciseId);
+      const nextCardio: CardioData =
+        lastExercise?.modality === "cardio" && lastExercise.cardioData
+          ? {
+              duration: String(Math.round(lastExercise.cardioData.duration / 60)),
+              distance: lastExercise.cardioData.distance
+                ? formatDistanceInput(lastExercise.cardioData.distance, units)
+                : "",
+            }
+          : { duration: "30", distance: "" };
+      setCardioActivityType(activityType);
+      setCardioData(nextCardio);
+      void addExercise({
+        exercise: { id: exerciseId, name, modality },
+        stayOpen: true,
+        silent: true,
+        skipInsight: true,
+        cardioData: nextCardio,
+        cardioActivityType: activityType,
+      });
       return;
     }
 
@@ -1158,6 +1170,18 @@ export default function DayView() {
   const showInlineComposer = Boolean((!isRestDay || hasExercises) && (isDesktop || !hasExercises));
 
   const closeAddSheet = () => {
+    if (persistTimerRef.current) {
+      clearTimeout(persistTimerRef.current);
+      persistTimerRef.current = null;
+    }
+    if (selectedExercise) {
+      void addExercise({
+        stayOpen: false,
+        silent: true,
+        skipInsight: true,
+        exercise: selectedExercise,
+      });
+    }
     setAddSheetOpen(false);
     setSelectedExercise(null);
     setEditingIndex(null);
@@ -1247,9 +1271,15 @@ export default function DayView() {
                 {selectedExercise.modality === "cardio" && (
                   <CardioInput
                     data={cardioData}
-                    onDataChange={setCardioData}
+                    onDataChange={(next) => {
+                      setCardioData(next);
+                      queueComposerSave({ cardioData: next });
+                    }}
                     activityType={cardioActivityType}
-                    onActivityTypeChange={setCardioActivityType}
+                    onActivityTypeChange={(next) => {
+                      setCardioActivityType(next);
+                      queueComposerSave({ cardioActivityType: next });
+                    }}
                   />
                 )}
 
@@ -1394,7 +1424,7 @@ export default function DayView() {
       )}
 
       {/* Scrollable Content */}
-      <main className="flex-1 overflow-y-auto">
+      <main className={`flex-1 overflow-y-auto ${hasExercises && !sheetMode && !isDesktop ? "pb-24" : ""}`}>
         <div className="container mx-auto max-w-4xl px-4 py-6 md:px-8">
         {showBodySkeleton ? (
           <>

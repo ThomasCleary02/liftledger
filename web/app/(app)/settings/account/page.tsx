@@ -218,8 +218,13 @@ export default function AccountSettings() {
                         value={usernameInput}
                         onChange={(e) => setUsernameInput(e.target.value)}
                         placeholder="Enter username"
-                        className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
+                        className="flex-1 rounded-lg border border-gray-300 px-3 py-3 text-base focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
                         maxLength={20}
+                        onBlur={() => {
+                          if (usernameInput.trim() && usernameInput !== username) {
+                            void handleSaveUsername();
+                          }
+                        }}
                       />
                       <button
                         onClick={handleSaveUsername}
@@ -246,7 +251,12 @@ export default function AccountSettings() {
                       value={bodyweightInput}
                       onChange={(e) => setBodyweightInput(e.target.value)}
                       placeholder={units === "metric" ? "80" : "180"}
-                      className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
+                      className="flex-1 rounded-lg border border-gray-300 px-3 py-3 text-base focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
+                      onBlur={() => {
+                        if (bodyweightInput !== savedBodyweight) {
+                          void handleSaveBodyweight();
+                        }
+                      }}
                     />
                     <button
                       onClick={handleSaveBodyweight}

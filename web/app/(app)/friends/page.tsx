@@ -7,15 +7,19 @@ import { useAuth } from "../../../providers/Auth";
 import { friendsService, friendRequestsService, accountService } from "../../../lib/firebase";
 import type { Friend } from "@liftledger/shared/firestore/friends";
 import type { FriendRequest } from "@liftledger/shared/firestore/friendRequests";
+import type { PublicAchievements } from "@liftledger/shared";
 import { Users, User, Trash2, Plus, Trophy, ChevronRight, Check, X } from "lucide-react";
 import { Avatar } from "../../../components/Avatar";
 import { toast } from "../../../lib/toast";
 import { logger } from "../../../lib/logger";
 import { ConfirmDialog } from "../../../components/ConfirmDialog";
+import { ProfileSheet } from "../../../components/ProfileSheet";
+import { usePreferences } from "../../../lib/hooks/usePreferences";
 
 export default function Friends() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
+  const { units } = usePreferences();
   const [friends, setFriends] = useState<Friend[]>([]);
   const [incomingRequests, setIncomingRequests] = useState<FriendRequest[]>([]);
   const [outgoingRequests, setOutgoingRequests] = useState<FriendRequest[]>([]);
@@ -24,6 +28,25 @@ export default function Friends() {
   const [sendingRequest, setSendingRequest] = useState(false);
   const [profiles, setProfiles] = useState<Record<string, { username: string | null; photoURL: string | null }>>({});
   const [friendToRemove, setFriendToRemove] = useState<Friend | null>(null);
+  const [profileOpen, setProfileOpen] = useState<{
+    username: string | null;
+    photoURL: string | null;
+    achievements: PublicAchievements | null;
+  } | null>(null);
+
+  const friendIdOf = (friend: Friend) =>
+    friend.userId === user?.uid ? friend.friendUserId : friend.userId;
+
+  const openFriendProfile = async (friend: Friend) => {
+    const id = friendIdOf(friend);
+    try {
+      const publicProfile = await accountService.getPublicProfile(id);
+      setProfileOpen(publicProfile);
+    } catch (error) {
+      logger.error("Failed to load profile", error);
+      toast.error("Could not open profile");
+    }
+  };
 
   useEffect(() => {
     if (authLoading) return;
@@ -310,7 +333,7 @@ export default function Friends() {
                       value={emailInput}
                       onChange={(e) => setEmailInput(e.target.value)}
                       placeholder="Username"
-                      className="w-full rounded-lg border border-gray-200 bg-gray-50 pl-10 pr-4 py-3 outline-none focus:border-brand focus:bg-white"
+                      className="w-full rounded-lg border border-gray-200 bg-gray-50 pl-10 pr-4 py-3 text-base outline-none focus:border-brand focus:bg-white"
                       disabled={sendingRequest}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && !sendingRequest && emailInput.trim()) {
@@ -351,41 +374,32 @@ export default function Friends() {
                 </div>
               ) : (
                 <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
-                  {friends.map((friend) => (
+                  {friends.map((friend) => {
+                    const friendUserId = friendIdOf(friend);
+                    return (
                     <div
                       key={friend.id}
                       className="flex items-center justify-between border-b border-gray-100 px-5 py-4 last:border-0"
                     >
-                      <div className="flex min-w-0 flex-1 items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => void openFriendProfile(friend)}
+                        className="flex min-h-[48px] min-w-0 flex-1 items-center gap-3 text-left"
+                      >
                         <Avatar
-                          name={(() => {
-                            const friendUserId = friend.userId === user?.uid
-                              ? friend.friendUserId
-                              : friend.userId;
-                            return profiles[friendUserId]?.username;
-                          })()}
-                          photoURL={(() => {
-                            const friendUserId = friend.userId === user?.uid
-                              ? friend.friendUserId
-                              : friend.userId;
-                            return profiles[friendUserId]?.photoURL;
-                          })()}
+                          name={profiles[friendUserId]?.username}
+                          photoURL={profiles[friendUserId]?.photoURL}
                           size={40}
                         />
                         <div className="min-w-0 flex-1">
                           <p className="truncate font-semibold text-gray-900">
-                            {(() => {
-                              const friendUserId = friend.userId === user?.uid 
-                                ? friend.friendUserId 
-                                : friend.userId;
-                              return profiles[friendUserId]?.username || "Unknown user";
-                            })()}
+                            {profiles[friendUserId]?.username || "Unknown user"}
                           </p>
                           <p className="text-sm text-gray-500">
                             Added {new Date(friend.createdAt.toMillis()).toLocaleDateString()}
                           </p>
                         </div>
-                      </div>
+                      </button>
                       <button
                         onClick={() => handleRemoveFriend(friend)}
                         className="rounded-full bg-red-50 p-2 text-red-600 transition-colors hover:bg-red-100"
@@ -394,7 +408,8 @@ export default function Friends() {
                         <Trash2 className="h-5 w-5" />
                       </button>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </section>
@@ -403,6 +418,14 @@ export default function Friends() {
           </div>
         </div>
       </main>
+      <ProfileSheet
+        open={Boolean(profileOpen)}
+        username={profileOpen?.username ?? null}
+        photoURL={profileOpen?.photoURL ?? null}
+        achievements={profileOpen?.achievements ?? null}
+        units={units}
+        onClose={() => setProfileOpen(null)}
+      />
       <ConfirmDialog
         open={Boolean(friendToRemove)}
         title="Remove friend?"

@@ -53,7 +53,6 @@ test.describe("day modes on a sandbox date", () => {
     await clearSandboxDay(page, SANDBOX);
     await pickSearchResult(page, "run", /^Running$/);
     await page.getByLabel("Duration in minutes").fill("12");
-    await page.getByRole("button", { name: "Save to log" }).click();
     await closeAddSheet(page);
     await page.reload();
     await expect(page.getByLabel("More for this day")).toBeVisible({ timeout: 30_000 });

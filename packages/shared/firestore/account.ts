@@ -4,6 +4,12 @@ import { collection, query, where, getDocs, deleteDoc, doc, getDoc, setDoc, dele
 import { deleteUser } from "firebase/auth";
 import { deleteEmailIndex, writeEmailIndex } from "./emailIndex";
 import { claimUsername, deleteUsernameIndex, lookupUserIdByUsername } from "./usernameIndex";
+import {
+  DEFAULT_ACHIEVEMENT_SHARE,
+  parseAchievementShare,
+  type AchievementShareSettings,
+  type PublicAchievements,
+} from "../achievements";
 
 const WORKOUTS_COLLECTION = "workouts";
 const ACCOUNTS_COLLECTION = "accounts";
@@ -383,6 +389,51 @@ export function createAccountService(db: Firestore, auth: Auth) {
 
     async getProfileForUser(userId: string): Promise<{ username: string | null; photoURL: string | null }> {
       return readProfile(userId);
+    },
+
+    async getPublicProfile(userId: string): Promise<{
+      username: string | null;
+      photoURL: string | null;
+      achievements: PublicAchievements | null;
+    }> {
+      const profile = await readProfile(userId);
+      try {
+        const snap = await getDoc(doc(db, ACCOUNTS_COLLECTION, userId));
+        if (!snap.exists()) return { ...profile, achievements: null };
+        const data = snap.data();
+        const share = parseAchievementShare(data.achievementShare);
+        if (!share.enabled) return { ...profile, achievements: null };
+        const raw = data.publicAchievements;
+        if (!raw || typeof raw !== "object") return { ...profile, achievements: null };
+        return { ...profile, achievements: raw as PublicAchievements };
+      } catch {
+        return { ...profile, achievements: null };
+      }
+    },
+
+    async getAchievementShare(): Promise<AchievementShareSettings> {
+      const user = auth.currentUser;
+      if (!user) return { ...DEFAULT_ACHIEVEMENT_SHARE };
+      const snap = await getDoc(doc(db, ACCOUNTS_COLLECTION, user.uid));
+      if (!snap.exists()) return { ...DEFAULT_ACHIEVEMENT_SHARE };
+      return parseAchievementShare(snap.data()?.achievementShare);
+    },
+
+    async setAchievementShare(
+      share: AchievementShareSettings,
+      snapshot: PublicAchievements | null
+    ): Promise<void> {
+      const user = auth.currentUser;
+      if (!user) throw new Error("No user signed in");
+      await setDoc(
+        doc(db, ACCOUNTS_COLLECTION, user.uid),
+        {
+          achievementShare: share,
+          publicAchievements: snapshot ?? deleteField(),
+          updatedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      );
     },
 
     async getPhotoURL(): Promise<string | null> {

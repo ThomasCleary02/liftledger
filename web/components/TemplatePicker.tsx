@@ -45,7 +45,7 @@ export function TemplatePicker({
               value={name}
               onChange={(event) => setName(event.target.value)}
               placeholder="Push A"
-              className="min-w-0 flex-1 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm"
+              className="min-w-0 flex-1 rounded-md border border-gray-200 bg-white px-3 py-2 text-base"
             />
             <button type="submit" disabled={saving || !name.trim()} className="btn-primary px-3 py-2 text-sm">
               Save

@@ -16,7 +16,7 @@ describe("ConfirmDialog", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
-  it("confirms, cancels, and closes on Escape", () => {
+  it("confirms, cancels, and closes on Escape", async () => {
     const onConfirm = vi.fn();
     const onCancel = vi.fn();
     render(
@@ -30,7 +30,7 @@ describe("ConfirmDialog", () => {
         onCancel={onCancel}
       />
     );
-    expect(screen.getByRole("dialog")).toHaveAttribute("aria-labelledby");
+    expect(await screen.findByRole("dialog")).toHaveAttribute("aria-labelledby");
     fireEvent.click(screen.getByRole("button", { name: "Remove" }));
     expect(onConfirm).toHaveBeenCalledOnce();
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));

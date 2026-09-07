@@ -136,10 +136,10 @@ export function FullScreenSheet({
         </button>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4">{children}</div>
-      {footerContent != null && !keyboardOpen && (
+      {footerContent != null && (
         <div
           className="flex-shrink-0 border-t border-gray-200 bg-white px-4 pt-3"
-          style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom, 0px))" }}
+          style={{ paddingBottom: keyboardOpen ? "0.75rem" : "max(0.75rem, env(safe-area-inset-bottom, 0px))" }}
         >
           {footerContent}
         </div>

@@ -20,4 +20,5 @@ export * from "./cardio";
 export * from "./import";
 export * from "./programs/starters";
 export * from "./sets";
+export * from "./achievements";
 export * from "./plates";

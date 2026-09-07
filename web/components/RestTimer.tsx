@@ -38,7 +38,7 @@ export function RestTimer({
   const secs = remaining % 60;
 
   return (
-    <div className="fixed-below-status fixed left-4 right-4 z-40 mx-auto max-w-md rounded-2xl border border-gray-200 bg-white px-4 py-3 md:left-auto md:right-8">
+    <div className="fixed-below-status fixed left-4 right-4 z-[105] mx-auto max-w-md rounded-2xl border border-gray-200 bg-white px-4 py-3 md:left-auto md:right-8">
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Rest</p>
