@@ -1,6 +1,11 @@
+import { format, subDays } from "date-fns";
 import { describe, expect, it } from "vitest";
 import { buildPublicAchievements, DEFAULT_ACHIEVEMENT_SHARE } from "../achievements";
 import { makeDay, strength } from "./dayFixture";
+
+function ymd(date: Date): string {
+  return format(date, "yyyy-MM-dd");
+}
 
 describe("buildPublicAchievements", () => {
   it("returns null when sharing is off", () => {
@@ -9,9 +14,11 @@ describe("buildPublicAchievements", () => {
   });
 
   it("includes streak and pinned PRs when enabled", () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
     const days = [
-      makeDay("2026-09-06", { exercises: [strength("Bench Press", [{ reps: 5, weight: 225 }])] }),
-      makeDay("2026-09-05", { exercises: [strength("Squat", [{ reps: 5, weight: 275 }])] }),
+      makeDay(ymd(today), { exercises: [strength("Bench Press", [{ reps: 5, weight: 225 }])] }),
+      makeDay(ymd(subDays(today, 1)), { exercises: [strength("Squat", [{ reps: 5, weight: 275 }])] }),
     ];
     const allOn = { enabled: true, showStreak: true, showPRs: true, pinnedKeys: [] as string[] };
     const open = buildPublicAchievements(days, [], allOn);
@@ -28,7 +35,7 @@ describe("buildPublicAchievements", () => {
   });
 
   it("omits PRs when showPRs is false", () => {
-    const days = [makeDay("2026-09-06", { exercises: [strength("Row", [{ reps: 5, weight: 135 }])] })];
+    const days = [makeDay(ymd(new Date()), { exercises: [strength("Row", [{ reps: 5, weight: 135 }])] })];
     const snapshot = buildPublicAchievements(days, [], {
       enabled: true,
       showStreak: true,
