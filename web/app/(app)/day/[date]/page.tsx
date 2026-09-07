@@ -155,6 +155,7 @@ export default function DayView() {
   const [exerciseToRemove, setExerciseToRemove] = useState<number | null>(null);
   const [addSheetOpen, setAddSheetOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
+  const [showSupersetTip, setShowSupersetTip] = useState(false);
   const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const startRest = () => {
@@ -176,6 +177,23 @@ export default function DayView() {
     mq.addEventListener("change", apply);
     return () => mq.removeEventListener("change", apply);
   }, []);
+
+  useEffect(() => {
+    try {
+      setShowSupersetTip(localStorage.getItem("liftledger.tip.superset") !== "1");
+    } catch {
+      setShowSupersetTip(false);
+    }
+  }, []);
+
+  const dismissSupersetTip = () => {
+    setShowSupersetTip(false);
+    try {
+      localStorage.setItem("liftledger.tip.superset", "1");
+    } catch {
+      /* ignore */
+    }
+  };
 
   const beginSave = () => {
     if (savingRef.current) return false;
@@ -1451,6 +1469,20 @@ export default function DayView() {
         {hasExercises && (
           <div className="mb-6">
             <h2 className="mb-3 text-lg font-semibold text-gray-900">Exercises</h2>
+            {showSupersetTip && day!.exercises.length >= 2 && (
+              <div className="mb-3 flex items-start justify-between gap-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-700">
+                <p>
+                  Tip: use the link icon to pair a lift with the one above (superset). More notes live in Settings → Tips.
+                </p>
+                <button
+                  type="button"
+                  onClick={dismissSupersetTip}
+                  className="shrink-0 font-semibold text-gray-800 underline-offset-2 hover:underline"
+                >
+                  Got it
+                </button>
+              </div>
+            )}
               <div className="space-y-3">
                 {day!.exercises.map((ex: Exercise, idx: number) => {
                   const Icon = getModalityIcon(ex.modality);
@@ -1477,6 +1509,7 @@ export default function DayView() {
                         <div className="flex flex-shrink-0 items-center gap-2">
                           {ex.supersetGroup ? (
                             <button
+                              type="button"
                               onClick={() => unlinkSuperset(idx)}
                               className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-gray-100 p-2 text-gray-600 transition-colors hover:bg-gray-200"
                               aria-label="Unlink superset"
@@ -1486,6 +1519,7 @@ export default function DayView() {
                             </button>
                           ) : idx > 0 ? (
                             <button
+                              type="button"
                               onClick={() => pairSuperset(idx)}
                               className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-gray-100 p-2 text-gray-600 transition-colors hover:bg-gray-200"
                               aria-label="Superset with previous"
@@ -1495,6 +1529,7 @@ export default function DayView() {
                             </button>
                           ) : null}
                           <button
+                            type="button"
                             onClick={() => startEditingExercise(idx)}
                             className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-gray-100 p-2 text-gray-600 transition-colors hover:bg-gray-200"
                             aria-label={`Edit ${ex.name}`}
@@ -1502,6 +1537,7 @@ export default function DayView() {
                             <Pencil className="h-4 w-4" />
                           </button>
                           <button
+                            type="button"
                             onClick={() => setExerciseToRemove(idx)}
                             className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-danger-muted p-2 text-danger transition-colors hover:opacity-80"
                             aria-label={`Remove ${ex.name}`}

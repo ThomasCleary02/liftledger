@@ -522,6 +522,7 @@ function StrengthView({
               >
                 <button
                   type="button"
+                  aria-expanded={isOpen}
                   onClick={() =>
                     setExpandedId((prev) => (prev === exercise.exerciseId ? null : exercise.exerciseId))
                   }
@@ -718,6 +719,7 @@ function TypeChip({
   return (
     <button
       type="button"
+      aria-pressed={selected}
       onClick={onClick}
       className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
         selected ? "bg-brand text-brand-fg" : "bg-gray-100 text-gray-600 hover:bg-gray-200"

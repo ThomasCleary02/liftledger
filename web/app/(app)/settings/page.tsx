@@ -25,12 +25,14 @@ import {
   Upload,
   Weight,
   Bell,
+  Lightbulb,
 } from "lucide-react";
 import { Avatar } from "../../../components/Avatar";
 import { toast } from "../../../lib/toast";
 import { logger } from "../../../lib/logger";
 import { ConfirmDialog } from "../../../components/ConfirmDialog";
 import { FullScreenSheet } from "../../../components/FullScreenSheet";
+import { TipsSheet } from "../../../components/TipsSheet";
 import { getFavoriteExercises, toggleFavoriteExercise, getTrackedExercises, setTrackedExercises as persistTrackedExercises, getAccountSummary } from "../../../lib/firestore/account";
 import { type ExerciseDoc } from "../../../lib/firestore/exercises";
 import { FavoritesModal } from "../../../components/FavoritesModal";
@@ -77,6 +79,7 @@ export default function Settings() {
 
   // Add state in the component
   const [favoritesOpen, setFavoritesOpen] = useState(false);
+  const [tipsOpen, setTipsOpen] = useState(false);
   const [favoriteExercises, setFavoriteExercises] = useState<ExerciseDoc[]>([]);
   const [loadingFavorites, setLoadingFavorites] = useState(false);
 
@@ -490,6 +493,12 @@ export default function Settings() {
                   loadTemplates();
                 }}
               />
+              <SettingItem
+                icon={Lightbulb}
+                title="Tips"
+                subtitle="Supersets, favorites, analytics quirks"
+                onClick={() => setTipsOpen(true)}
+              />
             </div>
           </section>
 
@@ -526,6 +535,8 @@ export default function Settings() {
             onCreate={handleCreateNewTemplate}
           />
 
+          <TipsSheet open={tipsOpen} onClose={() => setTipsOpen(false)} />
+
           {/* Session */}
           <section>
             <h2 className="kicker mb-3">Account actions</h2>
@@ -549,7 +560,7 @@ export default function Settings() {
 
           {/* App Info */}
           <div className="py-6 text-center">
-            <p className="text-sm text-gray-400">LiftLedger v3.0.0</p>
+            <p className="text-sm text-gray-400">LiftLedger v3.2.0</p>
           </div>
           </div>
         </div>
@@ -696,7 +707,7 @@ function SettingItem({
     );
   }
   return (
-    <button onClick={onClick} className={className}>
+    <button type="button" onClick={onClick} className={className}>
       {inner}
     </button>
   );

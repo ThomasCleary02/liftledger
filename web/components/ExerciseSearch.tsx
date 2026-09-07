@@ -214,6 +214,7 @@ export default function ExerciseSearch({
         </div>
         {user && (
           <button
+            type="button"
             onClick={() => {
               setShowFavorites(!showFavorites);
               setQuery("");
@@ -224,7 +225,8 @@ export default function ExerciseSearch({
                 ? "border-brand bg-brand text-brand-fg"
                 : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
             }`}
-            aria-label="Show favorites"
+            aria-label={showFavorites ? "Hide favorites" : "Show favorites"}
+            aria-pressed={showFavorites}
           >
             <Star className={`h-5 w-5 ${showFavorites ? "fill-current" : ""}`} />
           </button>

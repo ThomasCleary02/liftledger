@@ -32,7 +32,7 @@
     "react": "19.1.9",
     "react-dom": "19.1.9"
   },
-  "version": "3.1.1",
+  "version": "3.2.0",
   "dependencies": {
     "@opentelemetry/api": "^1.9.0",
     "date-fns": "^4.1.0",

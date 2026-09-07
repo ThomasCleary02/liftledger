@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { focusInitial, trapFocusKeydown } from "../lib/focusTrap";
 import { lockFullScreenChrome, unlockFullScreenChrome } from "./fullScreenChrome";
 
 type Props = {
@@ -27,6 +28,7 @@ export function FullScreenSheet({
 }: Props) {
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
+  const previouslyFocused = useRef<HTMLElement | null>(null);
   const [mounted, setMounted] = useState(false);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
   const showDefaultFooter = footer === undefined;
@@ -45,11 +47,23 @@ export function FullScreenSheet({
 
   useEffect(() => {
     if (!open) return;
+    previouslyFocused.current = document.activeElement as HTMLElement | null;
+    const frame = window.requestAnimationFrame(() => {
+      if (panelRef.current) focusInitial(panelRef.current, "[data-sheet-close]");
+    });
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (panelRef.current) trapFocusKeydown(event, panelRef.current);
     };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("keydown", onKey);
+      previouslyFocused.current?.focus?.();
+    };
   }, [open, onClose]);
 
   useEffect(() => {
@@ -128,6 +142,7 @@ export function FullScreenSheet({
         </h2>
         <button
           type="button"
+          data-sheet-close
           onClick={onClose}
           className="btn-secondary min-h-[44px] shrink-0 px-4 text-sm font-semibold"
           aria-label={closeAriaLabel ?? closeText}

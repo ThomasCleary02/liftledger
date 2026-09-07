@@ -55,7 +55,7 @@ export function Navigation() {
   return (
     <>
       {/* Mobile Bottom Navigation */}
-      <nav className="app-tabbar fixed bottom-0 left-0 right-0 z-50 border-t border-gray-200 bg-paper md:hidden" style={{ paddingBottom: "var(--safe-area-bottom)", paddingLeft: "env(safe-area-inset-left, 0px)", paddingRight: "env(safe-area-inset-right, 0px)" }}>
+      <nav aria-label="Primary" className="app-tabbar fixed bottom-0 left-0 right-0 z-50 border-t border-gray-200 bg-paper md:hidden" style={{ paddingBottom: "var(--safe-area-bottom)", paddingLeft: "env(safe-area-inset-left, 0px)", paddingRight: "env(safe-area-inset-right, 0px)" }}>
         <div className="flex h-16 items-center justify-around">
           {navItems.map((item) => {
             const Icon = item.icon;
@@ -85,7 +85,7 @@ export function Navigation() {
         <div className="flex h-16 items-center border-b border-gray-200 px-6">
           <BrandMark size="sm" />
         </div>
-        <nav className="flex-1 space-y-1 px-4 py-6">
+        <nav aria-label="Primary" className="flex-1 space-y-1 px-4 py-6">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = item.matchPrefix
