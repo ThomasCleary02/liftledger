@@ -16,14 +16,12 @@ export function ProfileHero({
   username,
   photoURL,
   stats,
-  preview,
   busyPhoto,
   cameraSlot,
 }: {
   username: string | null;
   photoURL: string | null;
   stats: AchievementProgress["stats"];
-  preview?: boolean;
   busyPhoto?: boolean;
   cameraSlot?: ReactNode;
 }) {
@@ -31,7 +29,6 @@ export function ProfileHero({
     <div className="relative overflow-hidden rounded-md border border-gray-200 bg-white p-5 shadow-[0_1px_0_rgb(20_83_45/0.14)]">
       <div className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(to_bottom,transparent,transparent_31px,rgb(20_83_45/0.08)_31px,rgb(20_83_45/0.08)_32px)] dark:bg-[repeating-linear-gradient(to_bottom,transparent,transparent_31px,rgb(125_186_138/0.12)_31px,rgb(125_186_138/0.12)_32px)]" />
       <div className="relative">
-        {preview && <p className="kicker mb-4">Preview</p>}
         <div className="flex items-center gap-4">
           <div className="relative flex-shrink-0">
             <Avatar name={username} photoURL={photoURL} size={88} busy={busyPhoto} />

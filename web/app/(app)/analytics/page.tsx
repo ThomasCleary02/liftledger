@@ -12,6 +12,8 @@ import {
   getCardioAnalytics,
   filterDaysByPeriod,
   findAllPRs,
+  collapsePRsByExercise,
+  getLiftProgress,
   getBodyweightPoints,
   getBodyweightChangeLbs,
   type CardioTypeStats,
@@ -27,8 +29,7 @@ import {
   Trophy,
   Flame,
   TrendingUp,
-  Star,
-  Map as MapIcon,  // Rename this
+  Map as MapIcon,
   Clock,
   Gauge,
   Share,
@@ -37,13 +38,30 @@ import { format, startOfWeek, eachDayOfInterval, addDays } from "date-fns";
 import { logger } from "../../../lib/logger";
 import { toast } from "../../../lib/toast";
 import { getAccountSummary } from "../../../lib/firestore/account";
-import { CARDIO_ACTIVITY_LABELS, cardioPaceKind, type CardioActivityType } from "@liftledger/shared";
+import { CARDIO_ACTIVITY_LABELS, cardioPaceKind, type CardioActivityType, splitExerciseDisplay } from "@liftledger/shared";
+import { ExerciseNameLabel } from "../../../components/ExerciseNameLabel";
 import { downloadWeekSharePng } from "../../../lib/shareWeekPng";
 import { peekCatalog, peekDaysArray, daysListIsComplete } from "../../../lib/sessionCache";
 
 type TabType = "overview" | "strength" | "cardio" | "prs";
 
 const ALL_HISTORY_LIMIT = 250;
+
+const PERIODS: { id: TimePeriod; short: string; label: string }[] = [
+  { id: "week", short: "7d", label: "Last 7 days" },
+  { id: "month", short: "30d", label: "Last 30 days" },
+  { id: "year", short: "1y", label: "Last year" },
+  { id: "all", short: "All", label: "All time" },
+];
+
+function prTypeLabel(prType: ExercisePR["prType"]): string {
+  if (prType === "maxWeight") return "Best weight";
+  if (prType === "maxDistance") return "Longest";
+  if (prType === "maxDuration") return "Longest time";
+  if (prType === "bestPace") return "Best pace";
+  if (prType === "maxReps") return "Best reps";
+  return prType;
+}
 
 function periodStart(period: TimePeriod): Date | null {
   if (period === "all") return null;
@@ -82,6 +100,8 @@ export default function Analytics() {
   const [trackedExerciseIds, setTrackedExerciseIds] = useState<string[]>([]);
   const [username, setUsername] = useState<string | null>(null);
   const [historyComplete, setHistoryComplete] = useState(() => daysListIsComplete());
+  const [lifetimeDays, setLifetimeDays] = useState<Day[]>(() => peekDaysArray());
+  const [lifetimeComplete, setLifetimeComplete] = useState(() => daysListIsComplete());
   const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
@@ -97,7 +117,9 @@ export default function Analytics() {
 
   useEffect(() => {
     setDays([]);
+    setLifetimeDays([]);
     setHistoryComplete(false);
+    setLifetimeComplete(false);
   }, [user?.uid]);
 
   const loadData = async (period: TimePeriod) => {
@@ -113,9 +135,10 @@ export default function Analytics() {
       ]);
 
       setDays(dayData);
-      setHistoryComplete(
-        daysListIsComplete() || (!start && dayData.length < ALL_HISTORY_LIMIT)
-      );
+      setLifetimeDays((prev) => mergeDays(prev, dayData));
+      const complete = daysListIsComplete() || (!start && dayData.length < ALL_HISTORY_LIMIT);
+      setHistoryComplete(complete);
+      if (!start) setLifetimeComplete(complete);
       setTrackedExerciseIds(account.trackedExercises);
       setUsername(account.username);
 
@@ -134,7 +157,10 @@ export default function Analytics() {
     try {
       const older = await listDays({ limit: 1000, order: "desc" });
       setDays((prev) => mergeDays(prev, older));
-      setHistoryComplete(daysListIsComplete() || older.length < 1000);
+      setLifetimeDays((prev) => mergeDays(prev, older));
+      const complete = daysListIsComplete() || older.length < 1000;
+      setHistoryComplete(complete);
+      setLifetimeComplete(complete);
     } catch (error) {
       logger.error("Error loading older analytics", error);
       toast.error("Could not load older history");
@@ -143,20 +169,42 @@ export default function Analytics() {
 
   const filteredDays = useMemo(() => filterDaysByPeriod(days, timePeriod), [days, timePeriod]);
   const summary = useMemo(() => getAnalyticsSummaryFromDays(filteredDays, exercises), [filteredDays, exercises]);
+
+  useEffect(() => {
+    if (activeTab !== "prs" || !user || lifetimeComplete) return;
+    let cancelled = false;
+    void listDays({ limit: 1000, order: "desc" })
+      .then((older) => {
+        if (cancelled) return;
+        setLifetimeDays((prev) => mergeDays(prev, older));
+        setLifetimeComplete(daysListIsComplete() || older.length < 1000);
+      })
+      .catch((error) => {
+        logger.error("Error loading PR history", error);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, user, lifetimeComplete]);
+
   const prs = useMemo(() => {
-    if (activeTab !== "prs" || days.length === 0) return [];
-    return findAllPRs(filteredDays, trackedExerciseIds.length > 0 ? trackedExerciseIds : undefined);
-  }, [activeTab, days.length, filteredDays, trackedExerciseIds]);
+    if (activeTab !== "prs") return [];
+    const source = lifetimeDays.length > 0 ? lifetimeDays : days;
+    if (source.length === 0) return [];
+    return collapsePRsByExercise(
+      findAllPRs(source, trackedExerciseIds.length > 0 ? trackedExerciseIds : undefined)
+    );
+  }, [activeTab, lifetimeDays, days, trackedExerciseIds]);
 
   if (!authLoading && !user) {
     return null;
   }
 
-  const tabs = [
-    { id: "overview" as TabType, label: "Overview", icon: BarChart3 },
-    { id: "strength" as TabType, label: "Strength", icon: Dumbbell },
-    { id: "cardio" as TabType, label: "Cardio", icon: Heart },
-    { id: "prs" as TabType, label: "PRs", icon: Trophy },
+  const tabs: { id: TabType; label: string }[] = [
+    { id: "overview", label: "Overview" },
+    { id: "strength", label: "Strength" },
+    { id: "cardio", label: "Cardio" },
+    { id: "prs", label: "PRs" },
   ];
 
   const showSpinner = (authLoading || loading) && days.length === 0 && !loadError;
@@ -166,51 +214,42 @@ export default function Analytics() {
     <div className="flex h-full flex-col overflow-hidden bg-gray-50">
       {/* Fixed Header */}
       <header className="flex-shrink-0 border-b border-gray-200 bg-white">
-        <div className="px-4 py-4 md:px-8 md:py-6">
-          <div className="mx-auto max-w-4xl">
-            <p className="kicker mb-1">Stats</p>
-            <h1 className="mb-2 text-2xl font-semibold text-gray-900 md:text-3xl">Analytics</h1>
-            <p className="text-sm text-gray-500">Track your progress</p>
+        <div className="px-4 pt-3 md:px-8">
+          <div className="mx-auto flex max-w-4xl items-center justify-between gap-3">
+            <h1 className="min-w-0 truncate text-xl font-semibold text-gray-900 md:text-2xl">Analytics</h1>
+            <div className="flex shrink-0 rounded-lg bg-gray-100 p-0.5">
+              {PERIODS.map((period) => (
+                <button
+                  key={period.id}
+                  type="button"
+                  onClick={() => setTimePeriod(period.id)}
+                  aria-label={period.label}
+                  aria-current={timePeriod === period.id ? "true" : undefined}
+                  className={`rounded px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                    timePeriod === period.id
+                      ? "bg-brand text-brand-fg"
+                      : "text-gray-600 hover:bg-gray-200"
+                  }`}
+                >
+                  {period.short}
+                </button>
+              ))}
+            </div>
           </div>
-
-          {/* Time Period Filter */}
-          <div className="mx-auto mt-4 max-w-4xl border-t border-gray-100 pt-4">
-            <div className="flex w-full rounded-lg bg-gray-100 p-1">
-                {(["week", "month", "year", "all"] as TimePeriod[]).map((period) => (
-                  <button
-                    key={period}
-                    onClick={() => setTimePeriod(period)}
-                    aria-current={timePeriod === period ? "true" : undefined}
-                    className={`min-w-0 flex-1 rounded px-2 py-1.5 text-xs font-semibold capitalize transition-colors ${
-                      timePeriod === period
-                        ? "bg-brand text-brand-fg"
-                        : "text-gray-600 hover:bg-gray-200"
-                    }`}
-                  >
-                    {period}
-                  </button>
-                ))}
-              </div>
-          </div>
-
-          {/* Tabs */}
-          <div className="mx-auto mt-4 flex max-w-4xl border-t border-gray-100">
+          <div className="mx-auto mt-3 flex max-w-4xl">
             {tabs.map((tab) => {
-              const Icon = tab.icon;
               const isActive = activeTab === tab.id;
               return (
                 <button
                   key={tab.id}
+                  type="button"
                   onClick={() => setActiveTab(tab.id)}
                   aria-current={isActive ? "page" : undefined}
-                  className={`flex flex-1 flex-col items-center gap-1 border-b-2 py-4 transition-colors ${
+                  className={`flex-1 border-b-2 py-2.5 text-sm font-semibold transition-colors ${
                     isActive ? "border-brand text-gray-900" : "border-transparent text-gray-500"
                   }`}
                 >
-                  <Icon className={`h-5 w-5 ${isActive ? "text-gray-900" : ""}`} />
-                  <span className={`text-xs font-semibold ${isActive ? "text-gray-900" : ""}`}>
-                    {tab.label}
-                  </span>
+                  {tab.label}
                 </button>
               );
             })}
@@ -257,15 +296,22 @@ export default function Analytics() {
           ) : (
             <>
               {activeTab === "overview" && (
-                <OverviewView summary={summary} days={filteredDays} allDays={days} timePeriod={timePeriod} username={username} />
+                <OverviewView summary={summary} allDays={days} username={username} />
               )}
               {activeTab === "strength" && (
-                <StrengthView days={filteredDays} exercises={exercises} timePeriod={timePeriod} />
+                <StrengthView
+                  days={filteredDays}
+                  exercises={exercises}
+                  timePeriod={timePeriod}
+                  trackedExerciseIds={trackedExerciseIds}
+                />
               )}
               {activeTab === "cardio" && (
                 <CardioView days={filteredDays} timePeriod={timePeriod} />
               )}
-              {activeTab === "prs" && <PRsView prs={prs} trackedExerciseIds={trackedExerciseIds} />}
+              {activeTab === "prs" && (
+                <PRsView prs={prs} trackingEmpty={trackedExerciseIds.length === 0} />
+              )}
               {timePeriod === "all" && !historyComplete && days.length > 0 && (
                 <button
                   type="button"
@@ -286,31 +332,16 @@ export default function Analytics() {
 // Overview Component
 function OverviewView({
   summary,
-  days,
   allDays,
-  timePeriod,
   username,
 }: {
   summary: AnalyticsSummary;
-  days: Day[];
   allDays: Day[];
-  timePeriod: TimePeriod;
   username: string | null;
 }) {
   const { units, trackBodyweight } = usePreferences();
-  const cardio = useMemo(() => getCardioAnalytics(days, timePeriod), [days, timePeriod]);
-  const weighIns = useMemo(() => getBodyweightPoints(days), [days]);
+  const weighIns = useMemo(() => getBodyweightPoints(allDays), [allDays]);
   const weightChange = getBodyweightChangeLbs(weighIns);
-  const cardioBreakdown = cardio.byType
-    .filter((t) => t.sessions > 0)
-    .map((t) => {
-      const amount =
-        t.totalDistance > 0
-          ? formatDistance(t.totalDistance, units)
-          : formatCardioDuration(t.totalDuration);
-      return `${CARDIO_ACTIVITY_LABELS[t.type]} ${amount}`;
-    })
-    .join(" · ");
 
   const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
   const weekDates = eachDayOfInterval({ start: weekStart, end: addDays(weekStart, 6) });
@@ -322,28 +353,22 @@ function OverviewView({
   return (
     <div className="space-y-6">
       {/* Stat Cards */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-3 gap-3">
         <StatCard
           icon={Dumbbell}
-          label="Total Workouts"
+          label="Workouts"
           value={summary.totalWorkouts.toString()}
           color="bg-blue-100 text-blue-700"
         />
         <StatCard
           icon={Flame}
-          label="Current Streak"
-          value={`${summary.currentStreak} days`}
+          label="Streak"
+          value={`${summary.currentStreak}d`}
           color="bg-orange-100 text-orange-700"
         />
         <StatCard
-          icon={Trophy}
-          label="Longest Streak"
-          value={`${summary.longestStreak} days`}
-          color="bg-yellow-100 text-yellow-700"
-        />
-        <StatCard
           icon={TrendingUp}
-          label="Total Volume"
+          label="Volume"
           value={formatWeight(summary.totalVolume, units)}
           color="bg-purple-100 text-purple-700"
         />
@@ -378,7 +403,12 @@ function OverviewView({
             const didTrain = trained.has(key);
             const isToday = key === format(new Date(), "yyyy-MM-dd");
             return (
-              <div key={key} className="flex flex-1 flex-col items-center gap-1">
+              <Link
+                key={key}
+                href={`/day/${key}`}
+                prefetch
+                className="flex flex-1 flex-col items-center gap-1"
+              >
                 <span className="text-xs text-gray-500">{format(date, "EEEEE")}</span>
                 <div
                   className={`flex h-9 w-full items-center justify-center rounded-lg text-xs font-semibold ${
@@ -391,7 +421,7 @@ function OverviewView({
                 >
                   {format(date, "d")}
                 </div>
-              </div>
+              </Link>
             );
           })}
         </div>
@@ -425,35 +455,6 @@ function OverviewView({
           <BodyweightSparkline points={weighIns} />
         </div>
       )}
-      {summary.favoriteExercise && (
-        <div className="rounded-md border border-gray-100 bg-white p-5 shadow-sm">
-          <div className="flex items-center">
-            <div className="mr-3 rounded-full bg-gray-100 p-2">
-              <Star className="h-5 w-5 text-yellow-500" />
-            </div>
-            <div className="flex-1">
-              <p className="text-sm text-gray-500">Favorite Exercise</p>
-              <p className="text-lg font-bold text-gray-900">{summary.favoriteExercise}</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Quick Stats */}
-      <div className="rounded-md border border-gray-100 bg-white p-5 shadow-sm">
-        <StatRow label="Total Volume" value={formatWeight(summary.totalVolume, units)} />
-        <StatRow label="Cardio time" value={formatCardioDuration(summary.totalCardioDuration)} />
-        {cardioBreakdown.length > 0 && (
-          <StatRow
-            label="By type"
-            value={cardioBreakdown}
-          />
-        )}
-        <StatRow
-          label="Calisthenics Reps"
-          value={summary.totalCalisthenicsReps.toLocaleString()}
-        />
-      </div>
     </div>
   );
 }
@@ -463,16 +464,34 @@ function StrengthView({
   days,
   exercises,
   timePeriod,
+  trackedExerciseIds,
 }: {
   days: Day[];
   exercises: Map<string, ExerciseDoc>;
   timePeriod: TimePeriod;
+  trackedExerciseIds: string[];
 }) {
   const strengthAnalytics = useMemo(
     () => getStrengthAnalytics(days, exercises, timePeriod),
     [days, exercises, timePeriod]
   );
   const { units } = usePreferences();
+  const liftOptions = useMemo(() => {
+    const freq = strengthAnalytics.exercisesByFrequency;
+    const tracked = trackedExerciseIds
+      .map((id) => freq.find((ex) => ex.exerciseId === id))
+      .filter(Boolean) as typeof freq;
+    const options = (tracked.length > 0 ? tracked : freq).slice(0, 8);
+    return options;
+  }, [strengthAnalytics.exercisesByFrequency, trackedExerciseIds]);
+  const [selectedLiftId, setSelectedLiftId] = useState<string>("");
+  const activeLiftId = liftOptions.some((ex) => ex.exerciseId === selectedLiftId)
+    ? selectedLiftId
+    : liftOptions[0]?.exerciseId || "";
+  const liftProgress = useMemo(
+    () => (activeLiftId ? getLiftProgress(days, activeLiftId) : null),
+    [days, activeLiftId]
+  );
 
   if (strengthAnalytics.totalVolume === 0 && strengthAnalytics.exercisesByFrequency.length === 0) {
     return (
@@ -484,99 +503,68 @@ function StrengthView({
     );
   }
 
+  const delta = liftProgress?.delta;
+  const lastDay =
+    liftProgress?.last?.dayId.includes("_")
+      ? liftProgress.last.dayId.slice(liftProgress.last.dayId.indexOf("_") + 1)
+      : liftProgress?.last?.date;
+
   return (
     <div className="space-y-6">
-      {/* Summary Stats */}
-      <div>
-        <h2 className="mb-3 text-lg font-semibold text-gray-700">Summary</h2>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-          <StatCard
-            icon={Dumbbell}
-            label="Total Volume"
-            value={formatWeight(strengthAnalytics.totalVolume, units)}
-            color="bg-blue-100 text-blue-700"
-          />
-          <StatCard
-            icon={TrendingUp}
-            label="Avg/Workout"
-            value={formatWeight(strengthAnalytics.averageVolumePerWorkout, units)}
-            color="bg-purple-100 text-purple-700"
-          />
-          <StatCard
-            icon={Trophy}
-            label="Max Workout"
-            value={formatWeight(strengthAnalytics.maxVolumeWorkout, units)}
-            color="bg-yellow-100 text-yellow-700"
-          />
-        </div>
+      <div className="rounded-md border border-gray-100 bg-white p-5 shadow-sm">
+        <StatRow label="Volume" value={formatWeight(strengthAnalytics.totalVolume, units)} />
       </div>
 
-      {/* Top Exercises */}
-      {strengthAnalytics.exercisesByFrequency.length > 0 && (
+      {liftOptions.length > 0 && (
         <div>
-          <h2 className="mb-4 text-xl font-bold text-gray-900">Most Performed Exercises</h2>
-          <div className="overflow-hidden rounded-md border border-gray-100 bg-white shadow-sm">
-            {strengthAnalytics.exercisesByFrequency.slice(0, 10).map((exercise, idx) => (
-              <div
-                key={idx}
-                className={`px-5 py-4 ${
-                  idx < strengthAnalytics.exercisesByFrequency.length - 1
-                    ? "border-b border-gray-100"
-                    : ""
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <p className="font-semibold text-gray-900">{exercise.name}</p>
-                    <p className="text-sm text-gray-500">{exercise.count} workouts</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-lg font-bold text-gray-900">
-                      {formatWeight(exercise.maxWeight, units)}
-                    </p>
-                    <p className="text-xs text-gray-400">Max Weight</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Muscle Group Distribution */}
-      {strengthAnalytics.volumeByMuscleGroup.length > 0 && (
-        <div>
-          <h2 className="mb-4 text-xl font-bold text-gray-900">Volume by Muscle Group</h2>
-          <div className="rounded-md border border-gray-100 bg-white p-5 shadow-sm">
-            {strengthAnalytics.volumeByMuscleGroup.map((group, idx) => {
-              const totalVolume = strengthAnalytics.volumeByMuscleGroup.reduce(
-                (sum, g) => sum + g.volume,
-                0
-              );
-              const percentage = totalVolume > 0 ? (group.volume / totalVolume) * 100 : 0;
-              return (
-                <div key={idx} className={`mb-4 ${idx === strengthAnalytics.volumeByMuscleGroup.length - 1 ? "mb-0" : ""}`}>
-                  <div className="mb-2 flex items-center justify-between">
-                    <p className="font-semibold capitalize text-gray-900">
-                      {group.muscleGroup.replace(/_/g, " ")}
-                    </p>
-                    <p className="font-semibold text-gray-600">
-                      {Math.round(percentage)}% • {formatWeight(group.volume, units)}
-                    </p>
-                  </div>
-                  <div className="h-3 overflow-hidden rounded-full bg-gray-100">
-                    <div
-                      className="h-full rounded-full bg-blue-500"
-                      style={{ width: `${percentage}%` }}
-                    />
-                  </div>
-                  <p className="mt-1 text-xs text-gray-500">
-                    {group.frequency} workouts • {group.exercises} exercises
+          <h2 className="mb-3 text-lg font-semibold text-gray-700">Lifts</h2>
+          {liftOptions.length > 1 && (
+            <div className="mb-4 flex flex-wrap gap-2">
+              {liftOptions.map((ex) => {
+                const display = splitExerciseDisplay(ex.name);
+                return (
+                  <TypeChip
+                    key={ex.exerciseId}
+                    label={display.tag ? `${display.title} · ${display.tag}` : display.title}
+                    selected={ex.exerciseId === activeLiftId}
+                    onClick={() => setSelectedLiftId(ex.exerciseId)}
+                  />
+                );
+              })}
+            </div>
+          )}
+          {liftProgress?.last && (
+            <div className="rounded-md border border-gray-100 bg-white p-5 shadow-sm">
+              <div className="mb-3 flex items-end justify-between gap-3">
+                <div>
+                  <p className="text-sm text-gray-500">
+                    <ExerciseNameLabel name={liftProgress.name} />
                   </p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {formatWeight(liftProgress.last.weight, units)}
+                  </p>
+                  <p className="text-sm text-gray-500">Last working set</p>
                 </div>
-              );
-            })}
-          </div>
+                {delta != null && (
+                  <p
+                    className={`text-sm font-semibold ${
+                      delta > 0 ? "text-success-fg" : delta < 0 ? "text-gray-700" : "text-gray-500"
+                    }`}
+                  >
+                    {delta > 0 ? "+" : ""}
+                    {formatWeight(Math.abs(delta), units)}
+                    {delta === 0 ? " same" : delta > 0 ? " vs last" : " vs last"}
+                  </p>
+                )}
+              </div>
+              <WeightSparkline points={liftProgress.points.map((point) => point.weight)} />
+              {lastDay && (
+                <Link href={`/day/${lastDay}`} prefetch className="mt-3 inline-block text-sm font-semibold text-gray-800">
+                  Open that day
+                </Link>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -714,7 +702,6 @@ function CardioTypeDetail({
   units: "metric" | "imperial";
 }) {
   const kind = cardioPaceKind(stats.type);
-  const label = CARDIO_ACTIVITY_LABELS[stats.type];
 
   return (
     <div className="space-y-6">
@@ -771,21 +758,17 @@ function CardioTypeDetail({
             color="bg-red-100 text-red-700"
           />
         )}
+        {stats.longestDuration > 0 && (
+          <StatCard
+            icon={Clock}
+            label="Longest"
+            value={formatCardioDuration(stats.longestDuration)}
+            color="bg-orange-100 text-orange-700"
+          />
+        )}
       </div>
 
-      <div>
-        <h2 className="mb-3 text-lg font-semibold text-gray-700">{label} records</h2>
-        <div className="rounded-md border border-gray-100 bg-white p-5 shadow-sm">
-          <StatRow label="Longest time" value={formatCardioDuration(stats.longestDuration)} />
-          {stats.longestDistance > 0 && (
-            <StatRow label="Longest distance" value={formatDistance(stats.longestDistance, units)} />
-          )}
-          {kind === "pace" && <StatRow label="Best pace" value={formatPace(stats.bestPace || 0, units)} />}
-          {kind === "speed" && <StatRow label="Top speed" value={formatSpeed(stats.bestSpeed || 0, units)} />}
-        </div>
-      </div>
-
-      {stats.exercises.length > 0 && (
+      {stats.exercises.length > 1 && (
         <div>
           <h2 className="mb-3 text-lg font-semibold text-gray-700">Exercises</h2>
           <div className="overflow-hidden rounded-md border border-gray-100 bg-white shadow-sm">
@@ -820,104 +803,60 @@ function CardioTypeDetail({
 }
 
 // PRs View Component
-function PRsView({ prs, trackedExerciseIds }: { prs: ExercisePR[]; trackedExerciseIds: string[] }) {
+function PRsView({ prs, trackingEmpty }: { prs: ExercisePR[]; trackingEmpty: boolean }) {
   const { units } = usePreferences();
 
-  const filteredPRs = useMemo(() => {
-    if (trackedExerciseIds.length === 0) return prs; // Show all if none tracked
-    return prs.filter(pr => trackedExerciseIds.includes(pr.exerciseId));
-  }, [prs, trackedExerciseIds]);
-
   const groupedPRs = useMemo(() => {
-    const strength = filteredPRs.filter((p) => p.modality === "strength");
-    const cardio = filteredPRs.filter((p) => p.modality === "cardio");
-    const calisthenics = filteredPRs.filter((p) => p.modality === "calisthenics");
+    const strength = prs.filter((p) => p.modality === "strength");
+    const cardio = prs.filter((p) => p.modality === "cardio");
+    const calisthenics = prs.filter((p) => p.modality === "calisthenics");
     return { strength, cardio, calisthenics };
-  }, [filteredPRs]);
+  }, [prs]);
 
   const formatPRValue = (pr: ExercisePR): string => {
-    if (pr.prType === "maxWeight") {
-      return formatWeight(pr.value, units);
-    } else if (pr.prType === "maxDistance") {
-      return formatDistance(pr.value, units);
-    } else if (pr.prType === "maxDuration") {
-      return formatCardioDuration(pr.value);
-    } else if (pr.prType === "bestPace") {
-      return formatPace(pr.value, units);
-    } else if (pr.prType === "maxVolume") {
-      return formatWeight(pr.value, units);
-    } else {
-      return `${pr.value.toFixed(0)}${pr.prType === "maxReps" ? " reps" : ""}`;
-    }
+    if (pr.prType === "maxWeight") return formatWeight(pr.value, units);
+    if (pr.prType === "maxDistance") return formatDistance(pr.value, units);
+    if (pr.prType === "maxDuration") return formatCardioDuration(pr.value);
+    if (pr.prType === "bestPace") return formatPace(pr.value, units);
+    return `${pr.value.toFixed(0)}${pr.prType === "maxReps" ? " reps" : ""}`;
   };
 
-  const getPRColor = (modality: string): string => {
-    if (modality === "strength") return "bg-blue-100 text-blue-700";
-    if (modality === "cardio") return "bg-red-100 text-red-700";
-    return "bg-green-100 text-green-700";
-  };
-
-  // Extract date from dayId (format: ${userId}_${YYYY-MM-DD})
-  // Split only on the first underscore to preserve date format (YYYY-MM-DD)
   const getDateFromDayId = (dayId: string): string => {
-    const firstUnderscoreIndex = dayId.indexOf('_');
-    if (firstUnderscoreIndex >= 0) {
-      return dayId.substring(firstUnderscoreIndex + 1);
-    }
+    const firstUnderscoreIndex = dayId.indexOf("_");
+    if (firstUnderscoreIndex >= 0) return dayId.substring(firstUnderscoreIndex + 1);
     return dayId;
   };
 
-  const PRSection = ({
-    title,
-    prs: sectionPRs,
-    icon: Icon,
-    color,
-  }: {
-    title: string;
-    prs: ExercisePR[];
-    icon: any;
-    color: string;
-  }) => {
+  const PRSection = ({ title, prs: sectionPRs }: { title: string; prs: ExercisePR[] }) => {
     if (sectionPRs.length === 0) return null;
-
     return (
       <div className="mb-6">
-        <div className="mb-4 flex items-center">
-          <div className={`mr-3 rounded-full p-2 ${color}`}>
-            <Icon className="h-5 w-5" />
-          </div>
-          <h2 className="text-xl font-bold text-gray-900">{title}</h2>
-        </div>
+        <h2 className="mb-3 text-lg font-semibold text-gray-700">{title}</h2>
         <div className="overflow-hidden rounded-md border border-gray-100 bg-white shadow-sm">
-          {sectionPRs.slice(0, 15).map((pr, idx) => {
+          {sectionPRs.map((pr, idx) => {
             const dateStr = getDateFromDayId(pr.dayId);
             return (
-            <Link
-              key={`${pr.dayId}-${pr.exerciseId}-${pr.prType}`}
-              href={`/day/${dateStr}`}
-              prefetch
-              className={`block w-full px-5 py-4 text-left transition-colors hover:bg-gray-50 ${
-                idx < sectionPRs.length - 1 ? "border-b border-gray-100" : ""
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex flex-1 items-center">
-                  <div className={`mr-3 rounded-full p-1.5 ${getPRColor(pr.modality)}`}>
-                    <Icon className="h-3.5 w-3.5" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-semibold text-gray-900">{pr.exerciseName}</p>
-                    <p className="text-sm capitalize text-gray-500">
-                      {pr.prType.replace(/([A-Z])/g, " $1").trim()}
+              <Link
+                key={`${pr.dayId}-${pr.exerciseId}-${pr.prType}`}
+                href={`/day/${dateStr}`}
+                prefetch
+                className={`block w-full px-5 py-4 text-left transition-colors hover:bg-gray-50 ${
+                  idx < sectionPRs.length - 1 ? "border-b border-gray-100" : ""
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-gray-900">
+                      <ExerciseNameLabel name={pr.exerciseName} />
                     </p>
+                    <p className="text-sm text-gray-500">{prTypeLabel(pr.prType)}</p>
+                  </div>
+                  <div className="ml-3 text-right">
+                    <p className="text-lg font-bold text-gray-900">{formatPRValue(pr)}</p>
+                    <p className="text-xs text-gray-400">{pr.date.toLocaleDateString()}</p>
                   </div>
                 </div>
-                <div className="ml-3 text-right">
-                  <p className="text-lg font-bold text-gray-900">{formatPRValue(pr)}</p>
-                  <p className="text-xs text-gray-400">{pr.date.toLocaleDateString()}</p>
-                </div>
-              </div>
-            </Link>
+              </Link>
             );
           })}
         </div>
@@ -925,38 +864,32 @@ function PRsView({ prs, trackedExerciseIds }: { prs: ExercisePR[]; trackedExerci
     );
   };
 
-  if (filteredPRs.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-12">
-        <Trophy className="h-12 w-12 text-gray-300" />
-        <p className="mt-4 text-center text-gray-500">No personal records yet</p>
-        <p className="mt-2 text-center text-sm text-gray-400">
-          Start logging workouts to track your PRs!
-        </p>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
-      <PRSection
-        title="Strength PRs"
-        prs={groupedPRs.strength}
-        icon={Dumbbell}
-        color="bg-blue-100 text-blue-800"
-      />
-      <PRSection
-        title="Cardio PRs"
-        prs={groupedPRs.cardio}
-        icon={Heart}
-        color="bg-red-100 text-red-800"
-      />
-      <PRSection
-        title="Calisthenics PRs"
-        prs={groupedPRs.calisthenics}
-        icon={Trophy}
-        color="bg-green-100 text-green-800"
-      />
+      {trackingEmpty && prs.length > 0 && (
+        <p className="rounded-md border border-gray-100 bg-white px-4 py-3 text-sm text-gray-600">
+          Showing every lift.{" "}
+          <Link href="/settings" className="font-semibold text-gray-900">
+            Track a shorter list
+          </Link>{" "}
+          in My exercises.
+        </p>
+      )}
+      {prs.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-12">
+          <Trophy className="h-12 w-12 text-gray-300" />
+          <p className="mt-4 text-center text-gray-500">No personal records yet</p>
+          <Link href="/settings" className="mt-3 text-sm font-semibold text-gray-800">
+            Choose lifts in My exercises
+          </Link>
+        </div>
+      ) : (
+        <>
+          <PRSection title="Strength" prs={groupedPRs.strength} />
+          <PRSection title="Cardio" prs={groupedPRs.cardio} />
+          <PRSection title="Calisthenics" prs={groupedPRs.calisthenics} />
+        </>
+      )}
     </div>
   );
 }
@@ -973,12 +906,12 @@ function StatCard({
   color: string;
 }) {
   return (
-    <div className="rounded-md border border-gray-100 bg-white p-4 shadow-sm">
-      <div className={`mb-3 flex h-12 w-12 items-center justify-center rounded-full ${color}`}>
-        <Icon className="h-6 w-6" />
+    <div className="rounded-md border border-gray-100 bg-white p-3 shadow-sm">
+      <div className={`mb-2 flex h-8 w-8 items-center justify-center rounded-full ${color}`}>
+        <Icon className="h-4 w-4" />
       </div>
-      <p className="mb-1 text-xs text-gray-500">{label}</p>
-      <p className="text-xl font-bold text-gray-900">{value}</p>
+      <p className="mb-0.5 text-xs text-gray-500">{label}</p>
+      <p className="text-lg font-bold tabular-nums text-gray-900">{value}</p>
     </div>
   );
 }
@@ -989,6 +922,33 @@ function StatRow({ label, value }: { label: string; value: string }) {
       <p className="text-gray-600">{label}</p>
       <p className="font-semibold text-gray-900">{value}</p>
     </div>
+  );
+}
+
+function WeightSparkline({ points }: { points: number[] }) {
+  if (points.length < 2) return null;
+  const min = Math.min(...points);
+  const max = Math.max(...points);
+  const span = max - min || 1;
+  const width = 320;
+  const height = 64;
+  const pad = 4;
+  const coords = points.map((value, index) => {
+    const x = pad + (index / Math.max(points.length - 1, 1)) * (width - pad * 2);
+    const y = height - pad - ((value - min) / span) * (height - pad * 2);
+    return `${x},${y}`;
+  });
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} className="h-16 w-full text-brand" role="img" aria-label="Lift trend">
+      <polyline
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="3"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+        points={coords.join(" ")}
+      />
+    </svg>
   );
 }
 

@@ -7,8 +7,10 @@ import {
   calculateTotalCardioDurationFromDays,
   calculateTotalVolumeFromDays,
   filterDaysByPeriod,
+  collapsePRsByExercise,
   findAllPRs,
   findFavoriteExerciseFromDays,
+  getLiftProgress,
   getAnalyticsSummaryFromDays,
   getCardioAnalytics,
   getStrengthAnalytics,
@@ -92,9 +94,42 @@ describe("analytics from days", () => {
       makeDay("2026-02-02", { exercises: [strength("Squat", [{ reps: 5, weight: 185 }])] }),
     ];
     const prs = findAllPRs(days);
-    const maxWeight = prs.find((pr) => pr.exerciseId === "Bench Press" && pr.prType === "maxWeight");
-    expect(maxWeight?.value).toBe(155);
+    const bench = prs.filter((pr) => pr.exerciseId === "Bench Press");
+    expect(bench).toHaveLength(1);
+    expect(bench[0]).toMatchObject({ prType: "maxWeight", value: 155 });
     expect(findFavoriteExerciseFromDays(days)).toBe("Bench Press");
+    const collapsed = collapsePRsByExercise(prs);
+    expect(collapsed.filter((pr) => pr.exerciseId === "Bench Press")).toHaveLength(1);
+    expect(collapsed.find((pr) => pr.exerciseId === "Bench Press")?.prType).toBe("maxWeight");
+  });
+
+  it("tracks last vs previous working weight for a lift", () => {
+    const days = [
+      makeDay("2026-01-01", { exercises: [strength("Bench Press", [{ reps: 5, weight: 135 }])] }),
+      makeDay("2026-01-08", { exercises: [strength("Bench Press", [{ reps: 5, weight: 145 }])] }),
+    ];
+    const progress = getLiftProgress(days, "Bench Press");
+    expect(progress.last?.weight).toBe(145);
+    expect(progress.previous?.weight).toBe(135);
+    expect(progress.delta).toBe(10);
+  });
+
+  it("keeps one lift point per day when the same exercise is logged twice", () => {
+    const days = [
+      makeDay("2026-01-01", {
+        exercises: [
+          strength("Bench Press", [{ reps: 5, weight: 135 }]),
+          strength("Bench Press", [{ reps: 3, weight: 155 }]),
+        ],
+      }),
+      makeDay("2026-01-08", { exercises: [strength("Bench Press", [{ reps: 5, weight: 145 }])] }),
+    ];
+    const progress = getLiftProgress(days, "Bench Press");
+    expect(progress.points).toHaveLength(2);
+    expect(progress.points[0].weight).toBe(155);
+    expect(progress.last?.weight).toBe(145);
+    expect(progress.previous?.weight).toBe(155);
+    expect(progress.delta).toBe(-10);
   });
 
   it("ranks volume leaderboards including ties", () => {

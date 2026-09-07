@@ -59,7 +59,6 @@ Desktop.ini
 # TypeScript
 *.tsbuildinfo
 .tscache
-/web/tsconfig.json
 
 # Generated native folders
 /ios

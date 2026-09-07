@@ -17,7 +17,7 @@ const bench: ExerciseDoc = {
 };
 
 describe("MyExercisesModal", () => {
-  it("saves the selection when Done is pressed", async () => {
+  it("shows the tracked list first, then add", async () => {
     const onSave = vi.fn().mockResolvedValue(undefined);
     const onClose = vi.fn();
     render(
@@ -30,6 +30,9 @@ describe("MyExercisesModal", () => {
         onSave={onSave}
       />
     );
+    expect(screen.getByText("Nothing tracked yet.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Bench Press/ })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Add exercise" }));
     fireEvent.click(screen.getByRole("button", { name: /Bench Press/ }));
     fireEvent.click(screen.getAllByRole("button", { name: "Done" })[0]);
     await vi.waitFor(() => {
@@ -44,17 +47,16 @@ describe("MyExercisesModal", () => {
     render(
       <MyExercisesModal
         open
-        trackedExercises={[]}
+        trackedExercises={["bench_press"]}
         allExercises={[bench]}
         loading={false}
         onClose={onClose}
         onSave={onSave}
       />
     );
-    fireEvent.click(screen.getByRole("button", { name: /Bench Press/ }));
     fireEvent.click(screen.getAllByRole("button", { name: "Done" })[0]);
     await vi.waitFor(() => {
-      expect(onSave).toHaveBeenCalled();
+      expect(onSave).toHaveBeenCalledWith(["bench_press"]);
     });
     expect(onClose).not.toHaveBeenCalled();
   });

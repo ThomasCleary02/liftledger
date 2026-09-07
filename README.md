@@ -17,6 +17,8 @@ firestore.indexes.json
 
 Primary log surface: `/day/today`. Weights and distances are stored as **pounds and miles**; convert at the form edge when the user prefers metric.
 
+Product planning lives in [BACKLOG.md](./BACKLOG.md).
+
 ## Run the web app
 
 Local development is isolated. `npm run start` (from the repo root) boots the Firebase emulators and the Next.js app together. Auth, Firestore, and Storage stay on this machine. They cannot reach production.

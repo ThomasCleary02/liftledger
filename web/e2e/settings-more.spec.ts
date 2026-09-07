@@ -45,14 +45,13 @@ test.describe("settings surfaces", () => {
     await page.getByRole("button", { name: "Done" }).first().click();
   });
 
-  test("account photo, username, and bodyweight fields", async ({ page }) => {
+  test("account photo and username fields", async ({ page }) => {
     await page.goto("/settings/account");
-    await expect(page.getByRole("heading", { name: "Profile Picture" })).toBeVisible({
+    await expect(page.getByRole("heading", { name: "Account" })).toBeVisible({
       timeout: 20_000,
     });
     await expect(page.getByRole("button", { name: /photo/i })).toBeVisible();
-    await expect(page.getByPlaceholder("Enter username")).toBeVisible();
-    await expect(page.getByText(/Bodyweight/)).toBeVisible();
+    await expect(page.getByPlaceholder("username")).toBeVisible();
   });
 
   test("import tabs and favorites / PRs settings open", async ({ page }) => {

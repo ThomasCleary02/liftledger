@@ -11,23 +11,17 @@ import { logger } from "../../../../lib/logger";
 import { Avatar } from "../../../../components/Avatar";
 import { AvatarCropModal } from "../../../../components/AvatarCropModal";
 import { deleteAvatarFile, fileToAvatarPayload, uploadAvatar } from "../../../../lib/avatar";
-import { usePreferences } from "../../../../lib/hooks/usePreferences";
-import { formatWeightInput, toStoredWeight } from "../../../../lib/utils/units";
 
 export default function AccountSettings() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const fileRef = useRef<HTMLInputElement>(null);
   const uploadGen = useRef(0);
-  const { units } = usePreferences();
   const [username, setUsername] = useState<string>("");
   const [usernameInput, setUsernameInput] = useState<string>("");
   const [photoURL, setPhotoURL] = useState<string | null>(null);
-  const [bodyweightInput, setBodyweightInput] = useState("");
-  const [savedBodyweight, setSavedBodyweight] = useState("");
   const [loadingUsername, setLoadingUsername] = useState(false);
   const [savingUsername, setSavingUsername] = useState(false);
-  const [savingWeight, setSavingWeight] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [cropFile, setCropFile] = useState<File | null>(null);
 
@@ -47,32 +41,10 @@ export default function AccountSettings() {
       setUsername(summary.username || "");
       setUsernameInput(summary.username || "");
       setPhotoURL(summary.photoURL);
-      const display = summary.bodyweightLbs ? formatWeightInput(summary.bodyweightLbs, units) : "";
-      setBodyweightInput(display);
-      setSavedBodyweight(display);
     } catch (error) {
       logger.error("Error loading profile", error);
     } finally {
       setLoadingUsername(false);
-    }
-  };
-
-  const handleSaveBodyweight = async () => {
-    try {
-      setSavingWeight(true);
-      const parsed = Number(bodyweightInput);
-      if (bodyweightInput.trim() && (!Number.isFinite(parsed) || parsed <= 0)) {
-        toast.error("Enter a bodyweight greater than 0");
-        return;
-      }
-      await accountService.setBodyweightLbs(bodyweightInput.trim() ? toStoredWeight(parsed, units) : null);
-      setSavedBodyweight(bodyweightInput);
-      toast.success("Bodyweight saved");
-    } catch (error) {
-      logger.error("Error saving bodyweight", error);
-      toast.error("Failed to save bodyweight");
-    } finally {
-      setSavingWeight(false);
     }
   };
 
@@ -172,7 +144,7 @@ export default function AccountSettings() {
             </button>
             <p className="kicker mb-1">Settings</p>
             <h1 className="text-2xl font-semibold text-gray-900">Account</h1>
-            <p className="mt-1 text-sm text-gray-500">Username, photo, and bodyweight.</p>
+            <p className="mt-1 text-sm text-gray-500">Username, photo, and email.</p>
           </div>
         </div>
       </header>
@@ -256,35 +228,6 @@ export default function AccountSettings() {
                 )}
               </div>
             </div>
-          </section>
-
-          <section className="rounded-md border border-gray-200 bg-white p-5 shadow-[0_1px_0_rgb(20_83_45/0.08)]">
-            <p className="kicker">Bodyweight</p>
-            <label className="mt-4 mb-2 block text-sm font-medium text-gray-700">
-              Bodyweight ({units === "metric" ? "kg" : "lb"})
-            </label>
-            <input
-              type="text"
-              inputMode="decimal"
-              value={bodyweightInput}
-              onChange={(e) => setBodyweightInput(e.target.value)}
-              placeholder={units === "metric" ? "80" : "180"}
-              className={fieldClass}
-              onBlur={() => {
-                if (bodyweightInput !== savedBodyweight) void handleSaveBodyweight();
-              }}
-            />
-            <p className="mt-1 text-xs text-gray-500">Used for extra load on calisthenics sets.</p>
-            {bodyweightInput !== savedBodyweight && (
-              <button
-                type="button"
-                disabled={savingWeight}
-                onClick={() => void handleSaveBodyweight()}
-                className="btn-primary mt-3 min-h-[48px] w-full"
-              >
-                {savingWeight ? "Saving…" : "Save bodyweight"}
-              </button>
-            )}
           </section>
         </div>
       </main>

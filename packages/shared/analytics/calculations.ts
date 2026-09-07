@@ -548,7 +548,7 @@ function pushDatedPR(
 
 export function findAllPRs(days: Day[], trackedExerciseIds?: string[]): ExercisePR[] {
   const prs: ExercisePR[] = [];
-  const strengthPRs = new Map<string, { name: string; maxWeight?: DatedPR; maxVolume?: DatedPR }>();
+  const strengthPRs = new Map<string, { name: string; maxWeight?: DatedPR }>();
   const cardioPRs = new Map<string, { name: string; maxDistance?: DatedPR; maxDuration?: DatedPR; bestPace?: DatedPR }>();
   const calisthenicsPRs = new Map<string, { name: string; maxReps?: DatedPR }>();
 
@@ -563,7 +563,6 @@ export function findAllPRs(days: Day[], trackedExerciseIds?: string[]): Exercise
         const current = strengthPRs.get(exerciseId) || { name: ex.name };
         workingStrengthSets(ex.strengthSets).forEach(set => {
           current.maxWeight = betterHigh(current.maxWeight, set.weight || 0, dayDate, day.id);
-          current.maxVolume = betterHigh(current.maxVolume, (set.reps || 0) * (set.weight || 0), dayDate, day.id);
         });
         current.name = ex.name;
         strengthPRs.set(exerciseId, current);
@@ -595,7 +594,6 @@ export function findAllPRs(days: Day[], trackedExerciseIds?: string[]): Exercise
 
   strengthPRs.forEach((pr, exerciseId) => {
     pushDatedPR(prs, exerciseId, pr.name, "strength", "maxWeight", pr.maxWeight);
-    pushDatedPR(prs, exerciseId, pr.name, "strength", "maxVolume", pr.maxVolume);
   });
 
   cardioPRs.forEach((pr, exerciseId) => {
@@ -614,6 +612,78 @@ export function findAllPRs(days: Day[], trackedExerciseIds?: string[]): Exercise
   }
 
   return prs;
+}
+
+const PRIMARY_PR_TYPE: Record<ExercisePR["modality"], ExercisePR["prType"][]> = {
+  strength: ["maxWeight"],
+  cardio: ["bestPace", "maxDistance", "maxDuration"],
+  calisthenics: ["maxReps"],
+};
+
+/** One row per movement: the PR people actually mean, not every metric. */
+export function collapsePRsByExercise(prs: ExercisePR[]): ExercisePR[] {
+  const byExercise = new Map<string, ExercisePR[]>();
+  prs.forEach((pr) => {
+    const list = byExercise.get(pr.exerciseId) || [];
+    list.push(pr);
+    byExercise.set(pr.exerciseId, list);
+  });
+
+  const collapsed: ExercisePR[] = [];
+  byExercise.forEach((list) => {
+    const preferred = PRIMARY_PR_TYPE[list[0].modality];
+    const picked =
+      preferred.map((type) => list.find((pr) => pr.prType === type)).find(Boolean) || list[0];
+    collapsed.push(picked);
+  });
+
+  return collapsed.sort((a, b) => b.date.getTime() - a.date.getTime());
+}
+
+export type LiftSessionPoint = {
+  date: string;
+  weight: number;
+  dayId: string;
+};
+
+export type LiftProgress = {
+  exerciseId: string;
+  name: string;
+  points: LiftSessionPoint[];
+  last?: LiftSessionPoint;
+  previous?: LiftSessionPoint;
+  delta?: number;
+};
+
+/** Working-set top weight per day for one lift, oldest to newest. */
+export function getLiftProgress(days: Day[], exerciseId: string): LiftProgress {
+  const points: LiftSessionPoint[] = [];
+  let name = exerciseId;
+  [...days]
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .forEach((day) => {
+      let top = 0;
+      day.exercises.forEach((ex) => {
+        if (ex.modality !== "strength") return;
+        const id = ex.exerciseId || ex.name;
+        if (id !== exerciseId) return;
+        const weight = maxWorkingWeight(ex.strengthSets);
+        if (!(weight > 0)) return;
+        name = ex.name;
+        top = Math.max(top, weight);
+      });
+      if (top > 0) points.push({ date: day.date, weight: top, dayId: day.id });
+    });
+  const last = points[points.length - 1];
+  const previous = points.length >= 2 ? points[points.length - 2] : undefined;
+  return {
+    exerciseId,
+    name,
+    points,
+    last,
+    previous,
+    delta: last && previous ? last.weight - previous.weight : undefined,
+  };
 }
 
 /**

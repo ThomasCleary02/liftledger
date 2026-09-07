@@ -143,15 +143,10 @@ export default function ExerciseSearch({
   const handleToggleFavorite = async (e: React.MouseEvent, exerciseId: string) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!user) {
-      console.log("No user, cannot favorite");
-      return;
-    }
+    if (!user) return;
 
-    console.log("Toggling favorite for:", exerciseId);
     try {
       const isNowFavorite = await toggleFavoriteExercise(exerciseId);
-      console.log("Toggle result:", isNowFavorite);
       
       // Update favorites set
       setFavorites(prev => {

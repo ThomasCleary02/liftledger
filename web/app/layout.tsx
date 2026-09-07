@@ -5,7 +5,6 @@ import { AuthProvider } from "../providers/Auth";
 import { PreferencesProvider } from "../lib/hooks/usePreferences";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { ToastContainer } from "../components/ToastContainer";
-import { KeyboardShortcuts } from "../components/KeyboardShortcuts";
 import { KeepStandaloneNavigation } from "../components/KeepStandaloneNavigation";
 import { PWAInstallPrompt } from "../components/PWAInstallPrompt";
 import { ServiceWorkerUpdate } from "../components/ServiceWorkerUpdate";
@@ -101,7 +100,6 @@ export default function RootLayout({
             <PreferencesProvider>
               <SafeAreaInsets />
               <ThemeSync />
-              <KeyboardShortcuts />
               <KeepStandaloneNavigation />
               {children}
               <ToastContainer />

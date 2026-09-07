@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { format, parseISO, isValid, differenceInDays, addDays, subDays } from "date-fns";
 import { useAuth } from "../../../../providers/Auth";
@@ -28,7 +27,7 @@ import {
 } from "../../../../lib/firestore/workoutTemplates";
 import DayNavigation from "../../../../components/DayNavigation";
 import { BodyweightCard } from "../../../../components/BodyweightCard";
-import { Trash2, Dumbbell, Heart, Activity, Pencil, Plus, Moon, FileText, Upload, Link2, Unlink, MoreHorizontal, Bandage, History } from "lucide-react";
+import { Trash2, Dumbbell, Heart, Activity, Pencil, Plus, Moon, FileText, Link2, Unlink, MoreHorizontal, Bandage, History } from "lucide-react";
 import { usePreferences } from "../../../../lib/hooks/usePreferences";
 import { formatWeight, formatDistance, formatCardioDuration, formatWeightInput, formatDistanceInput, toStoredWeight, toStoredDistance } from "../../../../lib/utils/units";
 import { syncEarnedAchievements } from "../../../../lib/publishAchievements";
@@ -1414,16 +1413,6 @@ export default function DayView() {
                 Repeat last workout
               </button>
             )}
-            <Link
-              href={`/settings/import?tab=file&date=${currentDate}`}
-              prefetch
-              role="menuitem"
-              className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-gray-800 hover:bg-gray-50"
-              onClick={() => setShowDayMenu(false)}
-            >
-              <Upload className="h-4 w-4 shrink-0 text-gray-600" />
-              Import log
-            </Link>
           </div>
         )}
       </div>

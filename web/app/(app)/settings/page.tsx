@@ -7,11 +7,10 @@ import { useAuth } from "../../../providers/Auth";
 import { deleteUserAccount } from "../../../lib/firestore/account";
 import { accountService, app } from "../../../lib/firebase";
 import { deleteAvatarFile } from "../../../lib/avatar";
-import { UnitSystem, DefaultChartView, ThemePreference, RestTimerSeconds } from "@liftledger/shared/preferences";
+import { UnitSystem, ThemePreference, RestTimerSeconds } from "@liftledger/shared/preferences";
 import { usePreferences } from "../../../lib/hooks/usePreferences";
 import {
   Scale,
-  BarChart3,
   LogOut,
   Trash2,
   ChevronRight,
@@ -66,12 +65,11 @@ export default function Settings() {
   const pathname = usePathname();
   const { signOutUser, user, loading: authLoading } = useAuth();
   const [unitsModalOpen, setUnitsModalOpen] = useState(false);
-  const [chartModalOpen, setChartModalOpen] = useState(false);
   const [themeModalOpen, setThemeModalOpen] = useState(false);
   const [restModalOpen, setRestModalOpen] = useState(false);
   const [bodyweightModalOpen, setBodyweightModalOpen] = useState(false);
   const [prNotifyModalOpen, setPrNotifyModalOpen] = useState(false);
-  const { units, defaultChartView, theme, restTimerSeconds, trackBodyweight, prNotifications, updateUnits, updateChartView, updateTheme, updateRestTimer, updateTrackBodyweight, updatePRNotifications } = usePreferences();
+  const { units, theme, restTimerSeconds, trackBodyweight, prNotifications, updateUnits, updateTheme, updateRestTimer, updateTrackBodyweight, updatePRNotifications } = usePreferences();
 
   // Add state for confirmations
   const [signOutConfirmOpen, setSignOutConfirmOpen] = useState(false);
@@ -175,6 +173,7 @@ export default function Settings() {
       const catalog = await getAllExercises();
       const byId = new Map(catalog.map((ex) => [ex.id, ex]));
       const validExercises = favIds.map((id) => byId.get(id)).filter(Boolean) as ExerciseDoc[];
+      setAllExercises(catalog);
       setFavoriteExercises(validExercises);
       setFavoriteCount(validExercises.length);
     } catch (error) {
@@ -304,6 +303,17 @@ export default function Settings() {
     }
   };
 
+  const handleAddFavorite = async (exerciseId: string) => {
+    try {
+      const nowFavorite = await toggleFavoriteExercise(exerciseId);
+      await loadFavorites();
+      toast.success(nowFavorite ? "Added to favorites" : "Removed from favorites");
+    } catch (error) {
+      console.error("Failed to update favorite", error);
+      toast.error("Failed to update favorite");
+    }
+  };
+
   const handleSaveTrackedExercises = async (exerciseIds: string[]) => {
     try {
       await persistTrackedExercises(exerciseIds);
@@ -319,15 +329,6 @@ export default function Settings() {
 
   const getUnitLabel = (unit: UnitSystem) => {
     return unit === "imperial" ? "Imperial (lb, mi)" : "Metric (kg, km)";
-  };
-
-  const getChartViewLabel = (view: DefaultChartView) => {
-    const labels: Record<DefaultChartView, string> = {
-      week: "Week",
-      month: "Month",
-      year: "Year",
-    };
-    return labels[view];
   };
 
   const getThemeLabel = (value: ThemePreference) => {
@@ -396,32 +397,19 @@ export default function Settings() {
             <h2 className="kicker mb-3">Account</h2>
             <div className="overflow-hidden rounded-md border border-gray-200 bg-white shadow-[0_1px_0_rgb(20_83_45/0.08)]">
               <Link
-                href="/profile"
+                href="/settings/account"
                 prefetch
-                className="w-full px-5 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors border-b border-gray-100"
+                className="w-full px-5 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
               >
               <div className="flex min-w-0 items-center">
                 <div className="mr-4">
                   <Avatar name={profileName || user?.email} photoURL={profilePhoto} size={40} />
                 </div>
                   <div className="min-w-0 text-left">
-                    <p className="font-semibold text-gray-900">Profile</p>
-                    <p className="truncate font-mono text-sm text-gray-500">
-                      {profileName ? `@${profileName.replace(/^@/, "")}` : "Add a username"}
-                    </p>
-                </div>
-              </div>
-                <ChevronRight className="h-5 w-5 text-gray-400" />
-              </Link>
-              <Link
-                href="/settings/account"
-                prefetch
-                className="w-full px-5 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
-              >
-              <div className="flex min-w-0 items-center">
-                  <div className="min-w-0 text-left">
                     <p className="font-semibold text-gray-900">Account</p>
-                    <p className="truncate text-sm text-gray-500">Username, email, and bodyweight</p>
+                    <p className="truncate font-mono text-sm text-gray-500">
+                      {profileName ? `@${profileName.replace(/^@/, "")}` : "Username, email, and photo"}
+                    </p>
                 </div>
               </div>
                 <ChevronRight className="h-5 w-5 text-gray-400" />
@@ -438,12 +426,6 @@ export default function Settings() {
                 title="Units"
                 subtitle={getUnitLabel(units)}
                 onClick={() => setUnitsModalOpen(true)}
-              />
-              <SettingItem
-                icon={BarChart3}
-                title="Default analytics period"
-                subtitle={getChartViewLabel(defaultChartView)}
-                onClick={() => setChartModalOpen(true)}
               />
               <SettingItem
                 icon={Moon}
@@ -515,9 +497,11 @@ export default function Settings() {
           <FavoritesModal
             open={favoritesOpen}
             favoriteExercises={favoriteExercises}
+            allExercises={allExercises}
             loading={loadingFavorites}
             onClose={() => setFavoritesOpen(false)}
             onRemoveFavorite={handleRemoveFavorite}
+            onAddFavorite={handleAddFavorite}
           />
 
           {/* My Exercises Modal */}
@@ -585,23 +569,10 @@ export default function Settings() {
         ]}
       />
       <ChoiceModal
-        open={chartModalOpen}
-        onClose={() => setChartModalOpen(false)}
-        title="Default analytics period"
-        description="Choose the period Analytics opens to. You can still switch to All on that screen."
-        current={defaultChartView}
-        onSave={updateChartView}
-        options={[
-          { value: "week", label: "Week", description: "Last 7 days on Analytics" },
-          { value: "month", label: "Month", description: "Last 30 days on Analytics" },
-          { value: "year", label: "Year", description: "Last 365 days on Analytics" },
-        ]}
-      />
-      <ChoiceModal
         open={themeModalOpen}
         onClose={() => setThemeModalOpen(false)}
         title="Theme"
-        description="Gym lighting is easier in dark mode."
+        description="Light, dark, or match your device."
         current={theme}
         onSave={updateTheme}
         options={[

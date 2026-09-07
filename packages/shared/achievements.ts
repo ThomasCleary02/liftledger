@@ -52,7 +52,7 @@ export type AchievementProgress = {
 export const ACHIEVEMENT_CATALOG: AchievementDef[] = [
   {
     id: "true_pr",
-    title: "Beat the book",
+    title: "True PR",
     description: "Log the same lift twice and beat your earlier best. First-time weights do not count.",
     icon: "trophy",
     tier: 1,
@@ -80,7 +80,7 @@ export const ACHIEVEMENT_CATALOG: AchievementDef[] = [
   },
   {
     id: "rest_steward",
-    title: "Steward",
+    title: "Rest days",
     description: "Mark 8 rest days. Recovery is part of the ledger.",
     icon: "moon",
     tier: 1,
@@ -101,7 +101,7 @@ export const ACHIEVEMENT_CATALOG: AchievementDef[] = [
   },
   {
     id: "pr_repeat",
-    title: "Climbing",
+    title: "Five PRs",
     description: "Beat yourself 5 times across your lifts.",
     icon: "medal",
     tier: 2,
@@ -175,6 +175,68 @@ export const ACHIEVEMENT_CATALOG: AchievementDef[] = [
     description: "1,000 calisthenics reps.",
     icon: "zap",
     tier: 3,
+  },
+];
+
+/**
+ * Ideas for later medals. Not in the live catalog — do not evaluate or pin these.
+ * Add them when the feature exists so the bronze/silver/gold set stays honest.
+ */
+export type AchievementRoadmapItem = {
+  id: string;
+  title: string;
+  hook: string;
+  when: string;
+};
+
+export const ACHIEVEMENT_ROADMAP: AchievementRoadmapItem[] = [
+  {
+    id: "later_posted_week",
+    title: "Posted the week",
+    hook: "Share a week card once.",
+    when: "Week share already exists; award on first successful export.",
+  },
+  {
+    id: "later_ghost_writer",
+    title: "Ghost writer",
+    hook: "Import a year of training history.",
+    when: "After import can prove span, not just row count.",
+  },
+  {
+    id: "later_two_names",
+    title: "Two names, one ledger",
+    hook: "Add a friend who accepts.",
+    when: "Friend request accepted — social, not a spam invite.",
+  },
+  {
+    id: "later_close_the_book",
+    title: "Close the book",
+    hook: "Finish a starter program.",
+    when: "Programs need a real complete state.",
+  },
+  {
+    id: "later_scale_witness",
+    title: "Scale witness",
+    hook: "Twelve weigh-ins on the ledger.",
+    when: "Bodyweight tracking is on; just count distinct days.",
+  },
+  {
+    id: "later_quiet_gym",
+    title: "Quiet gym",
+    hook: "Log a session that started offline.",
+    when: "Gym-floor offline logging ships.",
+  },
+  {
+    id: "later_mileage_club",
+    title: "Mileage club",
+    hook: "One hundred miles of running.",
+    when: "Cardio already has distance; keep walk out of it.",
+  },
+  {
+    id: "later_same_fight",
+    title: "Same fight",
+    hook: "Beat a friend on a weekly board.",
+    when: "Leaderboards can name a head-to-head week.",
   },
 ];
 

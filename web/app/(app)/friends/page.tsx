@@ -206,20 +206,16 @@ export default function Friends() {
               <Link
                 href="/friends/leaderboards"
                 prefetch
-                className="block w-full rounded-md border border-brand/25 bg-brand p-5 text-left shadow-[0_1px_0_rgb(20_83_45/0.18)] transition-opacity hover:opacity-90"
+                className="flex w-full items-center justify-between rounded-md border border-gray-200 bg-white px-5 py-4 shadow-[0_1px_0_rgb(20_83_45/0.08)] hover:bg-gray-50"
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="rounded-full bg-brand-fg p-2">
-                      <Trophy className="h-6 w-6 text-brand" />
-                    </div>
-                    <div>
-                      <h2 className="text-lg font-semibold text-brand-fg">Leaderboards</h2>
-                      <p className="text-sm text-brand-fg/80">Compare streaks and volume</p>
-                    </div>
+                <div className="flex items-center gap-3">
+                  <Trophy className="h-5 w-5 text-gray-600" />
+                  <div>
+                    <p className="font-semibold text-gray-900">Leaderboards</p>
+                    <p className="text-sm text-gray-500">Streaks and volume</p>
                   </div>
-                  <ChevronRight className="h-5 w-5 text-brand-fg" />
                 </div>
+                <ChevronRight className="h-5 w-5 text-gray-400" />
               </Link>
             </section>
 

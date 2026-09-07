@@ -2,6 +2,7 @@ import { addDays, format } from "date-fns";
 import { describe, expect, it } from "vitest";
 import {
   ACHIEVEMENT_CATALOG,
+  ACHIEVEMENT_ROADMAP,
   MAX_FEATURED_ACHIEVEMENTS,
   autoFeatureNewUnlocks,
   evaluateEarnedIds,
@@ -18,6 +19,10 @@ describe("achievement catalog", () => {
   it("has unique ids", () => {
     const ids = ACHIEVEMENT_CATALOG.map((item) => item.id);
     expect(new Set(ids).size).toBe(ids.length);
+    const live = new Set(ids);
+    ACHIEVEMENT_ROADMAP.forEach((item) => {
+      expect(live.has(item.id)).toBe(false);
+    });
   });
 
   it("does not treat a first session as a medal haul", () => {

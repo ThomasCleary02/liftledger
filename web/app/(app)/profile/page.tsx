@@ -9,7 +9,7 @@ import {
   toggleFeaturedId,
   type AchievementProgress,
 } from "@liftledger/shared";
-import { Camera, Eye, EyeOff } from "lucide-react";
+import { Camera } from "lucide-react";
 import { useAuth } from "../../../providers/Auth";
 import { accountService, app } from "../../../lib/firebase";
 import { listDays } from "../../../lib/firestore/days";
@@ -36,7 +36,6 @@ export default function ProfilePage() {
   const [username, setUsername] = useState<string | null>(null);
   const [photoURL, setPhotoURL] = useState<string | null>(null);
   const [progress, setProgress] = useState<AchievementProgress>(EMPTY);
-  const [preview, setPreview] = useState(false);
   const [cropFile, setCropFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -123,7 +122,7 @@ export default function ProfilePage() {
 
   const selected = selectedId ? ACHIEVEMENT_BY_ID[selectedId] : null;
   const earnedAt = selectedId ? progress.earned[selectedId]?.earnedAt : undefined;
-  const canPin = Boolean(!preview && selected && earnedAt);
+  const canPin = Boolean(selected && earnedAt);
 
   if (authLoading || !user || !ready) {
     return (
@@ -143,19 +142,9 @@ export default function ProfilePage() {
             <p className="text-xs text-gray-500">How friends see you</p>
           </div>
           <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => setPreview((value) => !value)}
-              className="flex min-h-[44px] items-center gap-1.5 rounded-md px-3 text-sm font-semibold text-gray-600"
-            >
-              {preview ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              {preview ? "Exit" : "Preview"}
-            </button>
-            {!preview && (
-              <Link href="/settings/account" className="min-h-[44px] px-3 py-2 text-sm font-semibold text-brand">
-                Account
-              </Link>
-            )}
+            <Link href="/settings/account" className="min-h-[44px] px-3 py-2 text-sm font-semibold text-brand">
+              Account
+            </Link>
           </div>
         </div>
       </header>
@@ -176,20 +165,17 @@ export default function ProfilePage() {
             username={username}
             photoURL={photoURL}
             stats={progress.stats}
-            preview={preview}
             busyPhoto={uploading}
             cameraSlot={
-              preview ? null : (
-                <button
-                  type="button"
-                  disabled={uploading}
-                  onClick={() => fileRef.current?.click()}
-                  className="absolute bottom-0 right-0 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-brand text-brand-fg"
-                  aria-label={photoURL ? "Change photo" : "Add photo"}
-                >
-                  <Camera className="h-3.5 w-3.5" />
-                </button>
-              )
+              <button
+                type="button"
+                disabled={uploading}
+                onClick={() => fileRef.current?.click()}
+                className="absolute bottom-0 right-0 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-brand text-brand-fg"
+                aria-label={photoURL ? "Change photo" : "Add photo"}
+              >
+                <Camera className="h-3.5 w-3.5" />
+              </button>
             }
           />
 
@@ -199,17 +185,15 @@ export default function ProfilePage() {
                 <p className="kicker">Pinned</p>
                 <h2 className="text-lg font-semibold text-gray-900">Medals</h2>
               </div>
-              {!preview && (
-                <button type="button" onClick={() => setCollectionOpen(true)} className="text-sm font-semibold text-brand">
-                  All medals
-                </button>
-              )}
+              <button type="button" onClick={() => setCollectionOpen(true)} className="text-sm font-semibold text-brand">
+                All medals
+              </button>
             </div>
             <FeaturedRow
               featuredIds={progress.featuredIds}
               earned={progress.earned}
               onSelect={setSelectedId}
-              emptyHint={preview ? "No medals pinned yet." : "Pin up to three medals."}
+              emptyHint="Pin up to three medals."
             />
           </section>
         </div>
@@ -219,7 +203,7 @@ export default function ProfilePage() {
         <AvatarCropModal file={cropFile} onCancel={() => setCropFile(null)} onConfirm={handleCrop} />
       )}
 
-      <FullScreenSheet open={collectionOpen && !preview} title="All medals" onClose={() => setCollectionOpen(false)}>
+      <FullScreenSheet open={collectionOpen} title="All medals" onClose={() => setCollectionOpen(false)}>
         <div className="rounded-md border border-gray-200 bg-white p-5 shadow-[0_1px_0_rgb(20_83_45/0.08)]">
           <MedalCollection progress={progress} onSelect={setSelectedId} />
         </div>

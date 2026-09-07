@@ -16,7 +16,7 @@ export interface ExercisePR {
   exerciseId: string;
   exerciseName: string;
   modality: "strength" | "cardio" | "calisthenics";
-  prType: "maxWeight" | "maxReps" | "maxVolume" | "maxDistance" | "maxDuration" | "bestPace";
+  prType: "maxWeight" | "maxReps" | "maxDistance" | "maxDuration" | "bestPace";
   value: number;
   date: Date;
   dayId: string; // Primary: day ID (${userId}_${YYYY-MM-DD})
@@ -57,7 +57,6 @@ export interface StrengthPR {
   exerciseName: string;
   maxWeight: number;
   maxReps: number;
-  maxVolume: number;
   bestSet: { reps: number; weight: number; volume: number };
   date: Date;
   workoutId: string;
