@@ -2,15 +2,24 @@
 // Note: UnitSystem should be imported from @liftledger/shared or @liftledger/shared/preferences
 import type { UnitSystem } from "../preferences";
 
+/** Group thousands with commas so volume and other big totals read at a glance. */
+export function formatGroupedNumber(value: number, decimals = 0): string {
+  if (!isFinite(value)) return "—";
+  return value.toLocaleString("en-US", {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+}
+
 /**
  * Convert weight from stored value (always in lbs) to display unit
  */
 export function formatWeight(weight: number, unitSystem: UnitSystem): string {
   if (unitSystem === "metric") {
     const kg = weight * 0.453592;
-    return `${kg.toFixed(1)} kg`;
+    return `${formatGroupedNumber(kg, 1)} kg`;
   }
-  return `${weight.toFixed(0)} lb`;
+  return `${formatGroupedNumber(weight, 0)} lb`;
 }
 
 /**
@@ -19,9 +28,9 @@ export function formatWeight(weight: number, unitSystem: UnitSystem): string {
 export function formatDistance(distance: number, unitSystem: UnitSystem): string {
   if (unitSystem === "metric") {
     const km = distance * 1.60934;
-    return `${km.toFixed(2)} km`;
+    return `${formatGroupedNumber(km, 2)} km`;
   }
-  return `${distance.toFixed(2)} mi`;
+  return `${formatGroupedNumber(distance, 2)} mi`;
 }
 
 /**
@@ -103,11 +112,25 @@ export function formatPace(secondsPerMile: number, unitSystem: UnitSystem): stri
   return `${mins}:${secs.toString().padStart(2, "0")}/${unit}`;
 }
 
+/** Invert pace (sec/mi) into mph for dual display. */
+export function speedFromPace(secondsPerMile: number): number | undefined {
+  if (!isFinite(secondsPerMile) || secondsPerMile <= 0) return undefined;
+  return 3600 / secondsPerMile;
+}
+
+/** Secondary speed line under pace cards — null when pace is missing. */
+export function formatPaceAsSpeed(secondsPerMile: number, unitSystem: UnitSystem): string | null {
+  const mph = speedFromPace(secondsPerMile);
+  if (mph == null) return null;
+  const speed = formatSpeed(mph, unitSystem);
+  return speed === "—" ? null : speed;
+}
+
 /** `mph` is always stored against miles. Convert for metric display. */
 export function formatSpeed(mph: number, unitSystem: UnitSystem): string {
   if (!isFinite(mph) || mph <= 0) return "—";
   if (unitSystem === "metric") {
-    return `${(mph * 1.60934).toFixed(1)} km/h`;
+    return `${formatGroupedNumber(mph * 1.60934, 1)} km/h`;
   }
-  return `${mph.toFixed(1)} mph`;
+  return `${formatGroupedNumber(mph, 1)} mph`;
 }

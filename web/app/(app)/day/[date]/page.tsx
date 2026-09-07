@@ -29,7 +29,7 @@ import DayNavigation from "../../../../components/DayNavigation";
 import { BodyweightCard } from "../../../../components/BodyweightCard";
 import { Trash2, Dumbbell, Heart, Activity, Pencil, Plus, Moon, FileText, Link2, Unlink, MoreHorizontal, Bandage, History } from "lucide-react";
 import { usePreferences } from "../../../../lib/hooks/usePreferences";
-import { formatWeight, formatDistance, formatCardioDuration, formatWeightInput, formatDistanceInput, toStoredWeight, toStoredDistance } from "../../../../lib/utils/units";
+import { formatWeight, formatDistance, formatCardioDuration, formatPace, formatPaceAsSpeed, formatWeightInput, formatDistanceInput, toStoredWeight, toStoredDistance } from "../../../../lib/utils/units";
 import { syncEarnedAchievements } from "../../../../lib/publishAchievements";
 import { toast } from "../../../../lib/toast";
 import { logger } from "../../../../lib/logger";
@@ -57,6 +57,8 @@ import {
   inferCardioActivityType,
   resolveCardioActivityType,
   CARDIO_ACTIVITY_LABELS,
+  cardioPaceKind,
+  secondsPerMile,
   type CardioActivityType,
 } from "@liftledger/shared";
 
@@ -117,6 +119,27 @@ function formatLastHint(
     return `Last: ${last.reps} reps`;
   }
   return null;
+}
+
+function cardioChipParts(
+  ex: Exercise,
+  units: "metric" | "imperial"
+): { primary: string; speedHint: string | null } | null {
+  if (ex.modality !== "cardio" || !ex.cardioData) return null;
+  const data = ex.cardioData;
+  let primary = formatCardioDuration(data.duration);
+  if (data.distance) primary += ` • ${formatDistance(data.distance, units)}`;
+
+  const kind = cardioPaceKind(resolveCardioActivityType(data.activityType, ex.name, ex.exerciseId));
+  let speedHint: string | null = null;
+  if (kind === "pace" && data.distance) {
+    const pace = secondsPerMile(data.duration, data.distance);
+    if (pace) {
+      primary += ` • ${formatPace(pace, units)}`;
+      speedHint = formatPaceAsSpeed(pace, units);
+    }
+  }
+  return { primary, speedHint };
 }
 
 export default function DayView() {
@@ -1486,6 +1509,7 @@ export default function DayView() {
               <div className="space-y-3">
                 {day!.exercises.map((ex: Exercise, idx: number) => {
                   const Icon = getModalityIcon(ex.modality);
+                  const cardioChip = cardioChipParts(ex, units);
                   return (
                     <div key={`${ex.name}-${idx}`} className="cv-auto rounded-lg border border-gray-200 bg-white p-4">
                       <div className="mb-2 flex items-start justify-between">
@@ -1560,13 +1584,13 @@ export default function DayView() {
                               </span>
                             </div>
                           ))}
-                        {ex.modality === "cardio" && ex.cardioData && (
+                        {cardioChip && (
                           <div className="rounded bg-gray-100 px-3 py-1">
                             <span className="text-sm text-gray-700">
-                              {formatCardioDuration(ex.cardioData.duration)}
-                              {ex.cardioData.distance
-                                ? ` • ${formatDistance(ex.cardioData.distance, units)}`
-                                : null}
+                              {cardioChip.primary}
+                              {cardioChip.speedHint ? (
+                                <span className="hidden text-gray-500 sm:inline">{` · ${cardioChip.speedHint}`}</span>
+                              ) : null}
                             </span>
                           </div>
                         )}

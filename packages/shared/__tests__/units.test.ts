@@ -2,12 +2,15 @@ import { describe, expect, it } from "vitest";
 import {
   formatCardioDuration,
   formatDistance,
+  formatGroupedNumber,
   formatPace,
+  formatPaceAsSpeed,
   formatSpeed,
   formatWeight,
   formatWeightInput,
   getDistanceUnit,
   getWeightUnit,
+  speedFromPace,
   toDisplayDistance,
   toDisplayWeight,
   toStoredDistance,
@@ -18,6 +21,18 @@ describe("units", () => {
   it("formats stored pounds in imperial and metric", () => {
     expect(formatWeight(165, "imperial")).toBe("165 lb");
     expect(formatWeight(165, "metric")).toBe("74.8 kg");
+    expect(formatWeight(12500, "imperial")).toBe("12,500 lb");
+  });
+
+  it("groups large numbers with commas", () => {
+    expect(formatGroupedNumber(12500)).toBe("12,500");
+    expect(formatGroupedNumber(74.8, 1)).toBe("74.8");
+  });
+
+  it("derives speed from pace for dual display", () => {
+    expect(speedFromPace(480)).toBeCloseTo(7.5, 5);
+    expect(formatPaceAsSpeed(480, "imperial")).toBe("7.5 mph");
+    expect(formatPaceAsSpeed(0, "imperial")).toBeNull();
   });
 
   it("round-trips weight through display conversion", () => {

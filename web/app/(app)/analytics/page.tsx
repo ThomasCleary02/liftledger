@@ -21,7 +21,15 @@ import {
 import { AnalyticsSummary, ExercisePR, TimePeriod } from "../../../lib/analytics/types";
 import { ExerciseDoc } from "../../../lib/firestore/exercises";
 import { usePreferences } from "../../../lib/hooks/usePreferences";
-import { formatWeight, formatDistance, formatCardioDuration, formatPace, formatSpeed } from "../../../lib/utils/units";
+import {
+  formatWeight,
+  formatDistance,
+  formatCardioDuration,
+  formatPace,
+  formatPaceAsSpeed,
+  formatSpeed,
+  formatGroupedNumber,
+} from "../../../lib/utils/units";
 import {
   Dumbbell,
   BarChart3,
@@ -760,12 +768,14 @@ function CardioTypeDetail({
               icon={Gauge}
               label="Avg pace"
               value={formatPace(stats.averagePace || 0, units)}
+              hint={formatPaceAsSpeed(stats.averagePace || 0, units) ?? undefined}
               color="bg-pink-100 text-pink-700"
             />
             <StatCard
               icon={Trophy}
               label="Best pace"
               value={formatPace(stats.bestPace || 0, units)}
+              hint={formatPaceAsSpeed(stats.bestPace || 0, units) ?? undefined}
               color="bg-yellow-100 text-yellow-700"
             />
           </>
@@ -854,7 +864,12 @@ function PRsView({ prs, trackingEmpty }: { prs: ExercisePR[]; trackingEmpty: boo
     if (pr.prType === "maxDistance") return formatDistance(pr.value, units);
     if (pr.prType === "maxDuration") return formatCardioDuration(pr.value);
     if (pr.prType === "bestPace") return formatPace(pr.value, units);
-    return `${pr.value.toFixed(0)}${pr.prType === "maxReps" ? " reps" : ""}`;
+    return `${formatGroupedNumber(pr.value, 0)}${pr.prType === "maxReps" ? " reps" : ""}`;
+  };
+
+  const formatPRHint = (pr: ExercisePR): string | undefined => {
+    if (pr.prType !== "bestPace") return undefined;
+    return formatPaceAsSpeed(pr.value, units) ?? undefined;
   };
 
   const getDateFromDayId = (dayId: string): string => {
@@ -871,6 +886,7 @@ function PRsView({ prs, trackingEmpty }: { prs: ExercisePR[]; trackingEmpty: boo
         <div className="overflow-hidden rounded-md border border-gray-100 bg-white shadow-sm">
           {sectionPRs.map((pr, idx) => {
             const dateStr = getDateFromDayId(pr.dayId);
+            const speedHint = formatPRHint(pr);
             return (
               <Link
                 key={`${pr.dayId}-${pr.exerciseId}-${pr.prType}`}
@@ -888,7 +904,8 @@ function PRsView({ prs, trackingEmpty }: { prs: ExercisePR[]; trackingEmpty: boo
                     <p className="text-sm text-gray-500">{prTypeLabel(pr.prType)}</p>
                   </div>
                   <div className="ml-3 text-right">
-                    <p className="text-lg font-bold text-gray-900">{formatPRValue(pr)}</p>
+                    <p className="text-lg font-bold tabular-nums text-gray-900">{formatPRValue(pr)}</p>
+                    {speedHint ? <p className="text-xs tabular-nums text-gray-500">{speedHint}</p> : null}
                     <p className="text-xs text-gray-400">{pr.date.toLocaleDateString()}</p>
                   </div>
                 </div>
@@ -934,11 +951,14 @@ function StatCard({
   icon: Icon,
   label,
   value,
+  hint,
   color,
 }: {
   icon: any;
   label: string;
   value: string;
+  /** Optional second line when the card has spare space (e.g. mph under pace). */
+  hint?: string;
   color: string;
 }) {
   return (
@@ -948,6 +968,7 @@ function StatCard({
       </div>
       <p className="mb-0.5 text-xs text-gray-500">{label}</p>
       <p className="text-lg font-bold tabular-nums text-gray-900">{value}</p>
+      {hint ? <p className="text-xs tabular-nums text-gray-500">{hint}</p> : null}
     </div>
   );
 }

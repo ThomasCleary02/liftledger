@@ -12,7 +12,7 @@ export const TIPS = [
   {
     id: "analytics-period",
     title: "Analytics periods",
-    body: "7d / 30d / 1y / All filter Overview, Strength, and Cardio. PRs are always all-time bests. Strength lists the most-logged lifts in that window; tap a row for the trend.",
+    body: "7d / 30d / 1y / All filter Overview, Strength, and Cardio. PRs are always all-time bests. Strength lists the most-logged lifts in that window; tap a row for the trend. Run/walk pace cards also show mph (or km/h) under the min/mi line.",
   },
   {
     id: "rest-injured",

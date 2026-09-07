@@ -560,7 +560,7 @@ export default function Settings() {
 
           {/* App Info */}
           <div className="py-6 text-center">
-            <p className="text-sm text-gray-400">LiftLedger v3.2.0</p>
+            <p className="text-sm text-gray-400">LiftLedger v3.2.1</p>
           </div>
           </div>
         </div>
@@ -746,11 +746,13 @@ function ChoiceModal<T extends string | number>({
   return (
     <FullScreenSheet open={open} title={title} onClose={commit}>
       <p className="mb-4 text-gray-600">{description}</p>
-      <div className="space-y-3">
+      <div className="space-y-3" role="radiogroup" aria-label={title}>
         {options.map((option) => (
           <button
             key={String(option.value)}
             type="button"
+            role="radio"
+            aria-checked={selected === option.value}
             onClick={() => setSelected(option.value)}
             className={`flex w-full items-center rounded-md border-2 p-4 ${
               selected === option.value ? "border-brand bg-brand/10" : "border-gray-200 bg-gray-50"
