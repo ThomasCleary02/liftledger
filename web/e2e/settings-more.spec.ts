@@ -45,13 +45,12 @@ test.describe("settings surfaces", () => {
     await page.getByRole("button", { name: "Done" }).first().click();
   });
 
-  test("account photo and username fields", async ({ page }) => {
+  test("sign-in page shows email and links to profile for photo/username", async ({ page }) => {
     await page.goto("/settings/account");
-    await expect(page.getByRole("heading", { name: "Account" })).toBeVisible({
+    await expect(page.getByRole("heading", { name: "Sign-in" })).toBeVisible({
       timeout: 20_000,
     });
-    await expect(page.getByRole("button", { name: /photo/i })).toBeVisible();
-    await expect(page.getByPlaceholder("username")).toBeVisible();
+    await expect(page.getByRole("link", { name: /Photo & username/i })).toBeVisible();
   });
 
   test("import tabs and favorites / PRs settings open", async ({ page }) => {

@@ -11,6 +11,12 @@ const nextConfig = {
   compiler: {
     removeConsole: process.env.NODE_ENV === "production" ? { exclude: ["error", "warn"] } : false,
   },
+  async redirects() {
+    return [
+      { source: "/friends", destination: "/profile/friends", permanent: false },
+      { source: "/friends/leaderboards", destination: "/profile/friends/leaderboards", permanent: false },
+    ];
+  },
   async headers() {
     return [
       {

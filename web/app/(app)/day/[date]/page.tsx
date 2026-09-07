@@ -14,7 +14,7 @@ import {
   Day,
 } from "../../../../lib/firestore/days";
 import { accountService } from "../../../../lib/firebase";
-import { ACHIEVEMENT_BY_ID, type DayStatus } from "@liftledger/shared";
+import { type DayStatus } from "@liftledger/shared";
 import type { Exercise } from "../../../../lib/firestore/workouts";
 import type { StrengthSet } from "../../../../components/StrengthSetInput";
 import type { CalisthenicsSet } from "../../../../components/CalisthenicsSetInput";
@@ -31,6 +31,7 @@ import { Trash2, Dumbbell, Heart, Activity, Pencil, Plus, Moon, FileText, Link2,
 import { usePreferences } from "../../../../lib/hooks/usePreferences";
 import { formatWeight, formatDistance, formatCardioDuration, formatPace, formatPaceAsSpeed, formatWeightInput, formatDistanceInput, toStoredWeight, toStoredDistance } from "../../../../lib/utils/units";
 import { syncEarnedAchievements } from "../../../../lib/publishAchievements";
+import { notifyMedalUnlocks } from "../../../../lib/notifyMedalUnlocks";
 import { toast } from "../../../../lib/toast";
 import { logger } from "../../../../lib/logger";
 import { DayNavigationSkeleton, ExerciseListSkeleton } from "../../../../components/LoadingSkeleton";
@@ -870,10 +871,7 @@ export default function DayView() {
           rememberLastWorkout(user.uid, currentDay.date, nextExercises);
         }
         void syncEarnedAchievements()
-          .then((result) => {
-            const def = ACHIEVEMENT_BY_ID[result.added[0] ?? ""];
-            if (def) toast.success(`Unlocked: ${def.title}`, 4000);
-          })
+          .then((result) => notifyMedalUnlocks(result.added))
           .catch(() => undefined);
       }
       const wasUpdate = editingIndex !== null;
@@ -1104,6 +1102,9 @@ export default function DayView() {
         applyDayIfCurrent({ ...currentDay, isRestDay: false });
       }
       toast.success(nextRest ? "Marked as rest day" : "Removed rest day");
+      void syncEarnedAchievements()
+        .then((result) => notifyMedalUnlocks(result.added))
+        .catch(() => undefined);
       showSyncing(false);
     } catch (error) {
       logger.error("Failed to toggle rest day", error);

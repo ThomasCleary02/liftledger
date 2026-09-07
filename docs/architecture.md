@@ -28,8 +28,9 @@ web/app/
   (app)/                  Authenticated shell (AppShell)
     day/[date]/
     analytics/
-    friends/
     profile/
+      friends/
+        leaderboards/
     settings/
     admin/exercises/
 web/components/           UI (sheets, day chrome, search, …)

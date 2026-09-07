@@ -47,6 +47,8 @@ Produce findings as **P0 / P1 / P2** with file paths. Cover:
 - Copy matches product rules (My exercises = PRs only; PRs = all time)
 - Mobile: Share, sheets, keyboard — cross-check `docs/pitfalls.md`
 - Settings / My exercises deep-link expectations if Analytics points at Settings
+- **Composition (from `docs/pitfalls.md` UI/UX):** secondary metrics each have their own date; peer stats share one visual language; nested routes under a tab keep that tab active + have an explicit back; no duplicate editors for the same identity fields; don’t link a parent to a child destination that already lives on the hub page you just linked
+- **Tab bar clearance:** on phone width, scroll every changed app page to the bottom — last content must clear the fixed tab bar (see pitfalls)
 
 ### Consistency
 - Favorites vs My exercises patterns (acceptable drift OK; call out ugly mismatches)
@@ -64,6 +66,7 @@ Explicitly answer:
 - Any new `fixed` bottom UI or `100vh` without viewport handling?
 - Any new sheet with unstable effect deps?
 - Any download/share path that navigates the document?
+- Any changed scroll page whose last content sits under the tab bar on phone width?
 
 ## 3. Report format
 
@@ -88,6 +91,8 @@ Explicitly answer:
 - keyboard/viewport: …
 - identity/PRs: …
 - SW/share: …
+- UI composition (dates / peer stats / nested nav / identity editors): …
+- tab bar clearance (scroll to bottom on phone width): …
 
 ### Suggested next step
 - fix P0s / bump to vX.Y.Z / commit only / etc. (do not do it unless asked)

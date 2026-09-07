@@ -1,8 +1,10 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const pathnameMock = vi.fn(() => "/day/today");
+
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/day/today",
+  usePathname: () => pathnameMock(),
   useRouter: () => ({ prefetch: vi.fn(), push: vi.fn() }),
 }));
 
@@ -24,6 +26,7 @@ afterEach(cleanup);
 
 describe("Navigation", () => {
   beforeEach(() => {
+    pathnameMock.mockReturnValue("/day/today");
     vi.stubGlobal("requestIdleCallback", undefined);
   });
 
@@ -34,5 +37,12 @@ describe("Navigation", () => {
     expect(screen.getAllByRole("link", { name: /Analytics/ }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("link", { name: /Profile/ }).length).toBeGreaterThan(0);
     expect(screen.queryAllByRole("link", { name: /^Friends$/ })).toHaveLength(0);
+  });
+
+  it("keeps Profile highlighted on friends and leaderboards", () => {
+    pathnameMock.mockReturnValue("/profile/friends/leaderboards");
+    render(<Navigation />);
+    const profile = screen.getAllByRole("link", { name: /^Profile$/ });
+    expect(profile[0]).toHaveAttribute("aria-current", "page");
   });
 });

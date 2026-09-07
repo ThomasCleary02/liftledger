@@ -19,9 +19,15 @@ type NavItem = {
 const navItems: NavItem[] = [
   { path: "/day/today", label: "Log", icon: Dumbbell, matchPrefix: "/day/" },
   { path: "/analytics", label: "Analytics", icon: BarChart3 },
-  { path: "/profile", label: "Profile", icon: CircleUser },
-  { path: "/settings", label: "Settings", icon: Settings },
+  { path: "/profile", label: "Profile", icon: CircleUser, matchPrefix: "/profile" },
+  { path: "/settings", label: "Settings", icon: Settings, matchPrefix: "/settings" },
 ];
+
+function isNavActive(pathname: string | null, item: NavItem): boolean {
+  if (!pathname) return false;
+  if (item.matchPrefix) return pathname === item.matchPrefix || pathname.startsWith(`${item.matchPrefix}/`) || pathname.startsWith(item.matchPrefix);
+  return pathname === item.path || pathname.startsWith(`${item.path}/`);
+}
 export function Navigation() {
   const pathname = usePathname();
   const router = useRouter();
@@ -57,9 +63,7 @@ export function Navigation() {
         <div className="flex h-16 items-center justify-around">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = item.matchPrefix
-                ? pathname?.startsWith(item.matchPrefix)
-                : pathname === item.path || pathname?.startsWith(item.path + "/");
+            const isActive = isNavActive(pathname, item);
             return (
               <Link
                 key={item.path}
@@ -86,9 +90,7 @@ export function Navigation() {
         <nav aria-label="Primary" className="flex-1 space-y-1 px-4 py-6">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = item.matchPrefix
-                ? pathname?.startsWith(item.matchPrefix)
-                : pathname === item.path || pathname?.startsWith(item.path + "/");
+            const isActive = isNavActive(pathname, item);
             return (
               <Link
                 key={item.path}

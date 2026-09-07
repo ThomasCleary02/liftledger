@@ -23,4 +23,12 @@ describe("toasts", () => {
     vi.advanceTimersByTime(1000);
     expect(getToasts()).toHaveLength(0);
   });
+
+  it("shows medal unlock copy", () => {
+    toast.medal("True PR", "Beat an earlier best on the same lift.");
+    render(<ToastContainer />);
+    expect(screen.getByText("Medal unlocked")).toBeInTheDocument();
+    expect(screen.getByText("True PR")).toBeInTheDocument();
+    expect(screen.getByText("Beat an earlier best on the same lift.")).toBeInTheDocument();
+  });
 });

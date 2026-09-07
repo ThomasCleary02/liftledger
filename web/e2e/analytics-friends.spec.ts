@@ -64,14 +64,14 @@ test.describe("analytics and friends", () => {
   });
 
   test("friends add form and leaderboards page", async ({ page }) => {
-    await page.goto("/friends");
+    await page.goto("/profile/friends");
     await expect(page.getByRole("heading", { name: "Send friend request" })).toBeVisible({
       timeout: 20_000,
     });
     await page.getByPlaceholder("Username").fill("e2e-does-not-exist");
     await expect(page.getByRole("button", { name: "Send" })).toBeEnabled();
 
-    await page.goto("/friends/leaderboards");
+    await page.goto("/profile/friends/leaderboards");
     await expect(page.getByRole("heading", { name: "Leaderboards" })).toBeVisible({
       timeout: 20_000,
     });

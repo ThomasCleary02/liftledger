@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ACHIEVEMENT_BY_ID,
@@ -13,17 +12,18 @@ import {
   type AchievementProgress,
   type AchievementProgressMetric,
 } from "@liftledger/shared";
-import { Camera, Share2 } from "lucide-react";
+import { Camera, Pencil, Share2 } from "lucide-react";
 import { useAuth } from "../../../providers/Auth";
 import { accountService, app } from "../../../lib/firebase";
 import { listDays } from "../../../lib/firestore/days";
 import { syncEarnedAchievements } from "../../../lib/publishAchievements";
+import { notifyMedalUnlocks } from "../../../lib/notifyMedalUnlocks";
 import { fileToAvatarPayload, uploadAvatar } from "../../../lib/avatar";
 import { shareMedalPng } from "../../../lib/shareMedalPng";
 import { toast } from "../../../lib/toast";
 import { logger } from "../../../lib/logger";
 import { AvatarCropModal } from "../../../components/AvatarCropModal";
-import { FeaturedRow, MedalCollection, ProfileFriendsLinks, ProfileHero } from "../../../components/ProfileView";
+import { FeaturedRow, MedalCollection, ProfileFriendsLink, ProfileHero } from "../../../components/ProfileView";
 import { FullScreenSheet } from "../../../components/FullScreenSheet";
 import { format } from "date-fns";
 
@@ -39,6 +39,9 @@ export default function ProfilePage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const uploadGen = useRef(0);
   const [username, setUsername] = useState<string | null>(null);
+  const [usernameInput, setUsernameInput] = useState("");
+  const [editingUsername, setEditingUsername] = useState(false);
+  const [savingUsername, setSavingUsername] = useState(false);
   const [photoURL, setPhotoURL] = useState<string | null>(null);
   const [progress, setProgress] = useState<AchievementProgress>(EMPTY);
   const [medalMetrics, setMedalMetrics] = useState<Record<string, AchievementProgressMetric>>({});
@@ -65,10 +68,12 @@ export default function ProfilePage() {
         listDays({ limit: 2000, order: "desc" }),
       ]);
       setUsername(summary.username);
+      setUsernameInput(summary.username || "");
       setPhotoURL(summary.photoURL);
       const synced = await syncEarnedAchievements(days);
       setProgress(synced.progress);
       setMedalMetrics(getAchievementProgress(days));
+      notifyMedalUnlocks(synced.added, { delayMs: 400 });
     } catch (error) {
       logger.error("Failed to load profile", error);
       toast.error("Could not load profile");
@@ -128,6 +133,21 @@ export default function ProfilePage() {
     }
   };
 
+  const handleSaveUsername = async () => {
+    try {
+      setSavingUsername(true);
+      await accountService.setUsername(usernameInput);
+      setUsername(usernameInput);
+      setEditingUsername(false);
+      toast.success("Username updated");
+    } catch (error: unknown) {
+      logger.error("Error saving username", error);
+      toast.error(error instanceof Error ? error.message : "Failed to save username");
+    } finally {
+      setSavingUsername(false);
+    }
+  };
+
   const selected = selectedId ? ACHIEVEMENT_BY_ID[selectedId] : null;
   const earnedAt = selectedId ? progress.earned[selectedId]?.earnedAt : undefined;
   const canPin = Boolean(selected && earnedAt);
@@ -165,11 +185,8 @@ export default function ProfilePage() {
   return (
     <div className="flex h-full flex-col overflow-hidden bg-gray-50">
       <header className="flex-shrink-0 border-b border-gray-200 bg-white px-4 py-3 md:px-8">
-        <div className="mx-auto flex max-w-lg items-center justify-between">
+        <div className="mx-auto max-w-lg">
           <h1 className="text-xl font-semibold text-gray-900">Profile</h1>
-          <Link href="/settings/account" className="min-h-[44px] px-3 py-2 text-sm font-semibold text-brand">
-            Account
-          </Link>
         </div>
       </header>
 
@@ -201,9 +218,59 @@ export default function ProfilePage() {
                 <Camera className="h-3.5 w-3.5" />
               </button>
             }
+            usernameSlot={
+              editingUsername ? (
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    value={usernameInput}
+                    onChange={(e) => setUsernameInput(e.target.value)}
+                    placeholder="username"
+                    maxLength={20}
+                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 font-mono text-base text-gray-900 outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+                    autoFocus
+                  />
+                  <p className="text-xs text-gray-500">3–20 characters. Letters, numbers, _ and -.</p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      disabled={savingUsername || !usernameInput.trim()}
+                      onClick={() => void handleSaveUsername()}
+                      className="btn-primary min-h-[40px] flex-1 px-3 text-sm"
+                    >
+                      {savingUsername ? "Saving…" : "Save"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={savingUsername}
+                      onClick={() => {
+                        setUsernameInput(username || "");
+                        setEditingUsername(false);
+                      }}
+                      className="btn-secondary min-h-[40px] px-3 text-sm"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setEditingUsername(true)}
+                  className="group flex max-w-full items-center gap-2 text-left"
+                >
+                  <span className="truncate font-mono text-2xl font-semibold tracking-tight text-gray-900">
+                    {username ? `@${username.replace(/^@/, "")}` : "Add username"}
+                  </span>
+                  <Pencil className="h-4 w-4 shrink-0 text-gray-400 group-hover:text-gray-700" />
+                </button>
+              )
+            }
           />
 
-          <ProfileFriendsLinks />
+          <ProfileFriendsLink />
 
           <section className="rounded-md border border-gray-200 bg-white p-5 shadow-[0_1px_0_rgb(20_83_45/0.08)]">
             <div className="flex items-end justify-between gap-3">

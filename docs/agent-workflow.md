@@ -23,7 +23,7 @@ How this repo is set up for Cursor agents. Keep this short; deep product rules l
 1. **Feature work** — agent reads `docs/product.md` + pitfalls if touching sheets/PRs; path rules fire automatically.
 2. **Pre-release** — `/pre-release` → fix P0s → ask to commit/release.
 3. **Release** — only when asked: bump versions, tag, push (see `docs/hosting.md`).
-4. **New footgun** — add a 3-line entry to `docs/pitfalls.md` (symptom / cause / rule).
+4. **New footgun** — add a 3-line entry to `docs/pitfalls.md` (symptom / cause / rule). UI composition footguns (nested nav, duplicate editors, bolted secondary metrics) belong there too so `/pre-release` catches them.
 
 ## Do not
 

@@ -64,11 +64,11 @@ const PERIODS: { id: TimePeriod; short: string; label: string }[] = [
 ];
 
 function prTypeLabel(prType: ExercisePR["prType"]): string {
-  if (prType === "maxWeight") return "Best weight";
-  if (prType === "maxDistance") return "Longest";
+  if (prType === "maxWeight") return "Heaviest";
+  if (prType === "maxDistance") return "Longest distance";
   if (prType === "maxDuration") return "Longest time";
-  if (prType === "bestPace") return "Best pace";
-  if (prType === "maxReps") return "Best reps";
+  if (prType === "bestPace") return "Fastest pace";
+  if (prType === "maxReps") return "Most reps";
   return prType;
 }
 
@@ -938,6 +938,56 @@ function PRsView({
     return dayId;
   };
 
+  const MetricLine = ({ pr }: { pr: ExercisePR }) => {
+    const dateStr = getDateFromDayId(pr.dayId);
+    const speedHint = formatPRHint(pr);
+    return (
+      <Link
+        href={`/day/${dateStr}`}
+        prefetch
+        className="flex min-h-[48px] items-center justify-between gap-3 py-2.5 transition-colors hover:bg-gray-50"
+      >
+        <div className="min-w-0">
+          <p className="text-sm text-gray-500">{prTypeLabel(pr.prType)}</p>
+          <p className="text-xs text-gray-400">{pr.date.toLocaleDateString()}</p>
+        </div>
+        <div className="text-right">
+          <p className="text-base font-semibold tabular-nums text-gray-900">{formatPRValue(pr)}</p>
+          {speedHint ? <p className="text-xs tabular-nums text-gray-500">{speedHint}</p> : null}
+        </div>
+      </Link>
+    );
+  };
+
+  const CardioPRSection = ({ prs: sectionPRs }: { prs: ExercisePR[] }) => {
+    if (sectionPRs.length === 0) return null;
+    return (
+      <div className="mb-6">
+        <h2 className="mb-3 text-lg font-semibold text-gray-700">Cardio</h2>
+        <div className="overflow-hidden rounded-md border border-gray-100 bg-white shadow-sm">
+          {sectionPRs.map((pr, idx) => {
+            const longest =
+              pr.prType === "bestPace" ? longestDistanceByExercise.get(pr.exerciseId) : undefined;
+            return (
+              <div
+                key={`${pr.exerciseId}-${pr.prType}`}
+                className={`px-5 py-3 ${idx < sectionPRs.length - 1 ? "border-b border-gray-100" : ""}`}
+              >
+                <p className="font-semibold text-gray-900">
+                  <ExerciseNameLabel name={pr.exerciseName} />
+                </p>
+                <div className="mt-1 divide-y divide-gray-50">
+                  <MetricLine pr={pr} />
+                  {longest ? <MetricLine pr={longest} /> : null}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   const PRSection = ({ title, prs: sectionPRs }: { title: string; prs: ExercisePR[] }) => {
     if (sectionPRs.length === 0) return null;
     return (
@@ -947,10 +997,6 @@ function PRsView({
           {sectionPRs.map((pr, idx) => {
             const dateStr = getDateFromDayId(pr.dayId);
             const speedHint = formatPRHint(pr);
-            const longest =
-              pr.modality === "cardio" && pr.prType === "bestPace"
-                ? longestDistanceByExercise.get(pr.exerciseId)
-                : undefined;
             return (
               <Link
                 key={`${pr.dayId}-${pr.exerciseId}-${pr.prType}`}
@@ -970,11 +1016,6 @@ function PRsView({
                   <div className="ml-3 text-right">
                     <p className="text-lg font-bold tabular-nums text-gray-900">{formatPRValue(pr)}</p>
                     {speedHint ? <p className="text-xs tabular-nums text-gray-500">{speedHint}</p> : null}
-                    {longest ? (
-                      <p className="text-xs tabular-nums text-gray-500">
-                        Longest {formatDistance(longest.value, units)}
-                      </p>
-                    ) : null}
                     <p className="text-xs text-gray-400">{pr.date.toLocaleDateString()}</p>
                   </div>
                 </div>
@@ -997,24 +1038,21 @@ function PRsView({
           <Link href="/settings" className="font-semibold text-gray-900">
             My exercises
           </Link>{" "}
-          can shorten this list — it does not change Strength or Cardio.
+          shortens this list.
         </p>
       )}
-      {prs.length === 0 && !lifetimeLoading ? (
-        <div className="flex flex-col items-center justify-center py-12">
-          <Trophy className="h-12 w-12 text-gray-300" />
-          <p className="mt-4 text-center text-gray-500">No personal records yet</p>
-          <Link href="/settings" className="mt-3 text-sm font-semibold text-gray-800">
-            Choose lifts in My exercises
-          </Link>
+      <PRSection title="Strength" prs={groupedPRs.strength} />
+      <CardioPRSection prs={groupedPRs.cardio} />
+      <PRSection title="Calisthenics" prs={groupedPRs.calisthenics} />
+      {!lifetimeLoading && prs.length === 0 && (
+        <div className="rounded-md border border-gray-100 bg-white p-8 text-center shadow-sm">
+          <Trophy className="mx-auto mb-3 h-10 w-10 text-gray-300" />
+          <p className="font-medium text-gray-900">No PRs yet</p>
+          <p className="mt-1 text-sm text-gray-500">
+            Log a few sessions of the same lift — your first best shows up here.
+          </p>
         </div>
-      ) : prs.length > 0 ? (
-        <>
-          <PRSection title="Strength" prs={groupedPRs.strength} />
-          <PRSection title="Cardio" prs={groupedPRs.cardio} />
-          <PRSection title="Calisthenics" prs={groupedPRs.calisthenics} />
-        </>
-      ) : null}
+      )}
     </div>
   );
 }

@@ -77,6 +77,35 @@ Related code: `FullScreenSheet`, `SafeAreaInsets`, `fullScreenChrome`, `exercise
 
 ---
 
+## UI / UX (navigation & composition)
+
+### Secondary metrics must not share one date
+- **Symptom:** Cardio PR row shows pace + distance with a single timestamp; looks like both happened the same day.
+- **Cause:** Bolting a second value onto the primary PR row instead of its own metric + day link.
+- **Rule:** Each measurable best gets its own label, value, and date (or day deep-link). Prefer “Fastest pace” / “Longest distance” over generic “Best …”.
+
+### Peer stats must look like peers
+- **Symptom:** One profile stat chip (e.g. volume) looks “special” and the others look like editable fields.
+- **Cause:** Accent / brand fill on one of N equal ledger facts.
+- **Rule:** Same visual treatment for peer readouts. Accent is for hierarchy or CTAs, not one arbitrary number in a set.
+
+### Tab bar covering page content
+- **Symptom:** Last rows on Friends (or other scroll pages) sit under / flush with the bottom tab bar.
+- **Cause:** Shell bottom inset matched nav height exactly while the tab bar also has a brand stripe / safe-area padding; scroll regions with no end padding look clipped.
+- **Rule:** `.app-shell` must pad below the tab bar (`--app-nav-height` + `--safe-area-bottom` + a small buffer). Scrollable `main` content needs end padding (`pb-8` or similar). On pre-release, scroll every new/changed app page to the bottom on a phone-width viewport and confirm nothing is under the tab bar.
+
+### Nested destinations need a home tab + a way back
+- **Symptom:** Friends opened from Profile but Profile tab is inactive; no back control; Profile also links to Leaderboards that Friends already contains.
+- **Cause:** Leaving social routes outside the Profile route tree; duplicating child destinations on the parent.
+- **Rule:** Friends + leaderboards live under `/profile/friends…` so the Profile tab stays current. Parent links once to the hub; children link deeper. Every nested page has an explicit back target (not only `router.back()`).
+
+### One place to edit public identity
+- **Symptom:** Username/photo editors on both Profile and Account.
+- **Cause:** Copying Account into Profile without retiring the duplicate.
+- **Rule:** Photo + username edit on **Profile** only. Settings → Sign-in is email / login context and a link to Profile.
+
+---
+
 ## How to extend this file
 
 1. Reproduce once → write **Symptom / Cause / Rule** (3–6 lines).

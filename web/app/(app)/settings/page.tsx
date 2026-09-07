@@ -404,24 +404,37 @@ export default function Settings() {
         <div className="space-y-6">
           {/* Account Section */}
           <section>
-            <h2 className="kicker mb-3">Account</h2>
+            <h2 className="kicker mb-3">You</h2>
             <div className="overflow-hidden rounded-md border border-gray-200 bg-white shadow-[0_1px_0_rgb(20_83_45/0.08)]">
+              <Link
+                href="/profile"
+                prefetch
+                className="flex w-full items-center justify-between px-5 py-4 transition-colors hover:bg-gray-50"
+              >
+                <div className="flex min-w-0 items-center">
+                  <div className="mr-4">
+                    <Avatar name={profileName || user?.email} photoURL={profilePhoto} size={40} />
+                  </div>
+                  <div className="min-w-0 text-left">
+                    <p className="font-semibold text-gray-900">Profile</p>
+                    <p className="truncate font-mono text-sm text-gray-500">
+                      {profileName ? `@${profileName.replace(/^@/, "")}` : "Photo, username, medals"}
+                    </p>
+                  </div>
+                </div>
+                <ChevronRight className="h-5 w-5 text-gray-400" />
+              </Link>
               <Link
                 href="/settings/account"
                 prefetch
-                className="w-full px-5 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+                className="flex w-full items-center justify-between border-t border-gray-100 px-5 py-4 transition-colors hover:bg-gray-50"
               >
-              <div className="flex min-w-0 items-center">
-                <div className="mr-4">
-                  <Avatar name={profileName || user?.email} photoURL={profilePhoto} size={40} />
+                <div className="min-w-0 text-left">
+                  <p className="font-semibold text-gray-900">Sign-in</p>
+                  <p className="truncate font-mono text-sm text-gray-500">
+                    {user?.email || "Email for this login"}
+                  </p>
                 </div>
-                  <div className="min-w-0 text-left">
-                    <p className="font-semibold text-gray-900">Account</p>
-                    <p className="truncate font-mono text-sm text-gray-500">
-                      {profileName ? `@${profileName.replace(/^@/, "")}` : "Username, email, and photo"}
-                    </p>
-                </div>
-              </div>
                 <ChevronRight className="h-5 w-5 text-gray-400" />
               </Link>
             </div>
@@ -569,7 +582,7 @@ export default function Settings() {
 
           {/* App Info */}
           <div className="py-6 text-center">
-            <p className="text-sm text-gray-400">LiftLedger v3.3.0</p>
+            <p className="text-sm text-gray-400">LiftLedger v3.3.1</p>
           </div>
           </div>
         </div>

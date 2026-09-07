@@ -6,7 +6,7 @@ Durable product/engineering knowledge lives in [`docs/`](./docs/README.md). Keep
 
 ## Now
 
-_(empty — pick from Next when ready to start the next ship)_
+_(empty — pick from Next when ready)_
 
 ## Next
 
@@ -18,6 +18,7 @@ _(empty — pick from Next when ready to start the next ship)_
 - Head-to-head week on leaderboards.
 - **Share card family** (month / PR cards beyond week + medal).
 - Friends empty states / leaderboard label fix (cardio board is duration).
+- **Change password** in-app (Settings → Sign-in), for email/password accounts.
 
 ## Later
 

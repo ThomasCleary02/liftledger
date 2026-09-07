@@ -13,10 +13,11 @@ Narrative of where the product has been and where it is headed. **Execution orde
 | **3.2.3** | Exercise identity (treadmill twins, run/jog labels); all-time PR load; week share that works on mobile; logged-first My exercises |
 | **3.2.4** | Move tracking mismatch UX into My exercises; PR empty/loading fix; share preview stays in-app; docs + agent workflow (skills, rules, hooks) |
 | **3.3.0** | Medal progress + rarity; Profile polish; Friends/leaderboards from Profile (Friends off tab bar); longest cardio distance secondary; week-share polish + share earned medal |
+| **3.3.1** | Cardio PR composition; Profile friends route tree + tab highlight; Sign-in vs Profile; tab-bar clearance; medal unlock toasts |
 
 ## Current focus (see backlog Now)
 
-- Pick from backlog **Next** (offline logging, medal award wiring, year wrapped, …).
+- Pick from backlog **Next** (offline logging, medal award wiring, year wrapped, change password, …).
 
 ## Near term (backlog Next)
 
