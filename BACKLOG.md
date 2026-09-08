@@ -21,6 +21,8 @@ _(empty — ship 3.3.2; see Next)_
 - Catalog: add **torso rotation / core twist machine** (not in seed today — confirm naming vs gym labels before shipping).
 - Analytics Overview **This week** strip: page/swipe to **previous weeks** (one week at a time; header shows which week; Share uses the selected week). Don’t turn it into a full history browser — period chips still own that.
 - Day **notes** editor (product/import already support notes; day UI never exposes them).
+- **Plank UI refinement:** planks are static holds, not rep-based. Consider hiding or defaulting reps to 1, emphasizing hold duration + sets only. (Currently shows both reps + hold time, which is confusing for static exercises.)
+- **Hold timer stop button:** increase touch target size (currently `min-h-[48px]` but may need larger padding/width for easier tapping mid-set).
 
 ## Later
 
@@ -28,6 +30,7 @@ _(empty — ship 3.3.2; see Next)_
 - Night/dawn medals if we store local log time.
 - More medals as features land — do not grow the live catalog in bulk.
 - **Medal design:** enough easy badges already. New catalog medals should be **harder** (or creative / tied to a new feature). Cardio already has live **Engine** (10 hr). ROADMAP: **Mileage club** (100 mi run, no walk) and **Long haul** (50 hr cardio) in `ACHIEVEMENT_ROADMAP` — keep them ROADMAP until we deliberately promote.
+- **Fourth tier** (Platinum?) for achievement system. User has 150+ sessions, 30+ hr cardio, 400k+ volume — current catalog caps at tier 3 (Century: 100 sessions, Engine: 10 hr, Quarter million: 250k lb). Need harder targets across all categories. Existing catalog: Bronze (tier 1), Silver (tier 2), Gold (tier 3).
 - **Calisthenics analytics (opt-in)** — not a mandatory Strength/Cardio peer.
 - Template editor: nested sheet Back vs Done; calisthenics templates thinner than day log (pairs with hold timer).
 - Native Expo integrations → candidate **v4**.
