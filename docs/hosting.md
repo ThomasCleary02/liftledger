@@ -8,6 +8,7 @@
   - Publish: `web/.next`
   - Node 22
   - Plugin: `@netlify/plugin-nextjs`
+  - **Ignore rule**: only builds when `package.json` changes (version bumps control deploys)
 - **Do not** set the Netlify base directory to `web/` — monorepo root is canonical.
 
 ### Required Netlify env

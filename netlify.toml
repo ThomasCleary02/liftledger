@@ -3,6 +3,7 @@
 [build]
   command = "npm test && npm run build:web"
   publish = "web/.next"
+  ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF -- package.json web/package.json packages/*/package.json"
 
 [build.environment]
   NODE_VERSION = "22"
