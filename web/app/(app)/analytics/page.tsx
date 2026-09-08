@@ -310,7 +310,7 @@ export default function Analytics() {
 
       {/* Scrollable Content */}
       <main className="flex-1 overflow-y-auto">
-        <div className="container mx-auto px-4 py-6 md:px-8 md:max-w-4xl">
+        <div className="container mx-auto px-4 py-4 md:px-8 md:max-w-4xl md:py-5">
           {showSpinner ? (
             <div className="flex min-h-[40vh] items-center justify-center">
               <div className="spinner" />
@@ -427,10 +427,10 @@ function OverviewView({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Stat Cards */}
       <div
-        className={`grid gap-3 ${
+        className={`grid gap-2.5 ${
           summary.totalCalisthenicsReps > 0 ? "grid-cols-2 md:grid-cols-4" : "grid-cols-3"
         }`}
       >
@@ -463,8 +463,8 @@ function OverviewView({
         ) : null}
       </div>
 
-      <div className="rounded-md border border-gray-100 bg-white p-5 shadow-sm">
-        <div className="mb-3 flex items-center justify-between gap-3">
+      <div className="rounded-md border border-gray-100 bg-white p-4 shadow-sm">
+        <div className="mb-2 flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-sm font-semibold text-gray-900">This week</p>
             <p className="text-xs text-gray-500">Mon–Sun calendar week</p>
@@ -483,7 +483,7 @@ function OverviewView({
             </button>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-1.5">
           {weekDates.map((date) => {
             const key = format(date, "yyyy-MM-dd");
             const didTrain = trained.has(key);
@@ -493,11 +493,11 @@ function OverviewView({
                 key={key}
                 href={`/day/${key}`}
                 prefetch
-                className="flex flex-1 flex-col items-center gap-1"
+                className="flex flex-1 flex-col items-center gap-0.5"
               >
                 <span className="text-xs text-gray-500">{format(date, "EEEEE")}</span>
                 <div
-                  className={`flex h-9 w-full items-center justify-center rounded-lg text-xs font-semibold ${
+                  className={`flex h-8 w-full items-center justify-center rounded-lg text-xs font-semibold ${
                     didTrain
                       ? "bg-brand text-brand-fg"
                       : isToday
@@ -513,7 +513,7 @@ function OverviewView({
         </div>
       </div>
       {trackBodyweight && weighIns.length === 0 && (
-        <div className="rounded-md border border-gray-100 bg-white p-5 shadow-sm">
+        <div className="rounded-md border border-gray-100 bg-white p-4 shadow-sm">
           <p className="text-sm font-semibold text-gray-900">Bodyweight</p>
           <p className="mt-1 text-sm text-gray-500">
             Log a weigh-in on any day. Trends show up here after two readings.
@@ -521,11 +521,11 @@ function OverviewView({
         </div>
       )}
       {trackBodyweight && weighIns.length > 0 && (
-        <div className="rounded-md border border-gray-100 bg-white p-5 shadow-sm">
-          <div className="mb-3 flex items-end justify-between gap-3">
+        <div className="rounded-md border border-gray-100 bg-white p-4 shadow-sm">
+          <div className="mb-2 flex items-end justify-between gap-3">
             <div>
               <p className="text-sm text-gray-500">Bodyweight</p>
-              <p className="text-2xl font-bold text-gray-900">
+              <p className="text-xl font-bold text-gray-900">
                 {formatWeight(weighIns[weighIns.length - 1].bodyweightLbs, units)}
               </p>
             </div>
