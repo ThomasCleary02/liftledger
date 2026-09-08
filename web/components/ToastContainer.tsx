@@ -35,8 +35,8 @@ const toastConfig = {
   },
   medal: {
     icon: Medal,
-    bg: "bg-brand/10",
-    border: "border-brand/40",
+    bg: "bg-white",
+    border: "border-brand/50",
     text: "text-gray-900",
     iconColor: "text-brand",
   },

@@ -91,9 +91,9 @@ export async function listDays(options: ListDaysOptions = {}): Promise<Day[]> {
 
 export async function getDayByDate(date: Date | string): Promise<Day | null> {
   const dateStr = normalizeDateToYYYYMMDD(date);
-  const cached = peekDay(dateStr);
-  if (cached !== undefined) return cached;
   const startedUid = signedInUid();
+  // Always revalidate from Firestore. Returning a session-cache hit forever
+  // could drop fields like bodyweightLbs after a write if patchCachedDay missed.
   const day = await dayService.getDayByDate(dateStr);
   if (signedInUid() !== startedUid) return null;
   if (day) rememberDay(day);

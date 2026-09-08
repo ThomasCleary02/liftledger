@@ -24,8 +24,9 @@ describe("splitExerciseDisplay", () => {
     });
   });
 
-  it("tags treadmill cardio without merging walk", () => {
-    expect(splitExerciseDisplay("Treadmill Run")).toEqual({ title: "Run", tag: "Treadmill" });
+  it("keeps treadmill names untagged so the chip is not redundant", () => {
+    expect(splitExerciseDisplay("Treadmill Run")).toEqual({ title: "Treadmill Run", tag: null });
+    expect(splitExerciseDisplay("Treadmill")).toEqual({ title: "Treadmill", tag: null });
     expect(splitExerciseDisplay("Running")).toEqual({ title: "Run", tag: null });
     expect(splitExerciseDisplay("Walk")).toEqual({ title: "Walk", tag: null });
     expect(splitExerciseDisplay("Walking Lunge")).toEqual({ title: "Walking Lunge", tag: null });

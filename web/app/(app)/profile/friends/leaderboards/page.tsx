@@ -111,7 +111,7 @@ export default function Leaderboards() {
             </Link>
             <p className="kicker mb-1">Profile</p>
             <h1 className="mb-2 text-2xl font-semibold text-gray-900 md:text-3xl">Leaderboards</h1>
-            <p className="text-sm text-gray-500">Compare streaks and volume</p>
+            <p className="text-sm text-gray-500">Compare streaks, volume, and cardio time</p>
           </div>
 
           <div className="mx-auto mt-4 max-w-4xl border-t border-gray-100 pt-4">
@@ -175,9 +175,21 @@ export default function Leaderboards() {
           ) : leaderboardData.length === 0 ? (
             <div className="rounded-md border border-gray-100 bg-white p-12 text-center shadow-sm">
               <Trophy className="mx-auto h-12 w-12 text-gray-300" />
-              <p className="mt-4 text-gray-500">
-                No leaderboard data yet. Add friends and start logging workouts!
+              <p className="mt-4 font-medium text-gray-900">Nothing to rank yet</p>
+              <p className="mt-1 text-sm text-gray-500">
+                {metric === "cardio"
+                  ? "Cardio time needs logged cardio sessions from you or your friends."
+                  : metric === "volume"
+                    ? "Volume needs strength work logged in this period."
+                    : "Consistency counts days with a workout or rest day logged."}
               </p>
+              <Link
+                href="/profile/friends"
+                prefetch
+                className="mt-4 inline-block text-sm font-semibold text-brand"
+              >
+                Add friends
+              </Link>
             </div>
           ) : (
             <div className="overflow-hidden rounded-md border border-gray-100 bg-white shadow-sm">

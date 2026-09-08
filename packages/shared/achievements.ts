@@ -229,8 +229,14 @@ export const ACHIEVEMENT_ROADMAP: AchievementRoadmapItem[] = [
   {
     id: "later_mileage_club",
     title: "Mileage club",
-    hook: "One hundred miles of running.",
-    when: "Cardio already has distance; keep walk out of it.",
+    hook: "One hundred miles of running (not walk).",
+    when: "Cardio already has distance; keep walk out of it. Harder distance tier — not another easy badge.",
+  },
+  {
+    id: "later_long_haul",
+    title: "Long haul",
+    hook: "Fifty hours of cardio (beyond Engine’s 10).",
+    when: "Same duration counter as Engine; ship only as a hard tier, not a stack of easy hour badges.",
   },
   {
     id: "later_same_fight",

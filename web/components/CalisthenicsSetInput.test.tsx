@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, act } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../lib/hooks/usePreferences", () => ({
@@ -7,7 +7,10 @@ vi.mock("../lib/hooks/usePreferences", () => ({
 
 import CalisthenicsSetInput from "./CalisthenicsSetInput";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
 
 describe("CalisthenicsSetInput", () => {
   it("sanitizes reps and can show hold duration", () => {
@@ -28,5 +31,31 @@ describe("CalisthenicsSetInput", () => {
       { reps: "10", duration: "" },
       { reps: "10", duration: "" },
     ]);
+  });
+
+  it("hides hold until Add hold time", () => {
+    render(<CalisthenicsSetInput sets={[{ reps: "10" }]} onSetsChange={vi.fn()} />);
+    expect(screen.queryByLabelText("Set 1 hold time in seconds")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Add hold time" }));
+    expect(screen.getByLabelText("Set 1 hold time in seconds")).toBeTruthy();
+  });
+
+  it("opens hold UI for plank and records stopwatch seconds", () => {
+    vi.useFakeTimers();
+    const onSetsChange = vi.fn();
+    render(
+      <CalisthenicsSetInput
+        exerciseName="Plank"
+        sets={[{ reps: "1", duration: "" }]}
+        onSetsChange={onSetsChange}
+      />
+    );
+    expect(screen.getByLabelText("Set 1 hold time in seconds")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Start hold timer for set 1" }));
+    act(() => {
+      vi.advanceTimersByTime(3200);
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Stop hold timer for set 1" }));
+    expect(onSetsChange).toHaveBeenCalledWith([{ reps: "1", duration: "3" }]);
   });
 });

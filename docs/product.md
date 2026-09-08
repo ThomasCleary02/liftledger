@@ -26,6 +26,7 @@ People who log strength, cardio, and calisthenics by calendar day, then check pr
 - **PRs are all-time** once history is loaded. Month/Year/7d chips apply to Overview / Strength / Cardio only.
 - Weights and distances are stored as **pounds and miles**; convert at the form edge for metric display.
 - Day ids use the user’s **local calendar date**, not UTC (`userId_YYYY-MM-DD`).
+- **Simple by default:** the day log should stay calm for newcomers. Power features (hold times, supersets, rest timer, etc.) should be opt-in or contextual — not always-on chrome. Prefer a short “Training extras” group in Settings over a toggle farm. Hold time and supersets are opt-in; rest timer defaults off. This is not a “simplify exercise variants” switch (still a non-goal).
 
 ## Explicit non-goals
 

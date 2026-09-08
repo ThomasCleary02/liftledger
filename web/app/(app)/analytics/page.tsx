@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../../providers/Auth";
@@ -16,6 +16,7 @@ import {
   getLiftProgress,
   getBodyweightPoints,
   getBodyweightChangeLbs,
+  calculateCurrentStreakFromDays,
   type CardioTypeStats,
 } from "../../../lib/analytics/calculations";
 import { AnalyticsSummary, ExercisePR, TimePeriod } from "../../../lib/analytics/types";
@@ -42,7 +43,7 @@ import {
   Gauge,
   Share,
 } from "lucide-react";
-import { format, startOfWeek, eachDayOfInterval, addDays } from "date-fns";
+import { format, parseISO, startOfWeek, eachDayOfInterval, addDays } from "date-fns";
 import { logger } from "../../../lib/logger";
 import { toast } from "../../../lib/toast";
 import { getAccountSummary } from "../../../lib/firestore/account";
@@ -57,7 +58,7 @@ const ALL_HISTORY_LIMIT = 250;
 const LIFETIME_HISTORY_LIMIT = 1000;
 
 const PERIODS: { id: TimePeriod; short: string; label: string }[] = [
-  { id: "week", short: "7d", label: "Last 7 days" },
+  { id: "week", short: "7d", label: "Rolling last 7 days" },
   { id: "month", short: "30d", label: "Last 30 days" },
   { id: "year", short: "1y", label: "Last year" },
   { id: "all", short: "All", label: "All time" },
@@ -104,8 +105,15 @@ export default function Analytics() {
   const [days, setDays] = useState<Day[]>(() => peekDaysArray());
   const [exercises, setExercises] = useState<Map<string, ExerciseDoc>>(catalogToMap);
   const [loading, setLoading] = useState(() => peekDaysArray().length === 0);
-  const { defaultChartView } = usePreferences();
-  const [timePeriod, setTimePeriod] = useState<TimePeriod>(defaultChartView);
+  const { defaultChartView, loading: prefsLoading } = usePreferences();
+  const [timePeriod, setTimePeriod] = useState<TimePeriod>("month");
+  const chartSeededRef = useRef(false);
+
+  useEffect(() => {
+    if (prefsLoading || chartSeededRef.current) return;
+    setTimePeriod(defaultChartView);
+    chartSeededRef.current = true;
+  }, [prefsLoading, defaultChartView]);
   const [trackedExerciseIds, setTrackedExerciseIds] = useState<string[]>([]);
   const [username, setUsername] = useState<string | null>(null);
   const [historyComplete, setHistoryComplete] = useState(() => daysListIsComplete());
@@ -180,6 +188,10 @@ export default function Analytics() {
   const summary = useMemo(() => getAnalyticsSummaryFromDays(filteredDays, exercises), [filteredDays, exercises]);
   const catalogList = useMemo(() => Array.from(exercises.values()), [exercises]);
   const historyForLifetime = lifetimeDays.length > 0 ? lifetimeDays : days;
+  const lifetimeStreak = useMemo(
+    () => calculateCurrentStreakFromDays(historyForLifetime),
+    [historyForLifetime]
+  );
 
   // PRs and identity helpers need all-time history, not the Month/Year chart window.
   useEffect(() => {
@@ -216,6 +228,14 @@ export default function Analytics() {
     const map = new Map<string, ExercisePR>();
     for (const pr of allPRs) {
       if (pr.prType === "maxDistance") map.set(pr.exerciseId, pr);
+    }
+    return map;
+  }, [allPRs]);
+
+  const calisthenicsRepsByExercise = useMemo(() => {
+    const map = new Map<string, ExercisePR>();
+    for (const pr of allPRs) {
+      if (pr.modality === "calisthenics" && pr.prType === "maxReps") map.set(pr.exerciseId, pr);
     }
     return map;
   }, [allPRs]);
@@ -328,6 +348,7 @@ export default function Analytics() {
               {activeTab === "overview" && (
                 <OverviewView
                   summary={summary}
+                  lifetimeStreak={lifetimeStreak}
                   allDays={historyForLifetime}
                   username={username}
                 />
@@ -342,6 +363,7 @@ export default function Analytics() {
                 <PRsView
                   prs={prs}
                   longestDistanceByExercise={longestDistanceByExercise}
+                  calisthenicsRepsByExercise={calisthenicsRepsByExercise}
                   trackingEmpty={trackedExerciseIds.length === 0}
                   lifetimeLoading={!lifetimeComplete}
                 />
@@ -366,10 +388,12 @@ export default function Analytics() {
 // Overview Component
 function OverviewView({
   summary,
+  lifetimeStreak,
   allDays,
   username,
 }: {
   summary: AnalyticsSummary;
+  lifetimeStreak: number;
   allDays: Day[];
   username: string | null;
 }) {
@@ -414,7 +438,7 @@ function OverviewView({
         <StatCard
           icon={Flame}
           label="Streak"
-          value={`${summary.currentStreak}d`}
+          value={`${lifetimeStreak}d`}
           color="bg-orange-100 text-orange-700"
         />
         <StatCard
@@ -426,9 +450,12 @@ function OverviewView({
       </div>
 
       <div className="rounded-md border border-gray-100 bg-white p-5 shadow-sm">
-        <div className="mb-3 flex items-center justify-between">
-          <p className="text-sm font-semibold text-gray-900">This week</p>
-          <div className="flex items-center gap-3">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-gray-900">This week</p>
+            <p className="text-xs text-gray-500">Mon–Sun calendar week</p>
+          </div>
+          <div className="flex shrink-0 items-center gap-3">
             <p className="text-sm text-gray-500">{trainedThisWeek} of 7 days with work</p>
             <button
               type="button"
@@ -590,7 +617,7 @@ function StrengthView({
                     <p className="text-lg font-bold tabular-nums text-gray-900">
                       {formatWeight(exercise.maxWeight, units)}
                     </p>
-                    <p className="text-xs text-gray-400">Best in period</p>
+                    <p className="text-xs text-gray-400">Heaviest in period</p>
                   </div>
                 </button>
                 {isOpen && progress?.last && (
@@ -851,6 +878,8 @@ function CardioTypeDetail({
             icon={Clock}
             label="Longest time"
             value={formatCardioDuration(stats.longestDuration)}
+            hint={stats.longestDurationDate ? formatDayHint(stats.longestDurationDate) : undefined}
+            href={stats.longestDurationDate ? `/day/${stats.longestDurationDate}` : undefined}
             color="bg-orange-100 text-orange-700"
           />
         )}
@@ -859,6 +888,8 @@ function CardioTypeDetail({
             icon={MapIcon}
             label="Longest distance"
             value={formatDistance(stats.longestDistance, units)}
+            hint={stats.longestDistanceDate ? formatDayHint(stats.longestDistanceDate) : undefined}
+            href={stats.longestDistanceDate ? `/day/${stats.longestDistanceDate}` : undefined}
             color="bg-red-100 text-red-700"
           />
         )}
@@ -902,11 +933,13 @@ function CardioTypeDetail({
 function PRsView({
   prs,
   longestDistanceByExercise,
+  calisthenicsRepsByExercise,
   trackingEmpty,
   lifetimeLoading,
 }: {
   prs: ExercisePR[];
   longestDistanceByExercise: Map<string, ExercisePR>;
+  calisthenicsRepsByExercise: Map<string, ExercisePR>;
   trackingEmpty: boolean;
   lifetimeLoading: boolean;
 }) {
@@ -988,6 +1021,35 @@ function PRsView({
     );
   };
 
+  const CalisthenicsPRSection = ({ prs: sectionPRs }: { prs: ExercisePR[] }) => {
+    if (sectionPRs.length === 0) return null;
+    return (
+      <div className="mb-6">
+        <h2 className="mb-3 text-lg font-semibold text-gray-700">Calisthenics</h2>
+        <div className="overflow-hidden rounded-md border border-gray-100 bg-white shadow-sm">
+          {sectionPRs.map((pr, idx) => {
+            const reps =
+              pr.prType === "maxDuration" ? calisthenicsRepsByExercise.get(pr.exerciseId) : undefined;
+            return (
+              <div
+                key={`${pr.exerciseId}-${pr.prType}`}
+                className={`px-5 py-3 ${idx < sectionPRs.length - 1 ? "border-b border-gray-100" : ""}`}
+              >
+                <p className="font-semibold text-gray-900">
+                  <ExerciseNameLabel name={pr.exerciseName} />
+                </p>
+                <div className="mt-1 divide-y divide-gray-50">
+                  <MetricLine pr={pr} />
+                  {reps && reps.value > 1 ? <MetricLine pr={reps} /> : null}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   const PRSection = ({ title, prs: sectionPRs }: { title: string; prs: ExercisePR[] }) => {
     if (sectionPRs.length === 0) return null;
     return (
@@ -1035,7 +1097,7 @@ function PRsView({
       {trackingEmpty && prs.length > 0 && (
         <p className="rounded-md border border-gray-100 bg-white px-4 py-3 text-sm text-gray-600">
           Showing every lift with a best.{" "}
-          <Link href="/settings" className="font-semibold text-gray-900">
+          <Link href="/settings?myExercises=1" className="font-semibold text-gray-900">
             My exercises
           </Link>{" "}
           shortens this list.
@@ -1043,7 +1105,7 @@ function PRsView({
       )}
       <PRSection title="Strength" prs={groupedPRs.strength} />
       <CardioPRSection prs={groupedPRs.cardio} />
-      <PRSection title="Calisthenics" prs={groupedPRs.calisthenics} />
+      <CalisthenicsPRSection prs={groupedPRs.calisthenics} />
       {!lifetimeLoading && prs.length === 0 && (
         <div className="rounded-md border border-gray-100 bg-white p-8 text-center shadow-sm">
           <Trophy className="mx-auto mb-3 h-10 w-10 text-gray-300" />
@@ -1062,6 +1124,7 @@ function StatCard({
   label,
   value,
   hint,
+  href,
   color,
 }: {
   icon: any;
@@ -1069,18 +1132,45 @@ function StatCard({
   value: string;
   /** Optional second line when the card has spare space (e.g. mph under pace). */
   hint?: string;
+  href?: string;
   color: string;
 }) {
-  return (
-    <div className="rounded-md border border-gray-100 bg-white p-3 shadow-sm">
+  const body = (
+    <>
       <div className={`mb-2 flex h-8 w-8 items-center justify-center rounded-full ${color}`}>
         <Icon className="h-4 w-4" />
       </div>
       <p className="mb-0.5 text-xs text-gray-500">{label}</p>
       <p className="text-lg font-bold tabular-nums text-gray-900">{value}</p>
       {hint ? <p className="text-xs tabular-nums text-gray-500">{hint}</p> : null}
-    </div>
+    </>
   );
+
+  if (href) {
+    return (
+      <Link
+        href={href}
+        prefetch
+        className="block rounded-md border border-gray-100 bg-white p-3 shadow-sm transition-colors hover:bg-gray-50"
+      >
+        {body}
+      </Link>
+    );
+  }
+
+  return <div className="rounded-md border border-gray-100 bg-white p-3 shadow-sm">{body}</div>;
+}
+
+function formatDayHint(dateStr: string): string {
+  try {
+    return parseISO(dateStr).toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  } catch {
+    return dateStr;
+  }
 }
 
 function StatRow({ label, value }: { label: string; value: string }) {

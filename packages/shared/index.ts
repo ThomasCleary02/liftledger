@@ -24,3 +24,4 @@ export * from "./programs/starters";
 export * from "./sets";
 export * from "./achievements";
 export * from "./plates";
+export * from "./holds";

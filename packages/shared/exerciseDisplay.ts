@@ -35,7 +35,15 @@ export function splitExerciseDisplay(name: string): ExerciseDisplay {
       .trim()
       .replace(/^[-–—,:]+|[-–—,:]+$/g, "")
       .trim();
-    return { title: title || original, tag: rule.tag };
+    // Name is only the equipment word (e.g. "Treadmill") — no redundant chip.
+    if (!title || title.toLowerCase() === rule.tag.toLowerCase()) {
+      return { title: original, tag: null };
+    }
+    // Treadmill names already say treadmill ("Treadmill Run") — keep full title, no chip.
+    if (rule.tag === "Treadmill") {
+      return { title: original, tag: null };
+    }
+    return { title, tag: rule.tag };
   }
 
   if (/^running$/i.test(original)) return { title: "Run", tag: null };

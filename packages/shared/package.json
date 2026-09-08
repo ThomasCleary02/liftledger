@@ -1,20 +1,20 @@
 {
-    "name": "@liftledger/shared",
-    "version": "3.3.1",
-    "main": "./index.ts",
-    "types": "./index.ts",
-    "scripts": {
-        "type-check": "tsc --noEmit",
-        "test": "vitest run",
-        "test:rules": "vitest run --config vitest.rules.config.mts"
-    },
-    "dependencies": {
-        "date-fns": "^3.0.0",
-        "firebase": "^12.5.0"
-    },
-    "devDependencies": {
-        "@firebase/rules-unit-testing": "^5.0.2",
-        "typescript": "^5.9.3",
-        "vitest": "^4.1.11"
-    }
+  "name": "@liftledger/shared",
+  "version": "3.3.2",
+  "main": "./index.ts",
+  "types": "./index.ts",
+  "scripts": {
+    "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:rules": "vitest run --config vitest.rules.config.mts"
+  },
+  "dependencies": {
+    "date-fns": "^3.0.0",
+    "firebase": "^12.5.0"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.2",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.11"
+  }
 }

@@ -200,7 +200,9 @@ export default function Friends() {
             </Link>
             <p className="kicker mb-1">Profile</p>
             <h1 className="mb-2 text-2xl font-semibold text-gray-900 md:text-3xl">Friends</h1>
-            <p className="text-sm text-gray-500">Add friends by username.</p>
+            <p className="text-sm text-gray-500">
+              Add friends by username to compare streaks, volume, and cardio time.
+            </p>
           </div>
         </div>
       </header>
@@ -220,7 +222,7 @@ export default function Friends() {
                   <Trophy className="h-5 w-5 text-gray-600" />
                   <div>
                     <p className="font-semibold text-gray-900">Leaderboards</p>
-                    <p className="text-sm text-gray-500">Streaks and volume</p>
+                    <p className="text-sm text-gray-500">Streaks, volume, and cardio time</p>
                   </div>
                 </div>
                 <ChevronRight className="h-5 w-5 text-gray-400" />
@@ -365,8 +367,9 @@ export default function Friends() {
               {friends.length === 0 ? (
                 <div className="rounded-md border border-gray-200 bg-white p-12 text-center shadow-[0_1px_0_rgb(20_83_45/0.08)]">
                   <Users className="mx-auto h-12 w-12 text-gray-300" />
-                  <p className="mt-4 text-gray-500">
-                    No friends yet. Add someone by username.
+                  <p className="mt-4 font-medium text-gray-900">No friends yet</p>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Use the form above to send a request by username. Once they accept, you can compare on leaderboards.
                   </p>
                 </div>
               ) : (

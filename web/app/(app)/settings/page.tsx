@@ -2,12 +2,12 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useAuth } from "../../../providers/Auth";
 import { deleteUserAccount } from "../../../lib/firestore/account";
 import { accountService, app } from "../../../lib/firebase";
 import { deleteAvatarFile } from "../../../lib/avatar";
-import { UnitSystem, ThemePreference, RestTimerSeconds } from "@liftledger/shared/preferences";
+import { UnitSystem, ThemePreference, RestTimerSeconds, DefaultChartView } from "@liftledger/shared/preferences";
 import { usePreferences } from "../../../lib/hooks/usePreferences";
 import {
   Scale,
@@ -26,8 +26,9 @@ import {
   Weight,
   Bell,
   Lightbulb,
+  BarChart3,
+  Link2,
 } from "lucide-react";
-import { Avatar } from "../../../components/Avatar";
 import { toast } from "../../../lib/toast";
 import { logger } from "../../../lib/logger";
 import { ConfirmDialog } from "../../../components/ConfirmDialog";
@@ -72,7 +73,24 @@ export default function Settings() {
   const [restModalOpen, setRestModalOpen] = useState(false);
   const [bodyweightModalOpen, setBodyweightModalOpen] = useState(false);
   const [prNotifyModalOpen, setPrNotifyModalOpen] = useState(false);
-  const { units, theme, restTimerSeconds, trackBodyweight, prNotifications, updateUnits, updateTheme, updateRestTimer, updateTrackBodyweight, updatePRNotifications } = usePreferences();
+  const [chartViewModalOpen, setChartViewModalOpen] = useState(false);
+  const [supersetsModalOpen, setSupersetsModalOpen] = useState(false);
+  const {
+    units,
+    theme,
+    restTimerSeconds,
+    trackBodyweight,
+    prNotifications,
+    defaultChartView,
+    enableSupersets,
+    updateUnits,
+    updateTheme,
+    updateRestTimer,
+    updateTrackBodyweight,
+    updatePRNotifications,
+    updateChartView,
+    updateEnableSupersets,
+  } = usePreferences();
 
   // Add state for confirmations
   const [signOutConfirmOpen, setSignOutConfirmOpen] = useState(false);
@@ -101,29 +119,26 @@ export default function Settings() {
   const [editingTemplate, setEditingTemplate] = useState<WorkoutTemplate | null>(null);
   const [templateExercises, setTemplateExercises] = useState<Exercise[]>([]);
   const [templateName, setTemplateName] = useState("");
-  const [profileName, setProfileName] = useState<string | null>(null);
-  const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
   const [favoriteCount, setFavoriteCount] = useState(0);
   const [trackedCount, setTrackedCount] = useState(0);
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     if (authLoading) return;
-    
+
     if (!user) {
       router.replace("/login");
       return;
     }
     getAccountSummary()
       .then((summary) => {
-        setProfileName(summary.username);
-        setProfilePhoto(summary.photoURL);
         setFavoriteCount(summary.favoriteExercises.length);
         setTrackedCount(summary.trackedExercises.length);
       })
-      .catch(() => {
-        setProfileName(null);
-        setProfilePhoto(null);
-      });
+      .catch(() => undefined);
+    void listTemplates()
+      .then((templateList) => setTemplates(templateList))
+      .catch(() => undefined);
   }, [user, router, authLoading]);
 
   const handleSignOut = () => {
@@ -213,6 +228,13 @@ export default function Settings() {
       setLoadingLoggedHistory(false);
     }
   }, [user]);
+
+  useEffect(() => {
+    if (searchParams.get("myExercises") === "1") {
+      setMyExercisesOpen(true);
+      void loadTrackedExercises();
+    }
+  }, [searchParams, loadTrackedExercises]);
 
   // Add function to load templates
   const loadTemplates = useCallback(async () => {
@@ -352,6 +374,12 @@ export default function Settings() {
     return `${seconds / 60} min`;
   };
 
+  const getChartViewLabel = (view: DefaultChartView) => {
+    if (view === "week") return "Rolling 7 days";
+    if (view === "year") return "Last year";
+    return "Last 30 days";
+  };
+
   const handleExportCsv = async () => {
     try {
       const days = await listDays({ limit: 2000, order: "asc" });
@@ -407,27 +435,9 @@ export default function Settings() {
             <h2 className="kicker mb-3">You</h2>
             <div className="overflow-hidden rounded-md border border-gray-200 bg-white shadow-[0_1px_0_rgb(20_83_45/0.08)]">
               <Link
-                href="/profile"
-                prefetch
-                className="flex w-full items-center justify-between px-5 py-4 transition-colors hover:bg-gray-50"
-              >
-                <div className="flex min-w-0 items-center">
-                  <div className="mr-4">
-                    <Avatar name={profileName || user?.email} photoURL={profilePhoto} size={40} />
-                  </div>
-                  <div className="min-w-0 text-left">
-                    <p className="font-semibold text-gray-900">Profile</p>
-                    <p className="truncate font-mono text-sm text-gray-500">
-                      {profileName ? `@${profileName.replace(/^@/, "")}` : "Photo, username, medals"}
-                    </p>
-                  </div>
-                </div>
-                <ChevronRight className="h-5 w-5 text-gray-400" />
-              </Link>
-              <Link
                 href="/settings/account"
                 prefetch
-                className="flex w-full items-center justify-between border-t border-gray-100 px-5 py-4 transition-colors hover:bg-gray-50"
+                className="flex w-full items-center justify-between px-5 py-4 transition-colors hover:bg-gray-50"
               >
                 <div className="min-w-0 text-left">
                   <p className="font-semibold text-gray-900">Sign-in</p>
@@ -455,12 +465,6 @@ export default function Settings() {
                 title="Theme"
                 subtitle={getThemeLabel(theme)}
                 onClick={() => setThemeModalOpen(true)}
-              />
-              <SettingItem
-                icon={Clock}
-                title="Rest timer"
-                subtitle={getRestLabel(restTimerSeconds)}
-                onClick={() => setRestModalOpen(true)}
               />
               <SettingItem
                 icon={Bell}
@@ -507,7 +511,7 @@ export default function Settings() {
               <SettingItem
                 icon={FileText}
                 title="Workout templates"
-                subtitle={`${templates.length} template${templates.length !== 1 ? 's' : ''}`}
+                subtitle={`${templates.length} template${templates.length !== 1 ? "s" : ""}`}
                 onClick={() => {
                   setTemplatesOpen(true);
                   loadTemplates();
@@ -518,6 +522,30 @@ export default function Settings() {
                 title="Tips"
                 subtitle="Supersets, favorites, analytics quirks"
                 onClick={() => setTipsOpen(true)}
+              />
+            </div>
+          </section>
+
+          <section>
+            <h2 className="kicker mb-3">Training extras</h2>
+            <div className="overflow-hidden rounded-md border border-gray-200 bg-white shadow-[0_1px_0_rgb(20_83_45/0.08)]">
+              <SettingItem
+                icon={BarChart3}
+                title="Default analytics period"
+                subtitle={getChartViewLabel(defaultChartView)}
+                onClick={() => setChartViewModalOpen(true)}
+              />
+              <SettingItem
+                icon={Clock}
+                title="Rest timer"
+                subtitle={getRestLabel(restTimerSeconds)}
+                onClick={() => setRestModalOpen(true)}
+              />
+              <SettingItem
+                icon={Link2}
+                title="Supersets"
+                subtitle={enableSupersets ? "On — link icon on day log" : "Off"}
+                onClick={() => setSupersetsModalOpen(true)}
               />
             </div>
           </section>
@@ -582,7 +610,7 @@ export default function Settings() {
 
           {/* App Info */}
           <div className="py-6 text-center">
-            <p className="text-sm text-gray-400">LiftLedger v3.3.1</p>
+            <p className="text-sm text-gray-400">LiftLedger v3.3.2</p>
           </div>
           </div>
         </div>
@@ -618,7 +646,7 @@ export default function Settings() {
         open={restModalOpen}
         onClose={() => setRestModalOpen(false)}
         title="Rest timer"
-        description="Starts when you add another set. Off by default."
+        description="Starts when you add another set. Off by default — most logging happens after batches of sets."
         current={restTimerSeconds}
         onSave={(value) => updateRestTimer(value as RestTimerSeconds)}
         options={[
@@ -627,6 +655,31 @@ export default function Settings() {
           { value: 90 as RestTimerSeconds, label: "90 seconds" },
           { value: 120 as RestTimerSeconds, label: "2 minutes" },
           { value: 180 as RestTimerSeconds, label: "3 minutes" },
+        ]}
+      />
+      <ChoiceModal
+        open={chartViewModalOpen}
+        onClose={() => setChartViewModalOpen(false)}
+        title="Default analytics period"
+        description="Opening period for Analytics Overview / Strength / Cardio. PRs stay all-time."
+        current={defaultChartView}
+        onSave={(value) => void updateChartView(value as DefaultChartView)}
+        options={[
+          { value: "week" as DefaultChartView, label: "Rolling 7 days", description: "Last 7 calendar days — not the Mon–Sun strip" },
+          { value: "month" as DefaultChartView, label: "Last 30 days", description: "Default" },
+          { value: "year" as DefaultChartView, label: "Last year", description: "Past 12 months" },
+        ]}
+      />
+      <ChoiceModal
+        open={supersetsModalOpen}
+        onClose={() => setSupersetsModalOpen(false)}
+        title="Supersets"
+        description="Show a link icon on the day log to pair lifts. Off by default to keep logging calm."
+        current={enableSupersets ? "on" : "off"}
+        onSave={(value) => void updateEnableSupersets(value === "on")}
+        options={[
+          { value: "off", label: "Off", description: "Hide pair controls (existing pairs can still be unlinked)" },
+          { value: "on", label: "On", description: "Show link icons between exercises" },
         ]}
       />
       <ChoiceModal

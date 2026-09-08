@@ -27,6 +27,7 @@ export interface PreferencesService {
   updateTheme(theme: ThemePreference): Promise<void>;
   updateRestTimerSeconds(seconds: RestTimerSeconds): Promise<void>;
   updateTrackBodyweight(enabled: boolean): Promise<void>;
+  updateEnableSupersets(enabled: boolean): Promise<void>;
 }
 
 type PreferencesContextType = {
@@ -39,6 +40,7 @@ type PreferencesContextType = {
   updateTheme: (theme: ThemePreference) => Promise<void>;
   updateRestTimer: (seconds: RestTimerSeconds) => Promise<void>;
   updateTrackBodyweight: (enabled: boolean) => Promise<void>;
+  updateEnableSupersets: (enabled: boolean) => Promise<void>;
   // Convenience getters
   units: UnitSystem;
   defaultChartView: DefaultChartView;
@@ -46,6 +48,7 @@ type PreferencesContextType = {
   theme: ThemePreference;
   restTimerSeconds: RestTimerSeconds;
   trackBodyweight: boolean;
+  enableSupersets: boolean;
 };
 
 const PreferencesContext = createContext<PreferencesContextType | undefined>(undefined);
@@ -63,7 +66,7 @@ export function createPreferencesProvider(service: PreferencesService) {
         const prefs = await service.getPreferences();
         setPreferences(prefs);
       } catch (error) {
-        console.error("Error loading preferences:", error);
+        console.error("Error loading preferences", error);
       } finally {
         setLoading(false);
       }
@@ -103,6 +106,11 @@ export function createPreferencesProvider(service: PreferencesService) {
       await loadPreferences();
     };
 
+    const updateEnableSupersetsPref = async (enabled: boolean) => {
+      await service.updateEnableSupersets(enabled);
+      await loadPreferences();
+    };
+
     const value: PreferencesContextType = {
       preferences,
       loading,
@@ -113,12 +121,14 @@ export function createPreferencesProvider(service: PreferencesService) {
       updateTheme: updateThemePref,
       updateRestTimer: updateRestTimerPref,
       updateTrackBodyweight: updateTrackBodyweightPref,
+      updateEnableSupersets: updateEnableSupersetsPref,
       units: preferences?.units || "imperial",
       defaultChartView: preferences?.defaultChartView || "month",
       prNotifications: preferences?.prNotifications ?? true,
       theme: preferences?.theme || "system",
       restTimerSeconds: preferences?.restTimerSeconds ?? 0,
       trackBodyweight: preferences?.trackBodyweight ?? false,
+      enableSupersets: preferences?.enableSupersets ?? false,
     };
 
     return (

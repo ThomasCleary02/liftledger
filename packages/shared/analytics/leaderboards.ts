@@ -123,7 +123,7 @@ export function getCardioDistanceLeaderboard(
     });
   }
 
-  // Sort by distance descending
+  // Sort by duration descending
   entries.sort((a, b) => b.value - a.value);
 
   // Assign ranks (handle ties)

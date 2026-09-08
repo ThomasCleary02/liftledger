@@ -60,6 +60,7 @@ import {
   CARDIO_ACTIVITY_LABELS,
   cardioPaceKind,
   secondsPerMile,
+  isHoldFocusedExercise,
   type CardioActivityType,
 } from "@liftledger/shared";
 
@@ -156,13 +157,16 @@ export default function DayView() {
 
   const [selectedExercise, setSelectedExercise] = useState<SelectedExercise | null>(null);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  /** True when the open composer entry was auto-created by selecting an exercise this session. */
+  const [sessionDraft, setSessionDraft] = useState(false);
+  const discardSessionDraftRef = useRef(false);
 
   const [strengthSets, setStrengthSets] = useState<StrengthSet[]>([{ reps: "10", weight: "135" }]);
   const [cardioData, setCardioData] = useState<CardioData>({ duration: "30", distance: "" });
   const [cardioActivityType, setCardioActivityType] = useState<CardioActivityType>("other");
   const [calisthenicsSets, setCalisthenicsSets] = useState<CalisthenicsSet[]>([{ reps: "10" }]);
 
-  const { units, restTimerSeconds, trackBodyweight, prNotifications } = usePreferences();
+  const { units, restTimerSeconds, trackBodyweight, prNotifications, enableSupersets } = usePreferences();
   const [localToday] = useState(() => format(new Date(), "yyyy-MM-dd"));
   const { showSyncing } = useSyncStatus();
 
@@ -238,6 +242,7 @@ export default function DayView() {
   const resetComposer = () => {
     setSelectedExercise(null);
     setEditingIndex(null);
+    setSessionDraft(false);
     setLastHint(null);
     setShowTemplateSelector(false);
     setStrengthSets([{ reps: "10", weight: formatWeightInput(135, units) }]);
@@ -678,6 +683,7 @@ export default function DayView() {
     const ex = day.exercises[idx];
     if (!ex) return;
 
+    setSessionDraft(false);
     setEditingIndex(idx);
     setSelectedExercise({
       id: ex.exerciseId ?? "",
@@ -737,6 +743,7 @@ export default function DayView() {
     } catch (error) {
       logger.error("Failed to save bodyweight", error);
       toast.error("Could not save bodyweight");
+      throw error;
     }
   };
 
@@ -875,17 +882,35 @@ export default function DayView() {
           .catch(() => undefined);
       }
       const wasUpdate = editingIndex !== null;
+      if (discardSessionDraftRef.current && !wasUpdate) {
+        discardSessionDraftRef.current = false;
+        const withoutDraft = nextExercises.slice(0, -1);
+        if (currentDay.id) {
+          await updateDay(currentDay.id, { exercises: withoutDraft });
+          applyDayIfCurrent({ ...currentDay, exercises: withoutDraft });
+        }
+        setSelectedExercise(null);
+        setEditingIndex(null);
+        setSessionDraft(false);
+        setLastHint(null);
+        showSyncing(false);
+        return;
+      }
+      discardSessionDraftRef.current = false;
       if (stayOpen) {
         setEditingIndex(wasUpdate ? editingIndex : nextExercises.length - 1);
+        if (!wasUpdate) setSessionDraft(true);
       } else {
         setSelectedExercise(null);
         setEditingIndex(null);
+        setSessionDraft(false);
         setLastHint(null);
         setStrengthSets([{ reps: "10", weight: formatWeightInput(135, units) }]);
         setCardioData({ duration: "30", distance: "" });
         setCalisthenicsSets([{ reps: "10" }]);
       }
       if (!silent) {
+        setSessionDraft(false);
         toast.success(wasUpdate ? "Exercise updated" : "Saved to log");
       }
       showSyncing(false);
@@ -980,6 +1005,8 @@ export default function DayView() {
     name: string,
     modality: "strength" | "cardio" | "calisthenics"
   ) => {
+    discardSessionDraftRef.current = false;
+    setSessionDraft(true);
     setSelectedExercise({ id: exerciseId, name, modality });
 
     const lastExercise =
@@ -1023,7 +1050,7 @@ export default function DayView() {
               duration: s.duration ? String(s.duration) : "",
               addedWeight: s.addedWeight ? formatWeightInput(s.addedWeight, units) : "",
             }))
-          : [{ reps: "10" }];
+          : [{ reps: isHoldFocusedExercise(name, exerciseId) ? "1" : "10", duration: "" }];
       setCalisthenicsSets(nextSets);
       void addExercise({
         exercise: { id: exerciseId, name, modality },
@@ -1053,7 +1080,7 @@ export default function DayView() {
     });
   };
 
-  const removeExercise = async (idx: number) => {
+  const removeExercise = async (idx: number, options?: { silent?: boolean }) => {
     if (!day) return;
     if (!beginSave()) return;
     showSyncing(true);
@@ -1061,13 +1088,16 @@ export default function DayView() {
       const next = day.exercises.filter((_, i: number) => i !== idx).map(cleanExercise);
       await updateDay(day.id, { exercises: next });
       applyDayIfCurrent({ ...day, exercises: next });
-      toast.success("Exercise removed");
+      if (!options?.silent) {
+        toast.success("Exercise removed");
+      }
       if (next.length === 0) {
         setAddSheetOpen(false);
       }
       if (editingIndex === idx) {
         setSelectedExercise(null);
         setEditingIndex(null);
+        setSessionDraft(false);
       } else if (editingIndex !== null && editingIndex > idx) {
         setEditingIndex(editingIndex - 1);
       }
@@ -1079,6 +1109,24 @@ export default function DayView() {
       showSyncing(false);
     } finally {
       endSave();
+    }
+  };
+
+  const abandonSessionDraft = async () => {
+    if (persistTimerRef.current) {
+      clearTimeout(persistTimerRef.current);
+      persistTimerRef.current = null;
+    }
+    const idx = editingIndex;
+    const wasDraft = sessionDraft;
+    discardSessionDraftRef.current = wasDraft;
+    setSelectedExercise(null);
+    setEditingIndex(null);
+    setSessionDraft(false);
+    setLastHint(null);
+    if (wasDraft && idx !== null) {
+      await removeExercise(idx, { silent: true });
+      discardSessionDraftRef.current = false;
     }
   };
 
@@ -1235,6 +1283,7 @@ export default function DayView() {
     setAddSheetOpen(false);
     setSelectedExercise(null);
     setEditingIndex(null);
+    setSessionDraft(false);
     setLastHint(null);
   };
 
@@ -1249,9 +1298,14 @@ export default function DayView() {
             </div>
             )}
 
-            {editingIndex !== null && (
+            {editingIndex !== null && !sessionDraft && (
               <div className="mb-3 rounded-xl border border-info/30 bg-info-muted px-4 py-3 text-sm text-info-fg">
                 Editing {selectedExercise?.name ?? "exercise"}. Changes save as you add sets.
+              </div>
+            )}
+            {sessionDraft && selectedExercise && (
+              <div className="mb-3 text-sm text-gray-500">
+                Saved as you edit. Change discards this entry.
               </div>
             )}
 
@@ -1287,9 +1341,7 @@ export default function DayView() {
                   </div>
                   <button
                     onClick={() => {
-                      setSelectedExercise(null);
-                      setEditingIndex(null);
-                      setLastHint(null);
+                      void abandonSessionDraft();
                     }}
                     className="text-sm text-gray-600 transition-colors hover:text-gray-700"
                     aria-label="Change exercise"
@@ -1336,11 +1388,11 @@ export default function DayView() {
                 {selectedExercise.modality === "calisthenics" && (
                   <CalisthenicsSetInput
                     sets={calisthenicsSets}
+                    exerciseName={selectedExercise.name}
                     onSetsChange={(next) => {
                       setCalisthenicsSets(next);
                       queueComposerSave({ calisthenicsSets: next });
                     }}
-                    showDuration
                     onAddedSet={(next) => {
                       startRest();
                       void addExercise({
@@ -1480,9 +1532,9 @@ export default function DayView() {
         )}
         {trackBodyweight && (
           <BodyweightCard
+            key={currentDate}
             valueLbs={visibleDay?.bodyweightLbs}
             units={units}
-            disabled={saving}
             onSave={saveBodyweight}
           />
         )}
@@ -1493,7 +1545,7 @@ export default function DayView() {
         {hasExercises && (
           <div className="mb-6">
             <h2 className="mb-3 text-lg font-semibold text-gray-900">Exercises</h2>
-            {showSupersetTip && day!.exercises.length >= 2 && (
+            {showSupersetTip && enableSupersets && day!.exercises.length >= 2 && (
               <div className="mb-3 flex items-start justify-between gap-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-700">
                 <p>
                   Tip: use the link icon to pair a lift with the one above (superset). More notes live in Settings → Tips.
@@ -1542,7 +1594,7 @@ export default function DayView() {
                             >
                               <Unlink className="h-4 w-4" />
                             </button>
-                          ) : idx > 0 ? (
+                          ) : enableSupersets && idx > 0 ? (
                             <button
                               type="button"
                               onClick={() => pairSuperset(idx)}

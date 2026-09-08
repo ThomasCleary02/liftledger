@@ -87,6 +87,33 @@ describe("analytics from days", () => {
     expect(filterDaysByPeriod([recent, old], "week").map((day) => day.date)).toEqual([recent.date]);
   });
 
+  it("finds longest hold as the primary calisthenics PR for planks", () => {
+    const days = [
+      makeDay("2026-01-01", {
+        exercises: [
+          {
+            name: "Plank",
+            modality: "calisthenics",
+            calisthenicsSets: [{ reps: 1, duration: 45 }],
+          },
+        ],
+      }),
+      makeDay("2026-01-02", {
+        exercises: [
+          {
+            name: "Plank",
+            modality: "calisthenics",
+            calisthenicsSets: [{ reps: 1, duration: 70 }],
+          },
+        ],
+      }),
+    ];
+    const prs = findAllPRs(days);
+    const plank = prs.filter((pr) => pr.exerciseId === "Plank");
+    expect(plank.some((pr) => pr.prType === "maxDuration" && pr.value === 70)).toBe(true);
+    expect(collapsePRsByExercise(plank)[0]).toMatchObject({ prType: "maxDuration", value: 70 });
+  });
+
   it("finds PRs and favorite lifts", () => {
     const days = [
       makeDay("2026-01-01", { exercises: [strength("Bench Press", [{ reps: 5, weight: 135 }])] }),
@@ -264,6 +291,8 @@ describe("analytics from days", () => {
     expect(cardio.sessions).toBe(1);
     expect(cardio.byType[0].type).toBe("run");
     expect(cardio.byType[0].bestPace).toBe(600);
+    expect(cardio.byType[0].longestDurationDate).toBe("2026-01-02");
+    expect(cardio.byType[0].longestDistanceDate).toBe("2026-01-02");
   });
 
   it("builds a bodyweight series and change from weigh-ins only", () => {

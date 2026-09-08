@@ -19,6 +19,8 @@ export interface UserPreferences {
   restTimerSeconds: RestTimerSeconds;
   /** When false (default), hide bodyweight logging and analytics. */
   trackBodyweight: boolean;
+  /** When false (default), hide day-log superset pair controls. */
+  enableSupersets: boolean;
 }
 
 /**
@@ -40,6 +42,7 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   theme: "system",
   restTimerSeconds: 0,
   trackBodyweight: false,
+  enableSupersets: false,
 };
 
 /**
@@ -94,6 +97,10 @@ export function createPreferencesService(storage: PreferencesStorage) {
     await savePreferences({ trackBodyweight });
   }
 
+  async function updateEnableSupersets(enableSupersets: boolean): Promise<void> {
+    await savePreferences({ enableSupersets });
+  }
+
   return {
     getPreferences,
     savePreferences,
@@ -103,6 +110,7 @@ export function createPreferencesService(storage: PreferencesStorage) {
     updateTheme,
     updateRestTimerSeconds,
     updateTrackBodyweight,
+    updateEnableSupersets,
   };
 }
 

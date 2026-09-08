@@ -563,7 +563,7 @@ export function findAllPRs(
   const prs: ExercisePR[] = [];
   const strengthPRs = new Map<string, { name: string; maxWeight?: DatedPR }>();
   const cardioPRs = new Map<string, { name: string; maxDistance?: DatedPR; maxDuration?: DatedPR; bestPace?: DatedPR }>();
-  const calisthenicsPRs = new Map<string, { name: string; maxReps?: DatedPR }>();
+  const calisthenicsPRs = new Map<string, { name: string; maxReps?: DatedPR; maxDuration?: DatedPR }>();
 
   const indexes = buildCatalogIndexes(catalog);
 
@@ -604,6 +604,7 @@ export function findAllPRs(
         const current = calisthenicsPRs.get(exerciseId) || { name: ex.name };
         ex.calisthenicsSets.forEach((set) => {
           current.maxReps = betterHigh(current.maxReps, set.reps || 0, dayDate, day.id);
+          current.maxDuration = betterHigh(current.maxDuration, set.duration || 0, dayDate, day.id);
         });
         current.name = ex.name;
         calisthenicsPRs.set(exerciseId, current);
@@ -622,6 +623,7 @@ export function findAllPRs(
   });
 
   calisthenicsPRs.forEach((pr, exerciseId) => {
+    pushDatedPR(prs, exerciseId, pr.name, "calisthenics", "maxDuration", pr.maxDuration);
     pushDatedPR(prs, exerciseId, pr.name, "calisthenics", "maxReps", pr.maxReps);
   });
 
@@ -636,7 +638,8 @@ export function findAllPRs(
 const PRIMARY_PR_TYPE: Record<ExercisePR["modality"], ExercisePR["prType"][]> = {
   strength: ["maxWeight"],
   cardio: ["bestPace", "maxDistance", "maxDuration"],
-  calisthenics: ["maxReps"],
+  // Hold-focused moves (plank, etc.) care about longest time first.
+  calisthenics: ["maxDuration", "maxReps"],
 };
 
 /** One row per movement: the PR people actually mean, not every metric. */
@@ -830,6 +833,10 @@ export interface CardioTypeStats {
   totalDistance: number;
   longestDistance: number;
   longestDuration: number;
+  /** YYYY-MM-DD of the longest-duration session, when known. */
+  longestDurationDate?: string;
+  /** YYYY-MM-DD of the longest-distance session, when known. */
+  longestDistanceDate?: string;
   averagePace?: number;
   bestPace?: number;
   averageSpeed?: number;
@@ -851,6 +858,8 @@ type TypeAccumulator = {
   pacedDistance: number;
   longestDistance: number;
   longestDuration: number;
+  longestDurationDate?: string;
+  longestDistanceDate?: string;
   bestPace: number;
   bestSpeed: number;
   exercises: Map<string, CardioExerciseStats>;
@@ -893,8 +902,14 @@ export function getCardioAnalytics(days: Day[], _timePeriod: TimePeriod = "month
       acc.sessions += 1;
       acc.totalDuration += duration;
       acc.totalDistance += distance;
-      acc.longestDuration = Math.max(acc.longestDuration, duration);
-      acc.longestDistance = Math.max(acc.longestDistance, distance);
+      if (duration > acc.longestDuration) {
+        acc.longestDuration = duration;
+        acc.longestDurationDate = day.date;
+      }
+      if (distance > acc.longestDistance) {
+        acc.longestDistance = distance;
+        acc.longestDistanceDate = day.date;
+      }
 
       const kind = cardioPaceKind(type);
       if (distance > 0 && duration > 0) {
@@ -942,6 +957,8 @@ export function getCardioAnalytics(days: Day[], _timePeriod: TimePeriod = "month
         longestDuration: acc.longestDuration,
         exercises: Array.from(acc.exercises.values()).sort((a, b) => b.count - a.count),
       };
+      if (acc.longestDurationDate) stats.longestDurationDate = acc.longestDurationDate;
+      if (acc.longestDistanceDate) stats.longestDistanceDate = acc.longestDistanceDate;
 
       if (kind === "pace" && acc.pacedDistance > 0) {
         stats.averagePace = acc.pacedDuration / acc.pacedDistance;

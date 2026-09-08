@@ -14,6 +14,7 @@ Narrative of where the product has been and where it is headed. **Execution orde
 | **3.2.4** | Move tracking mismatch UX into My exercises; PR empty/loading fix; share preview stays in-app; docs + agent workflow (skills, rules, hooks) |
 | **3.3.0** | Medal progress + rarity; Profile polish; Friends/leaderboards from Profile (Friends off tab bar); longest cardio distance secondary; week-share polish + share earned medal |
 | **3.3.1** | Cardio PR composition; Profile friends route tree + tab highlight; Sign-in vs Profile; tab-bar clearance; medal unlock toasts |
+| **3.3.2** | Day-log polish (bodyweight compact, Change clears silent draft, hold Start/Stop); Training extras; plank longest-hold PRs; analytics/friends UX copy |
 
 ## Current focus (see backlog Now)
 
@@ -24,14 +25,13 @@ Narrative of where the product has been and where it is headed. **Execution orde
 - Offline gym-floor logging; wire easy medal awards (share / friend / weigh-ins).
 - **Year wrapped**; import for a year; programs complete; head-to-head week.
 - Richer **share card family** (month / PR) beyond 3.3 week + medal share.
-- Friends empty states / board naming if not finished in 3.3.
 
 ## Later
 
 - Offline-capable medal once offline logging is real.
 - Night/dawn medals only if local log time exists (not just calendar date).
-- Grow live medals only as features land — roadmap ideas stay in `ACHIEVEMENT_ROADMAP` inside `packages/shared/achievements.ts`, not as fake locked UI.
-- Opt-in calisthenics analytics tab; bodyweight day-card collapse after log.
+- Grow live medals only as features land — roadmap ideas stay in `ACHIEVEMENT_ROADMAP` inside `packages/shared/achievements.ts`, not as fake locked UI. Prefer **harder** grind medals (or feature-tied) over more easy badges; Engine (10 hr) is live; Mileage club / Long haul stay roadmap.
+- Opt-in calisthenics analytics tab.
 - **v4 candidate:** native Expo client for integrations (Health, widgets, etc.) — web/PWA remains 3.x.
 
 ## Guardrails (stable)
