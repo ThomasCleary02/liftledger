@@ -184,6 +184,7 @@ export default function DayView() {
   const [addSheetOpen, setAddSheetOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
   const [showSupersetTip, setShowSupersetTip] = useState(false);
+  const [showDayMenuTip, setShowDayMenuTip] = useState(false);
   const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const startRest = () => {
@@ -209,8 +210,10 @@ export default function DayView() {
   useEffect(() => {
     try {
       setShowSupersetTip(localStorage.getItem("liftledger.tip.superset") !== "1");
+      setShowDayMenuTip(localStorage.getItem("liftledger.tip.dayMenu") !== "1");
     } catch {
       setShowSupersetTip(false);
+      setShowDayMenuTip(false);
     }
   }, []);
 
@@ -218,6 +221,15 @@ export default function DayView() {
     setShowSupersetTip(false);
     try {
       localStorage.setItem("liftledger.tip.superset", "1");
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const dismissDayMenuTip = () => {
+    setShowDayMenuTip(false);
+    try {
+      localStorage.setItem("liftledger.tip.dayMenu", "1");
     } catch {
       /* ignore */
     }
@@ -1539,7 +1551,23 @@ export default function DayView() {
           />
         )}
         {!isRestDay && !hasExercises && !selectedExercise && (
-          <p className="mb-4 text-sm text-gray-500">Search an exercise to start today’s log.</p>
+          <div className="mb-4 space-y-3">
+            <p className="text-sm text-gray-500">Search an exercise to start today’s log.</p>
+            {showDayMenuTip ? (
+              <div className="flex items-start justify-between gap-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-700">
+                <p>
+                  Tip: the ⋯ menu marks rest days or injury skips. Hold timers appear on planks and similar moves.
+                </p>
+                <button
+                  type="button"
+                  onClick={dismissDayMenuTip}
+                  className="shrink-0 font-semibold text-gray-800 underline-offset-2 hover:underline"
+                >
+                  Got it
+                </button>
+              </div>
+            ) : null}
+          </div>
         )}
         <div>
         {hasExercises && (
@@ -1648,15 +1676,23 @@ export default function DayView() {
                           </div>
                         )}
                         {ex.modality === "calisthenics" &&
-                          ex.calisthenicsSets?.map((st: any, i: number) => (
-                            <div key={i} className="rounded bg-gray-100 px-3 py-1">
-                              <span className="text-sm text-gray-700">
-                                {st.reps} reps
-                                {st.addedWeight ? ` • +${formatWeight(st.addedWeight, units)}` : ""}
-                                {st.duration ? ` • ${formatDuration(st.duration)}` : null}
-                              </span>
-                            </div>
-                          ))}
+                          ex.calisthenicsSets?.map((st: any, i: number) => {
+                            const holdFocused = isHoldFocusedExercise(ex.name, ex.exerciseId);
+                            return (
+                              <div key={i} className="rounded bg-gray-100 px-3 py-1">
+                                <span className="text-sm text-gray-700">
+                                  {holdFocused && st.duration
+                                    ? formatDuration(Number(st.duration) || 0)
+                                    : `${st.reps} reps`}
+                                  {st.addedWeight ? ` • +${formatWeight(st.addedWeight, units)}` : ""}
+                                  {!holdFocused && st.duration
+                                    ? ` • ${formatDuration(Number(st.duration) || 0)}`
+                                    : null}
+                                  {holdFocused && !st.duration && st.reps ? ` • ${st.reps} reps` : null}
+                                </span>
+                              </div>
+                            );
+                          })}
                       </div>
                     </div>
                   );

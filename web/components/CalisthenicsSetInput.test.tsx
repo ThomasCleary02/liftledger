@@ -40,7 +40,7 @@ describe("CalisthenicsSetInput", () => {
     expect(screen.getByLabelText("Set 1 hold time in seconds")).toBeTruthy();
   });
 
-  it("opens hold UI for plank and records stopwatch seconds", () => {
+  it("hides reps for plank and records stopwatch seconds", () => {
     vi.useFakeTimers();
     const onSetsChange = vi.fn();
     render(
@@ -50,6 +50,7 @@ describe("CalisthenicsSetInput", () => {
         onSetsChange={onSetsChange}
       />
     );
+    expect(screen.queryByLabelText("Set 1 reps")).toBeNull();
     expect(screen.getByLabelText("Set 1 hold time in seconds")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Start hold timer for set 1" }));
     act(() => {

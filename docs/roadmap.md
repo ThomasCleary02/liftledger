@@ -15,10 +15,11 @@ Narrative of where the product has been and where it is headed. **Execution orde
 | **3.3.0** | Medal progress + rarity; Profile polish; Friends/leaderboards from Profile (Friends off tab bar); longest cardio distance secondary; week-share polish + share earned medal |
 | **3.3.1** | Cardio PR composition; Profile friends route tree + tab highlight; Sign-in vs Profile; tab-bar clearance; medal unlock toasts |
 | **3.3.2** | Day-log polish (bodyweight compact, Change clears silent draft, hold Start/Stop); Training extras; plank longest-hold PRs; analytics/friends UX copy |
+| **3.3.3** | Tab icon outline fix; hold-focused plank UI + larger Start/Stop; Overview calisthenics reps; catalog seed; day-menu tip; Netlify package.json-only builds |
 
 ## Current focus (see backlog Now)
 
-- Pick from backlog **Next** (offline logging, medal award wiring, year wrapped, change password, …).
+- **3.4.0** Account & Auth polish (password reset visibility, email change, OAuth, Account hierarchy).
 
 ## Near term (backlog Next)
 

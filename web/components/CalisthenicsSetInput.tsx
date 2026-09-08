@@ -62,7 +62,7 @@ export default function CalisthenicsSetInput({
   const addSet = () => {
     const lastSet = sets[sets.length - 1];
     const blank = holdFocused ? { reps: "1", duration: "" } : { reps: "10" };
-    const next = [...sets, lastSet ? { ...lastSet } : blank];
+    const next = [...sets, lastSet ? { ...lastSet, ...(holdFocused ? { reps: lastSet.reps || "1" } : {}) } : blank];
     onSetsChange(next);
     onAddedSet?.(next);
   };
@@ -80,7 +80,14 @@ export default function CalisthenicsSetInput({
   const updateSet = (idx: number, field: keyof CalisthenicsSet, value: string) => {
     const sanitized =
       field === "addedWeight" ? sanitizeDecimal(value) : field === "reps" || field === "duration" ? sanitizeValue(value) : value;
-    onSetsChange(sets.map((s, i) => (i === idx ? { ...s, [field]: sanitized } : s)));
+    onSetsChange(
+      sets.map((s, i) => {
+        if (i !== idx) return s;
+        const next = { ...s, [field]: sanitized };
+        if (holdFocused && !next.reps) next.reps = "1";
+        return next;
+      })
+    );
   };
 
   const commitElapsed = (idx: number) => {
@@ -106,67 +113,96 @@ export default function CalisthenicsSetInput({
 
   return (
     <div>
-      <p className="mb-2 font-medium text-gray-700">Sets</p>
+      <p className="mb-2 font-medium text-gray-700">{holdFocused ? "Holds" : "Sets"}</p>
       {sets.map((set, idx) => (
-        <div key={idx} className="mb-2">
-          <div className="flex items-center">
-            <span className="w-8 text-gray-600">{idx + 1}.</span>
-            <input
-              type="text"
-              inputMode="numeric"
-              className="mr-2 min-h-[48px] flex-1 rounded-lg bg-gray-100 px-3 py-3 text-base tabular-nums text-gray-900 placeholder:text-gray-400 outline-none focus:bg-white focus:ring-2 focus:ring-brand"
-              value={set.reps}
-              onChange={(e) => updateSet(idx, "reps", e.target.value)}
-              placeholder={holdFocused ? "1" : "Reps"}
-              enterKeyHint="next"
-              aria-label={`Set ${idx + 1} reps`}
-            />
-            <span className="w-12 text-gray-600">reps</span>
-            <input
-              type="text"
-              inputMode="decimal"
-              className="ml-2 min-h-[48px] w-20 rounded-lg bg-gray-100 px-3 py-3 text-base tabular-nums text-gray-900 placeholder:text-gray-400 outline-none focus:bg-white focus:ring-2 focus:ring-brand"
-              value={set.addedWeight || ""}
-              onChange={(e) => updateSet(idx, "addedWeight", e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  addSet();
-                }
-              }}
-              placeholder={`+${weightUnit}`}
-              enterKeyHint="done"
-              aria-label={`Set ${idx + 1} added weight in ${weightUnit}`}
-            />
-            {sets.length > 1 && (
-              <button
-                onClick={() => removeSet(idx)}
-                type="button"
-                className="ml-2 flex min-h-[44px] min-w-[44px] items-center justify-center text-red-600 transition-colors hover:text-red-700"
-                aria-label={`Remove set ${idx + 1}`}
-              >
-                <X className="h-5 w-5" />
-              </button>
-            )}
-          </div>
-          {showHold && (
-            <div className="ml-8 mt-2 space-y-2">
+        <div key={idx} className="mb-3">
+          {!holdFocused ? (
+            <div className="flex items-center">
+              <span className="w-8 text-gray-600">{idx + 1}.</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                className="mr-2 min-h-[48px] flex-1 rounded-lg bg-gray-100 px-3 py-3 text-base tabular-nums text-gray-900 placeholder:text-gray-400 outline-none focus:bg-white focus:ring-2 focus:ring-brand"
+                value={set.reps}
+                onChange={(e) => updateSet(idx, "reps", e.target.value)}
+                placeholder="Reps"
+                enterKeyHint="next"
+                aria-label={`Set ${idx + 1} reps`}
+              />
+              <span className="w-12 text-gray-600">reps</span>
+              <input
+                type="text"
+                inputMode="decimal"
+                className="ml-2 min-h-[48px] w-20 rounded-lg bg-gray-100 px-3 py-3 text-base tabular-nums text-gray-900 placeholder:text-gray-400 outline-none focus:bg-white focus:ring-2 focus:ring-brand"
+                value={set.addedWeight || ""}
+                onChange={(e) => updateSet(idx, "addedWeight", e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addSet();
+                  }
+                }}
+                placeholder={`+${weightUnit}`}
+                enterKeyHint="done"
+                aria-label={`Set ${idx + 1} added weight in ${weightUnit}`}
+              />
+              {sets.length > 1 && (
+                <button
+                  onClick={() => removeSet(idx)}
+                  type="button"
+                  className="ml-2 flex min-h-[44px] min-w-[44px] items-center justify-center text-red-600 transition-colors hover:text-red-700"
+                  aria-label={`Remove set ${idx + 1}`}
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <span className="text-sm font-semibold text-gray-700">Hold {idx + 1}</span>
               <div className="flex items-center gap-2">
                 <input
                   type="text"
-                  inputMode="numeric"
-                  className="min-h-[48px] flex-1 rounded-lg bg-gray-100 px-3 py-3 text-base tabular-nums text-gray-900 placeholder:text-gray-400 outline-none focus:bg-white focus:ring-2 focus:ring-brand"
-                  value={set.duration || ""}
-                  onChange={(e) => updateSet(idx, "duration", e.target.value)}
-                  placeholder="Hold (seconds)"
-                  aria-label={`Set ${idx + 1} hold time in seconds`}
+                  inputMode="decimal"
+                  className="min-h-[44px] w-20 rounded-lg bg-gray-100 px-3 py-2 text-base tabular-nums text-gray-900 placeholder:text-gray-400 outline-none focus:bg-white focus:ring-2 focus:ring-brand"
+                  value={set.addedWeight || ""}
+                  onChange={(e) => updateSet(idx, "addedWeight", e.target.value)}
+                  placeholder={`+${weightUnit}`}
+                  aria-label={`Hold ${idx + 1} added weight in ${weightUnit}`}
                 />
-                <span className="w-10 shrink-0 text-xs text-gray-600">sec</span>
+                {sets.length > 1 && (
+                  <button
+                    onClick={() => removeSet(idx)}
+                    type="button"
+                    className="flex min-h-[44px] min-w-[44px] items-center justify-center text-red-600 transition-colors hover:text-red-700"
+                    aria-label={`Remove hold ${idx + 1}`}
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+          {showHold && (
+            <div className={holdFocused ? "space-y-2" : "ml-8 mt-2 space-y-2"}>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <div className="flex min-w-0 flex-1 items-center gap-2">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    className="min-h-[56px] flex-1 rounded-lg bg-gray-100 px-3 py-3 text-base tabular-nums text-gray-900 placeholder:text-gray-400 outline-none focus:bg-white focus:ring-2 focus:ring-brand"
+                    value={set.duration || ""}
+                    onChange={(e) => updateSet(idx, "duration", e.target.value)}
+                    placeholder="Hold (seconds)"
+                    aria-label={`Set ${idx + 1} hold time in seconds`}
+                  />
+                  <span className="w-10 shrink-0 text-xs text-gray-600">sec</span>
+                </div>
                 {timingIdx === idx ? (
                   <button
                     type="button"
                     onClick={stopTimer}
-                    className="min-h-[48px] shrink-0 rounded-lg bg-danger px-3 py-2 text-sm font-semibold text-white"
+                    className="min-h-[56px] w-full shrink-0 rounded-lg bg-danger px-6 py-3 text-base font-semibold text-white sm:min-w-[120px] sm:w-auto"
                     aria-label={`Stop hold timer for set ${idx + 1}`}
                   >
                     Stop
@@ -175,16 +211,16 @@ export default function CalisthenicsSetInput({
                   <button
                     type="button"
                     onClick={() => startTimer(idx)}
-                    className="flex min-h-[48px] shrink-0 items-center gap-1.5 rounded-lg bg-gray-200 px-3 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-300"
+                    className="flex min-h-[56px] w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-gray-200 px-6 py-3 text-base font-semibold text-gray-800 hover:bg-gray-300 sm:min-w-[120px] sm:w-auto"
                     aria-label={`Start hold timer for set ${idx + 1}`}
                   >
-                    <Timer className="h-4 w-4" />
+                    <Timer className="h-5 w-5" />
                     Start
                   </button>
                 )}
               </div>
               {timingIdx === idx ? (
-                <p className="font-mono text-2xl font-bold tabular-nums text-gray-900" aria-live="polite">
+                <p className="font-mono text-3xl font-bold tabular-nums text-gray-900" aria-live="polite">
                   {formatHoldClock(elapsedSec)}
                 </p>
               ) : null}
@@ -207,7 +243,7 @@ export default function CalisthenicsSetInput({
         className="mt-2 flex min-h-[48px] w-full items-center justify-center gap-2 rounded-lg bg-gray-200 px-4 py-3 text-gray-800 transition-colors hover:bg-gray-300"
       >
         <Plus className="h-4 w-4" />
-        Add Set
+        {holdFocused ? "Add Hold" : "Add Set"}
       </button>
     </div>
   );

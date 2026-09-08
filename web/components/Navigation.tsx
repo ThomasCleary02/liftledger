@@ -74,7 +74,7 @@ export function Navigation() {
                   isActive ? "text-brand" : "text-gray-500"
                 }`}
               >
-                <Icon className={`h-6 w-6 ${isActive ? "fill-current" : ""}`} />
+                <Icon className="h-6 w-6" />
                 <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.08em]">{item.label}</span>
               </Link>
             );
@@ -103,7 +103,7 @@ export function Navigation() {
                     : "text-gray-700 hover:bg-gray-100"
                 }`}
               >
-                <Icon className={`h-5 w-5 ${isActive ? "fill-current" : ""}`} />
+                <Icon className="h-5 w-5" />
                 <span className="font-medium">{item.label}</span>
               </Link>
             );

@@ -6,24 +6,14 @@ Durable product/engineering knowledge lives in [`docs/`](./docs/README.md). Keep
 
 ## Now
 
-**Target: 3.3.3 polish release** — quick wins, UX improvements, no major features.
-
-- **Tab icon fill issue:** remove `fill-current` from active tabs (Analytics/Profile/Settings unrecognizable). Quick CSS fix.
-- **Hold timer stop button:** increase touch target size for easier mid-set tapping.
-- **Calisthenics reps on Analytics Overview:** add stat card to display `totalCalisthenicsReps` (backend already calculates it).
-- **Exercise catalog additions:** Core (Russian Twist, bicycle crunch, torso rotation machine, wood chop, side bend) + Calisthenics legs (bodyweight calf raise, single-leg calf raise, bodyweight squat, lunge, reverse lunge, step-up, single-leg glute bridge, Nordic hamstring curl) + Calisthenics upper (incline/decline push-up, pike push-up, handstand push-up, inverted row, L-sit). Seed data update.
-- **First-time onboarding hints:** simple tooltip/info badge on first day log pointing to 3-dot menu (rest days, hold timer, supersets). Balance discoverability with "simple by default."
-
-## Next
-
 **Target: 3.4.0 - Account & Auth Polish**
-
-Priority items for the release immediately after 3.3.3:
 
 - **Password reset** - Improve visibility/flow of existing reset email feature.
 - **Email change** - Allow users to update their sign-in email from Settings → Account.
 - **OAuth sign-in methods** - Add Google, Apple, and GitHub authentication options alongside email/password.
 - **Account settings hierarchy** - Make Settings → Account more prominent, group related items.
+
+## Next
 
 **After 3.4.0:**
 
@@ -36,8 +26,7 @@ Priority items for the release immediately after 3.3.3:
 - **Share card family** (month / PR cards beyond week + medal).
 - Analytics Overview **This week** strip: page/swipe to **previous weeks** (one week at a time; header shows which week; Share uses the selected week). Don’t turn it into a full history browser — period chips still own that.
 - Day **notes** editor (product/import already support notes; day UI never exposes them).
-- **Plank UI refinement:** planks are static holds, not rep-based. Consider hiding or defaulting reps to 1, emphasizing hold duration + sets only. (Currently shows both reps + hold time, which is confusing for static exercises.)
-- **Calisthenics hold duration analytics:** calculate and display total hold time alongside total reps (reps shipping in 3.3.3). Complements reps visibility.
+- **Calisthenics hold duration analytics:** calculate and display total hold time alongside total reps. Complements reps visibility.
 - **Settings redesign** - Group settings into logical sections (Account, Preferences, Training, Data, Help). See `docs/ux-audit-2026-09.md` for full mockup.
 - **Enhanced empty states** - Better first-run experience for Analytics (no workouts), Profile (no friends), Templates (none created).
 - **Exercise search improvements** - Recently used section, muscle group filters, modality tabs (Strength/Cardio/Calisthenics).

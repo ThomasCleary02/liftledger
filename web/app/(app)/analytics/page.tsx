@@ -42,6 +42,7 @@ import {
   Clock,
   Gauge,
   Share,
+  Activity,
 } from "lucide-react";
 import { format, parseISO, startOfWeek, eachDayOfInterval, addDays } from "date-fns";
 import { logger } from "../../../lib/logger";
@@ -428,7 +429,11 @@ function OverviewView({
   return (
     <div className="space-y-6">
       {/* Stat Cards */}
-      <div className="grid grid-cols-3 gap-3">
+      <div
+        className={`grid gap-3 ${
+          summary.totalCalisthenicsReps > 0 ? "grid-cols-2 md:grid-cols-4" : "grid-cols-3"
+        }`}
+      >
         <StatCard
           icon={Dumbbell}
           label="Workouts"
@@ -447,6 +452,15 @@ function OverviewView({
           value={formatWeight(summary.totalVolume, units)}
           color="bg-purple-100 text-purple-700"
         />
+        {summary.totalCalisthenicsReps > 0 ? (
+          <StatCard
+            icon={Activity}
+            label="Calisthenics"
+            value={formatGroupedNumber(summary.totalCalisthenicsReps, 0)}
+            hint="reps in period"
+            color="bg-teal-100 text-teal-700"
+          />
+        ) : null}
       </div>
 
       <div className="rounded-md border border-gray-100 bg-white p-5 shadow-sm">
