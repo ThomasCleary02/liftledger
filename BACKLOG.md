@@ -11,7 +11,7 @@ Durable product/engineering knowledge lives in [`docs/`](./docs/README.md). Keep
 - **Tab icon fill issue:** remove `fill-current` from active tabs (Analytics/Profile/Settings unrecognizable). Quick CSS fix.
 - **Hold timer stop button:** increase touch target size for easier mid-set tapping.
 - **Calisthenics reps on Analytics Overview:** add stat card to display `totalCalisthenicsReps` (backend already calculates it).
-- **Core exercise catalog additions:** Russian Twist, bicycle crunch, torso rotation machine, wood chop, side bend. Seed data update.
+- **Exercise catalog additions:** Core (Russian Twist, bicycle crunch, torso rotation machine, wood chop, side bend) + Calisthenics legs (bodyweight calf raise, single-leg calf raise, bodyweight squat, lunge, reverse lunge, step-up, single-leg glute bridge, Nordic hamstring curl) + Calisthenics upper (incline/decline push-up, pike push-up, handstand push-up, inverted row, L-sit). Seed data update.
 - **First-time onboarding hints:** simple tooltip/info badge on first day log pointing to 3-dot menu (rest days, hold timer, supersets). Balance discoverability with "simple by default."
 
 ## Next
