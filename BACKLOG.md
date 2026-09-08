@@ -18,7 +18,7 @@ _(empty — ship 3.3.2; see Next)_
 - Head-to-head week on leaderboards.
 - **Share card family** (month / PR cards beyond week + medal).
 - **Change password** in-app (Settings → Sign-in), for email/password accounts.
-- Catalog: add **torso rotation / core twist machine** (not in seed today — confirm naming vs gym labels before shipping).
+- Catalog: add **Russian Twist** (calisthenics/abs), **torso rotation machine** (strength/abs or obliques), and consider **bicycle crunch** (calisthenics/abs), **wood chop / cable chop** (strength/abs), **side bend** (strength/obliques). Confirm naming vs gym labels before shipping.
 - Analytics Overview **This week** strip: page/swipe to **previous weeks** (one week at a time; header shows which week; Share uses the selected week). Don’t turn it into a full history browser — period chips still own that.
 - Day **notes** editor (product/import already support notes; day UI never exposes them).
 - **Plank UI refinement:** planks are static holds, not rep-based. Consider hiding or defaulting reps to 1, emphasizing hold duration + sets only. (Currently shows both reps + hold time, which is confusing for static exercises.)
