@@ -23,10 +23,23 @@ Durable product/engineering knowledge lives in [`docs/`](./docs/README.md). Keep
 - Import that can prove a year of history.
 - Starter programs with a real complete state.
 - Head-to-head week on leaderboards.
-- **Share card redesigns:**
-  - **Week overview redesign** - Cool overview design with key stats, not just calendar grid
-  - **Month share card** - New shareable month overview with similar visual style
-  - **Medal share redesign** - Refresh the medal share image design to match new aesthetic
+- **Share card visual enhancements (phased):**
+  - **Phase 1 - Enhanced static PNGs:**
+    - Tier-specific gradients/effects (Bronze = copper gradient, Silver = metallic shine, Gold = rich highlights, Platinum = silver sparkle, Diamond = prismatic blue, Ledgendary = rainbow/animated gradient effect)
+    - Better typography (bolder numbers, modern fonts, drop shadows)
+    - Visual hierarchy improvements (larger achievement focus, mini charts, better whitespace)
+    - Week overview redesign with key stats, not just calendar grid
+    - Month share card with similar visual style
+  - **Phase 2 - Animated GIFs for special occasions:**
+    - Medal unlock celebrations (spinning medal with shine effect, ~2-3 sec loop)
+    - New PR achievements (confetti + counter animation)
+    - Challenge completions (progress bar filling animation)
+    - Keep regular weekly/monthly shares as PNG (reliability over flash)
+    - Optimize file size, only use for big milestones
+  - **Phase 3 - Advanced formats:**
+    - Video option for year-end wrapped
+    - Interactive web preview before sharing (customize colors, toggle stats)
+    - Multiple export formats (square for Instagram, portrait for Stories, landscape for Twitter)
 - Analytics Overview **This week** strip: page/swipe to **previous weeks** (one week at a time; header shows which week; Share uses the selected week). Don’t turn it into a full history browser — period chips still own that.
 - Day **notes** editor (product/import already support notes; day UI never exposes them).
 - **Calisthenics hold duration analytics:** calculate and display total hold time alongside total reps. Complements reps visibility.
