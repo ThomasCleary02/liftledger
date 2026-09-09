@@ -6,7 +6,11 @@ Durable product/engineering knowledge lives in [`docs/`](./docs/README.md). Keep
 
 ## Now
 
-**Target: 3.4.0 - Account & Auth Polish**
+**Target: 3.3.3 - Bug Fixes & Polish** (Prioritize before 3.4.0)
+
+- **Calisthenics input width fix** - When +lbs field is shown (weighted push-ups, etc.), row is too wide and X button gets cut off screen. Reduce field widths or wrap to two rows on mobile.
+
+**Next: 3.4.0 - Account & Auth Polish**
 
 - **Password reset** - Improve visibility/flow of existing reset email feature.
 - **Email change** - Allow users to update their sign-in email from Settings → Account.
