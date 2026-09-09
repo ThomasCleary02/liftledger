@@ -23,7 +23,10 @@ Durable product/engineering knowledge lives in [`docs/`](./docs/README.md). Keep
 - Import that can prove a year of history.
 - Starter programs with a real complete state.
 - Head-to-head week on leaderboards.
-- **Share card family** (month / PR cards beyond week + medal).
+- **Share card redesigns:**
+  - **Week overview redesign** - Cool overview design with key stats, not just calendar grid
+  - **Month share card** - New shareable month overview with similar visual style
+  - **Medal share redesign** - Refresh the medal share image design to match new aesthetic
 - Analytics Overview **This week** strip: page/swipe to **previous weeks** (one week at a time; header shows which week; Share uses the selected week). Don’t turn it into a full history browser — period chips still own that.
 - Day **notes** editor (product/import already support notes; day UI never exposes them).
 - **Calisthenics hold duration analytics:** calculate and display total hold time alongside total reps. Complements reps visibility.
@@ -42,16 +45,65 @@ Durable product/engineering knowledge lives in [`docs/`](./docs/README.md). Keep
 - Night/dawn medals if we store local log time.
 - More medals as features land — do not grow the live catalog in bulk.
 - **Medal design:** enough easy badges already. New catalog medals should be **harder** (or creative / tied to a new feature). Cardio already has live **Engine** (10 hr). ROADMAP: **Mileage club** (100 mi run, no walk) and **Long haul** (50 hr cardio) in `ACHIEVEMENT_ROADMAP` — keep them ROADMAP until we deliberately promote.
-- **Fourth tier** (Platinum?) for achievement system. User has 150+ sessions, 30+ hr cardio, 400k+ volume — current catalog caps at tier 3 (Century: 100 sessions, Engine: 10 hr, Quarter million: 250k lb). Need harder targets across all categories. Existing catalog: Bronze (tier 1), Silver (tier 2), Gold (tier 3).
+- **Medal tier expansion:**
+  - **Platinum (tier 4), Diamond (tier 5), Ledgendary (tier 6)** - Extend existing medal progression with higher thresholds. Same medal types (sessions, volume, cardio, streaks, challenges), just harder. User has 150+ sessions, 30+ hr cardio, 400k+ volume — current caps at tier 3 (Century: 100 sessions, Engine: 10 hr, Quarter million: 250k lb).
+  - **Challenge medals (all tiers)** - New medal category: specific dedication challenges. Bronze/Silver/Gold/Platinum/Diamond/Ledgendary tiers, progressively harder. Examples: Daily push-ups for 7/14/21/28/60/90 days. If you make it 20 days but miss one, you still earn the tier you completed (Gold = 21 days), not nothing. Ledgendary = month+ challenges requiring serious dedication.
+  - **Important:** Hard challenge medals cannot use rest days to preserve streak. Must be actual trained days. Design these after tier 4/5 numeric medals ship.
 - **Progression system expansion (multi-phase):**
-  - **Phase 1 (nearer-term):** Extended medal tiers — Bronze → Silver → Gold → Platinum (tier 4) → Diamond (tier 5) → **Ledgendary** (tier 6). Top tier uses LiftLedger-branded name (like Valorant's Radiant / Apex's Predator). Elite achievements for dedicated long-term users.
   - **Phase 2 (later):** Profile XP / ranks / titles — XP accumulates from training sessions, unlocks ranks and titles visible on profile. Inspired by Laracasts/Boot.dev: useful tool + fun progression that recognizes real work, not arbitrary gamification.
   - **Phase 3 (much later, if traction/users):** Quests / challenges — daily/weekly goals that encourage healthy training patterns (hit all muscle groups, maintain streaks, try new exercises, PRs). Optional engagement layer that guides good habits.
   - **Phase 4 (long-term, community-dependent):** Forum / community platform (Laracasts-style) — place to discuss training, share achievements, show off badges/ranks/Ledgendary status. Only viable with real user base and moderation capacity. Gives progression system a social showcase.
 - **Customizable Analytics Overview:** let users choose which stat widgets/cards to show (volume, cardio distance/duration, calisthenics reps/holds, bodyweight, etc.). Pairs with exposing more calisthenics metrics.
 - **Calisthenics analytics (opt-in)** — not a mandatory Strength/Cardio peer.
 - Template editor: nested sheet Back vs Done; calisthenics templates thinner than day log (pairs with hold timer).
+- **Global leaderboards** - Competition beyond friends. Could add friends from leaderboard. Privacy settings: discoverable by email only, opt-out of global boards, etc. Needs careful privacy design before shipping.
 - Native Expo integrations → candidate **v4**.
+
+## Challenge Medal Ideas (All Tiers - Design Later)
+
+Specific dedication challenges with tiered progression. Rest days don't count for hard challenges. If you fail mid-way, you keep the tier you completed.
+
+**Daily Push-Up Challenge:**
+- Bronze: 50 push-ups/day × 7 days (350 total)
+- Silver: 75 push-ups/day × 14 days (1,050 total)
+- Gold: 100 push-ups/day × 21 days (2,100 total)
+- Platinum: 100 push-ups/day × 28 days (2,800 total)
+- Diamond: 100 push-ups/day × 60 days (6,000 total)
+- **Ledgendary: 100 push-ups/day × 90 days (9,000 total)** - requires months of dedication
+
+**Volume Blitz:**
+- Bronze: 25k lb in one week
+- Silver: 50k lb in two weeks
+- Gold: 75k lb in three weeks
+- Platinum: 100k lb in one month
+- Diamond: 200k lb in two months
+- **Ledgendary: 500k lb in three months** - sustained intensity
+
+**Distance Demon (Running):**
+- Bronze: 10 miles in one week
+- Silver: 25 miles in two weeks
+- Gold: 50 miles in one month
+- Platinum: 75 miles in one month
+- Diamond: 100 miles in one month
+- **Ledgendary: 200 miles in two months** - marathon-level commitment
+
+**PR Machine:**
+- Bronze: 3 PRs in 7 days
+- Silver: 5 PRs in 14 days
+- Gold: 8 PRs in 21 days
+- Platinum: 10 PRs in 30 days
+- Diamond: 15 PRs in 45 days
+- **Ledgendary: 25 PRs in 60 days** - constant progression
+
+**Iron Streak (No Rest Days):**
+- Bronze: 7 consecutive trained days
+- Silver: 14 consecutive trained days
+- Gold: 21 consecutive trained days
+- Platinum: 30 consecutive trained days
+- Diamond: 45 consecutive trained days
+- **Ledgendary: 60 consecutive trained days (no rest)** - extreme dedication
+
+These scale from achievable (Bronze) to grueling (Ledgendary). Emphasize competitiveness and engagement. You earn credit for the tier you complete, even if you don't make it to the top.
 
 ## Explicitly not doing
 
