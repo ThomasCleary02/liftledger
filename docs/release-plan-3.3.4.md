@@ -1,9 +1,9 @@
-# Release Plan: 3.3.3 - Bug Fixes & Polish
+# Release Plan: 3.3.4 - Bug Fixes & Polish
 
-**Target Version:** 3.3.3 (patch release)  
+**Target Version:** 3.3.4 (patch release)  
 **Type:** Bug fixes + UI polish  
 **Status:** Planning  
-**Current Version:** 3.3.2
+**Current Version:** 3.3.3 (Analytics spacing fix)
 
 ## Release Goals
 
@@ -50,14 +50,14 @@ Polish release focused on fixing usability issues and adding small quality-of-li
    - **Files:** `web/app/(app)/day/[date]/page.tsx`, preferences
    - **Estimate:** 2 hours
 
-## Out of Scope for 3.3.3
+## Out of Scope for 3.3.4
 
-- Catalog additions (Russian Twist, etc.) - moved to 3.4.0
-- Tab icon fill fix - moved to 3.4.0
-- Hold timer stop button size - moved to 3.4.0
-- Calisthenics reps on Analytics Overview - moved to 3.4.0
+- Catalog additions (Russian Twist, etc.) - moved to 3.4.0+
+- Tab icon fill fix - moved to 3.4.0+
+- Hold timer stop button size - moved to 3.4.0+
+- Calisthenics reps on Analytics Overview - moved to 3.4.0+
 
-These were originally planned for 3.3.3 but are being pushed to give more focus to critical bug fixes.
+These items are being deferred to give more focus to critical bug fixes in this patch release.
 
 ## Technical Considerations
 
