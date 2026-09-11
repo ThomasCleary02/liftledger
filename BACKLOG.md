@@ -9,6 +9,8 @@ Durable product/engineering knowledge lives in [`docs/`](./docs/README.md). Keep
 **Target: 3.3.3 - Bug Fixes & Polish** (Prioritize before 3.4.0)
 
 - **Calisthenics input width fix** - When +lbs field is shown (weighted push-ups, etc.), row is too wide and X button gets cut off screen. Reduce field widths or wrap to two rows on mobile.
+- **Stair Stepper / Step Master cardio input** - Should track steps, not miles/distance. Currently uses distance field which doesn't make sense for stair climbers.
+- **Day overview summary** - Add overview somewhere in app showing what you've done for the day (total volume, exercises completed, duration, etc.) or summary at end of day. Help users see progress without navigating to Analytics.
 
 **Next: 3.4.0 - Account & Auth Polish**
 
