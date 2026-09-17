@@ -35,6 +35,47 @@ Narrative of where the product has been and where it is headed. **Execution orde
 - Opt-in calisthenics analytics tab.
 - **v4 candidate:** native Expo client for integrations (Health, widgets, etc.) — web/PWA remains 3.x.
 
+## Future Vision: AI-Powered Training Insights
+
+**MCP-Based Chat Interface** (post user traction, v4+ timeframe)
+
+Natural language queries over user's training data via Model Context Protocol (MCP) server exposing Firebase/Firestore tools.
+
+**Phase 1 - Read-Only Insights:**
+- MCP server (Node.js + Firebase Admin SDK) with tools: `get_user_stats`, `get_exercise_prs`, `get_medal_progress`, `get_workout_by_date`, `compare_with_friend`, `search_exercise_catalog`
+- Chat interface in PWA calling MCP server with user's Firebase auth token
+- Natural language queries: "How many PRs this month?", "What's my squat progression?", "Am I close to any medals?"
+- User scoped queries only (Firebase rules + token validation)
+
+**Phase 2 - Recommendations:**
+- "What should I train today?" based on history, recovery, muscle group balance
+- "What exercises am I neglecting?" gap analysis
+- Medal suggestions: "You're 2 sessions from Fifty Sessions badge"
+
+**Phase 3 - Planning & Programming:**
+- "Create a program to hit 300lb squat" - generates progressive overload plan
+- "Design a 3-day split based on my history"
+- Template generation from natural language
+
+**Technical Considerations:**
+- Host MCP server (Cloud Run, Railway, Render)
+- LLM API costs (Claude/GPT) - monitor usage carefully
+- Caching layer for common queries (reduce Firebase reads)
+- Rate limiting per user
+- Query optimization (batch reads, pre-aggregate stats)
+
+**Strategic Fit:**
+- Unique differentiator vs Strong/Hevy/FitNotes
+- Aligns with engagement/competitiveness goals
+- Surfaces insights users wouldn't discover manually
+- Natural progression from static analytics to conversational AI
+- Wait until solid user base to justify hosting/LLM costs
+
+**Not Doing (Guardrails):**
+- No AI that logs workouts for you (manual logging stays core)
+- No AI-generated social feed (share cards stay one-off)
+- No generic fitness advice (stay scoped to user's data)
+
 ## Guardrails (stable)
 
 Documented in [Product](./product.md) and backlog “Explicitly not doing.” Do not erode these without an explicit product decision.
