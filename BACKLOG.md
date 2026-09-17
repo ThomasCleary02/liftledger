@@ -76,6 +76,14 @@ Durable product/engineering knowledge lives in [`docs/`](./docs/README.md). Keep
 - **Calisthenics analytics (opt-in)** — not a mandatory Strength/Cardio peer.
 - Template editor: nested sheet Back vs Done; calisthenics templates thinner than day log (pairs with hold timer).
 - **Global leaderboards** - Competition beyond friends. Could add friends from leaderboard. Privacy settings: discoverable by email only, opt-out of global boards, etc. Needs careful privacy design before shipping.
+- **AI Training Chat (Beta Feature - Token Cost Warning):**
+  - **Cost:** Heavy token usage (500-1000 per query). Beta scale (2 users, 10 queries/day) = ~$20-40/month Claude API costs. Evaluate ROI before broader rollout.
+  - **Setup:** Firebase Functions in repo (`functions/` folder), ignored by Netlify, deployed separately via `firebase deploy --only functions`
+  - **Tools:** `get_user_stats`, `get_recent_workouts`, `get_exercise_prs`, `get_medal_progress`, `compare_with_friend`
+  - **Safety:** Rate limiting (10/day, 100/month), whitelist beta users, usage tracking in Firestore
+  - **UI:** Simple chat route at `/ai-chat` with message history
+  - **Resume value:** AI/ML API integration, serverless architecture, natural language interface, cost management
+  - **Decision point:** Evaluate after 1 month beta. If costs justify engagement, expand. If too costly, pivot to paid premium or sunset.
 - Native Expo integrations → candidate **v4**.
 
 ## Challenge Medal Ideas (All Tiers - Design Later)

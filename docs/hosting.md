@@ -33,13 +33,24 @@ npm run deploy:storage:rules
 
 Rules apply immediately. Composite indexes may stay in “Building” for a few minutes after deploy.
 
+### Functions (AI Chat Beta)
+
+Firebase Functions stored in `functions/` folder, ignored by Netlify builds. Deployed separately:
+
+```bash
+npm run deploy:functions          # deploy cloud functions only
+firebase deploy --only functions  # alternative direct command
+```
+
+**Note:** Function changes do NOT trigger Netlify builds. Web app and functions are deployed independently.
+
 ## Release habit
 
 1. Land work on `main` with tests green.
 2. Bump `3.x.y` in root / shared / web package.json (+ lockfile workspace entries + Settings footer).
 3. Tag `v3.x.y`, push commit + tag.
 4. Optional: `gh release create` with short notes.
-5. Netlify builds from `main`; deploy Firebase rules/indexes when they change.
+5. Netlify builds from `main`; deploy Firebase rules/indexes/functions when they change.
 
 ## Related
 
