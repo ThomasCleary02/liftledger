@@ -11,12 +11,8 @@
  */
 const fs = require("node:fs");
 const path = require("node:path");
-const { Firestore } = require("@google-cloud/firestore");
-const { UserRefreshClient } = require("google-auth-library");
-const { getGlobalDefaultAccount } = require("firebase-tools/lib/auth");
-const firebaseApi = require("firebase-tools/lib/api");
+const { PROJECT, getProdFirestore, foldName, slugify } = require("./prod-firestore.cjs");
 
-const PROJECT = "lift-ledger-8f627";
 const dryRun = process.argv.includes("--dry-run");
 const fileArg = process.argv.slice(2).find((a) => a !== "--dry-run");
 const additionsFile = fileArg || "catalog-additions-3.3.4.json";
@@ -24,40 +20,8 @@ const additionsPath = path.isAbsolute(additionsFile)
   ? additionsFile
   : path.join(__dirname, additionsFile);
 
-function foldName(s) {
-  return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-}
-
-function slugify(input) {
-  return (input || "")
-    .toLowerCase()
-    .replace(/&/g, "and")
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "")
-    .replace(/_{2,}/g, "_");
-}
-
 async function main() {
-  delete process.env.FIRESTORE_EMULATOR_HOST;
-  delete process.env.FIREBASE_AUTH_EMULATOR_HOST;
-
-  const account = getGlobalDefaultAccount();
-  if (!account?.tokens?.refresh_token) {
-    console.error("[seed-prod] Firebase CLI is not logged in. Run: npx firebase login");
-    process.exit(1);
-  }
-  console.log(`[seed-prod] using Firebase CLI account ${account.user?.email || "(unknown)"}`);
-
-  const authClient = new UserRefreshClient({
-    clientId: firebaseApi.clientId(),
-    clientSecret: firebaseApi.clientSecret(),
-    refreshToken: account.tokens.refresh_token,
-  });
-
-  const db = new Firestore({
-    projectId: PROJECT,
-    authClient,
-  });
+  const db = getProdFirestore("seed-prod");
 
   const additions = JSON.parse(fs.readFileSync(additionsPath, "utf8"));
   console.log(

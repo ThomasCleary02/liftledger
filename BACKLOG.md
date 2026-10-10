@@ -54,6 +54,13 @@ Durable product/engineering knowledge lives in [`docs/`](./docs/README.md). Keep
 
 ## Next
 
+**Rebrand (decide before any native/store release):** ~15 store apps share the LiftLedger name.
+- **Pick a name:** short, distinctive, fits medals/progress. Gate each candidate on: Play/App Store search, USPTO trademark search, `.app`/`.com` domain, social handles.
+- **Visible branding only:** wordmark (`BrandMark`), manifest name/short_name, page titles/metadata, Settings footer, share PNGs, marketing/legal pages, contact email, docs. Regenerate icons/splash via `node scripts/generate-pwa-assets.mjs` (single source of truth).
+- **Do not rename internals:** Firebase project `lift-ledger-8f627`, `@liftledger/*` packages, localStorage keys (`@liftledger:preferences`, `liftledger.tip.*`) — renaming resets prefs/tips for no user benefit.
+- **Domain move:** new domain primary on Netlify; 301 `liftledger.fit` → new domain for ≥1 year; add new domain to Firebase Auth authorized domains before switching; update `NEXT_PUBLIC_BASE_URL`.
+- **Installed PWAs:** home-screen name/icon may not refresh until reinstall on iOS — note in release notes.
+
 **After 3.4.0:**
 
 - Gym-floor offline logging: precache day shell + Firestore cache write-through.
@@ -103,6 +110,8 @@ Durable medals philosophy: [`docs/medals.md`](./docs/medals.md) (one idea → on
 - **Customizable Analytics Overview:** let users choose which stat widgets/cards to show (volume, cardio distance/duration, calisthenics reps/holds, bodyweight, etc.). Pairs with exposing more calisthenics metrics.
 - **Calisthenics analytics (opt-in)** — not a mandatory Strength/Cardio peer.
 - Template editor: nested sheet Back vs Done; calisthenics templates thinner than day log (pairs with hold timer).
+- **Catalog search keywords for brands / gym names:** optional hidden `keywords` on catalog entries (e.g. "Hammer Strength", Planet Fitness machine names) so search finds the generic exercise. Do **not** add brand-named catalog rows — splits PRs and bloats the catalog.
+- **Per-gym tag (later):** optional gym on a day for people who train at multiple gyms; machine loads aren't comparable across gyms, so this is the right axis for separating machine PRs if ever needed.
 - **Global leaderboards** - Competition beyond friends. Could add friends from leaderboard. Privacy settings: discoverable by email only, opt-out of global boards, etc. Needs careful privacy design before shipping.
 - **AI Training Chat (premium beta — owner + 1 tester):** goal is learning, not revenue; never lose more than the prepaid API balance.
   - **Access = premium custom claim:** Firebase Auth custom claim `premium: true`, granted by hand via `node scripts/set-premium.cjs <email>` (`--revoke` to remove; Firebase CLI auth like the catalog seed). **Never** store premium on `accounts/{uid}` — users can write their own account doc. New claims show after token refresh (≤1h or sign out/in).

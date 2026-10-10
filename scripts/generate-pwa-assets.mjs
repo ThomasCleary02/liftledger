@@ -1,135 +1,87 @@
-import { deflateSync } from "node:zlib";
+/**
+ * Render PWA icons, favicon, and iOS splash screens from the same mark as
+ * web/components/BrandMark.tsx (Lucide Dumbbell, cream on brand green).
+ *
+ *   node scripts/generate-pwa-assets.mjs
+ *
+ * Uses Playwright's Chromium (already installed for e2e).
+ */
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { chromium } from "@playwright/test";
 
-const GREEN = [20, 83, 45, 255];
-const FG = [255, 249, 240, 255];
-const LAUNCH = [20, 17, 14, 255];
+const BRAND = "rgb(20 83 45)";
+const BRAND_FG = "rgb(255 249 240)";
+const LAUNCH = "rgb(20 17 14)";
+// BrandMark uses strokeWidth 2.25 on Lucide's 24-unit grid.
+const STROKE = 2.25;
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "web", "public");
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "web");
+const PUBLIC = join(ROOT, "public");
 
-function createImage(width, height, color) {
-  const data = Buffer.alloc(width * height * 4);
-  for (let i = 0; i < data.length; i += 4) {
-    data[i] = color[0];
-    data[i + 1] = color[1];
-    data[i + 2] = color[2];
-    data[i + 3] = color[3];
+const DUMBBELL_PATHS = [
+  "M14.4 14.4 9.6 9.6",
+  "M18.657 21.485a2 2 0 1 1-2.829-2.828l-1.767 1.768a2 2 0 1 1-2.829-2.829l6.364-6.364a2 2 0 1 1 2.829 2.829l-1.768 1.767a2 2 0 1 1 2.828 2.829z",
+  "m21.5 21.5-1.4-1.4",
+  "M3.9 3.9 2.5 2.5",
+  "M6.404 12.768a2 2 0 1 1-2.829-2.829l1.768-1.767a2 2 0 1 1-2.828-2.829l2.828-2.828a2 2 0 1 1 2.829 2.828l1.767-1.768a2 2 0 1 1 2.829 2.829z",
+];
+
+function dumbbellSvg(px) {
+  const paths = DUMBBELL_PATHS.map((d) => `<path d="${d}"/>`).join("");
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="0 0 24 24" fill="none" stroke="${BRAND_FG}" stroke-width="${STROKE}" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
+}
+
+/** Square tile: full-bleed (OS applies its own mask) or rounded like BrandMark. */
+function tileHtml(size, { iconRatio, rounded }) {
+  const radius = rounded ? Math.round(size * 0.22) : 0;
+  return `<!doctype html><html><body style="margin:0;background:transparent">
+<div style="width:${size}px;height:${size}px;border-radius:${radius}px;background:${BRAND};display:flex;align-items:center;justify-content:center">
+${dumbbellSvg(Math.round(size * iconRatio))}
+</div></body></html>`;
+}
+
+function splashHtml(width, height) {
+  const box = Math.round(Math.min(width, height) * 0.22);
+  return `<!doctype html><html><body style="margin:0;background:${LAUNCH}">
+<div style="width:${width}px;height:${height}px;display:flex;align-items:center;justify-content:center">
+<div style="width:${box}px;height:${box}px;border-radius:${Math.round(box * 0.22)}px;background:${BRAND};display:flex;align-items:center;justify-content:center">
+${dumbbellSvg(Math.round(box * 0.57))}
+</div></div></body></html>`;
+}
+
+/** ICO container with PNG-encoded entries (supported by all current browsers). */
+function encodeIco(pngs) {
+  const header = Buffer.alloc(6);
+  header.writeUInt16LE(0, 0);
+  header.writeUInt16LE(1, 2);
+  header.writeUInt16LE(pngs.length, 4);
+  const entries = [];
+  let offset = 6 + 16 * pngs.length;
+  for (const { size, data } of pngs) {
+    const e = Buffer.alloc(16);
+    e.writeUInt8(size >= 256 ? 0 : size, 0);
+    e.writeUInt8(size >= 256 ? 0 : size, 1);
+    e.writeUInt16LE(1, 4);
+    e.writeUInt16LE(32, 6);
+    e.writeUInt32LE(data.length, 8);
+    e.writeUInt32LE(offset, 12);
+    offset += data.length;
+    entries.push(e);
   }
-  return { width, height, data };
+  return Buffer.concat([header, ...entries, ...pngs.map((p) => p.data)]);
 }
 
-function setPixel(img, x, y, color) {
-  if (x < 0 || y < 0 || x >= img.width || y >= img.height) return;
-  const i = (y * img.width + x) * 4;
-  img.data[i] = color[0];
-  img.data[i + 1] = color[1];
-  img.data[i + 2] = color[2];
-  img.data[i + 3] = color[3];
+async function render(page, width, height, html, transparent) {
+  await page.setViewportSize({ width, height });
+  await page.setContent(html);
+  return page.screenshot({ type: "png", omitBackground: transparent, clip: { x: 0, y: 0, width, height } });
 }
 
-function fillCircle(img, cx, cy, r, color) {
-  const r2 = r * r;
-  const x0 = Math.max(0, Math.floor(cx - r));
-  const x1 = Math.min(img.width - 1, Math.ceil(cx + r));
-  const y0 = Math.max(0, Math.floor(cy - r));
-  const y1 = Math.min(img.height - 1, Math.ceil(cy + r));
-  for (let y = y0; y <= y1; y++) {
-    for (let x = x0; x <= x1; x++) {
-      const dx = x + 0.5 - cx;
-      const dy = y + 0.5 - cy;
-      if (dx * dx + dy * dy <= r2) setPixel(img, x, y, color);
-    }
-  }
-}
-
-function fillRoundRect(img, x, y, w, h, r, color) {
-  const x1 = x + w;
-  const y1 = y + h;
-  const rad = Math.min(r, w / 2, h / 2);
-  for (let py = Math.floor(y); py < Math.ceil(y1); py++) {
-    for (let px = Math.floor(x); px < Math.ceil(x1); px++) {
-      const cx = Math.min(Math.max(px + 0.5, x + rad), x1 - rad);
-      const cy = Math.min(Math.max(py + 0.5, y + rad), y1 - rad);
-      const dx = px + 0.5 - cx;
-      const dy = py + 0.5 - cy;
-      if (dx * dx + dy * dy <= rad * rad) setPixel(img, px, py, color);
-    }
-  }
-}
-
-function drawMark(img, cx, cy, size) {
-  const half = size / 2;
-  fillRoundRect(img, cx - half, cy - half, size, size, size * 0.18, GREEN);
-  const barH = size * 0.11;
-  const barW = size * 0.62;
-  fillRoundRect(img, cx - barW / 2, cy - barH / 2, barW, barH, barH / 2, FG);
-  const plateR = size * 0.16;
-  const innerR = size * 0.11;
-  const gap = size * 0.28;
-  fillCircle(img, cx - gap, cy, plateR, FG);
-  fillCircle(img, cx + gap, cy, plateR, FG);
-  fillCircle(img, cx - gap * 0.72, cy, innerR, FG);
-  fillCircle(img, cx + gap * 0.72, cy, innerR, FG);
-}
-
-function crc32(buf) {
-  let c = ~0;
-  for (let i = 0; i < buf.length; i++) {
-    c ^= buf[i];
-    for (let k = 0; k < 8; k++) c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
-  }
-  return ~c >>> 0;
-}
-
-function chunk(type, data) {
-  const typeBuf = Buffer.from(type);
-  const len = Buffer.alloc(4);
-  len.writeUInt32BE(data.length);
-  const crcSrc = Buffer.concat([typeBuf, data]);
-  const crc = Buffer.alloc(4);
-  crc.writeUInt32BE(crc32(crcSrc));
-  return Buffer.concat([len, crcSrc, crc]);
-}
-
-function encodePng(img) {
-  const raw = Buffer.alloc((img.width * 4 + 1) * img.height);
-  for (let y = 0; y < img.height; y++) {
-    const row = y * (img.width * 4 + 1);
-    raw[row] = 0;
-    img.data.copy(raw, row + 1, y * img.width * 4, (y + 1) * img.width * 4);
-  }
-  const ihdr = Buffer.alloc(13);
-  ihdr.writeUInt32BE(img.width, 0);
-  ihdr.writeUInt32BE(img.height, 4);
-  ihdr[8] = 8;
-  ihdr[9] = 6;
-  return Buffer.concat([
-    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
-    chunk("IHDR", ihdr),
-    chunk("IDAT", deflateSync(raw, { level: 9 })),
-    chunk("IEND", Buffer.alloc(0)),
-  ]);
-}
-
-function writePng(rel, img) {
-  const dest = join(ROOT, rel);
+function write(dest, data) {
   mkdirSync(dirname(dest), { recursive: true });
-  writeFileSync(dest, encodePng(img));
-}
-
-function makeIcon(size, padded) {
-  const img = createImage(size, size, GREEN);
-  const mark = padded ? size * 0.62 : size;
-  drawMark(img, size / 2, size / 2, mark);
-  return img;
-}
-
-function makeSplash(width, height) {
-  const img = createImage(width, height, LAUNCH);
-  drawMark(img, width / 2, height / 2, Math.round(Math.min(width, height) * 0.22));
-  return img;
+  writeFileSync(dest, data);
 }
 
 const splashes = [
@@ -144,12 +96,35 @@ const splashes = [
   [2048, 2732],
 ];
 
-writePng("icon-192.png", makeIcon(192, false));
-writePng("icon-512.png", makeIcon(512, false));
-writePng("icon-512-maskable.png", makeIcon(512, true));
-writePng("apple-touch-icon.png", makeIcon(180, false));
+const browser = await chromium.launch();
+const page = await browser.newPage({ deviceScaleFactor: 1 });
+
+const fullBleed = { iconRatio: 0.58, rounded: false };
+for (const [file, size] of [
+  ["icon-192.png", 192],
+  ["icon-512.png", 512],
+  ["apple-touch-icon.png", 180],
+]) {
+  write(join(PUBLIC, file), await render(page, size, size, tileHtml(size, fullBleed), false));
+}
+// Maskable: keep the mark inside the 80% safe zone.
+write(
+  join(PUBLIC, "icon-512-maskable.png"),
+  await render(page, 512, 512, tileHtml(512, { iconRatio: 0.44, rounded: false }), false)
+);
+
+const favicons = [];
+for (const size of [16, 32, 48]) {
+  favicons.push({
+    size,
+    data: await render(page, size, size, tileHtml(size, { iconRatio: 0.66, rounded: true }), true),
+  });
+}
+write(join(ROOT, "app", "favicon.ico"), encodeIco(favicons));
+
 for (const [w, h] of splashes) {
-  writePng(`splash/${w}x${h}.png`, makeSplash(w, h));
+  write(join(PUBLIC, "splash", `${w}x${h}.png`), await render(page, w, h, splashHtml(w, h), false));
 }
 
-console.log("Wrote PWA icons and iOS splash images");
+await browser.close();
+console.log("Wrote PWA icons, favicon.ico, and iOS splash images");

@@ -26,6 +26,7 @@ description: >-
 7. `git push origin HEAD` and `git push origin vX.Y.Z`
 8. `gh release create vX.Y.Z --title "vX.Y.Z" --notes "..."` (bullet summary)
 9. Show commit hash + release URL.
+10. A few minutes later, confirm the deploy: the live settings page chunk on `https://liftledger.fit` contains `LiftLedger vX.Y.Z`. If Netlify shows **Canceled**, see `docs/pitfalls.md` (Netlify silently cancels a release build).
 
 ## Do not
 

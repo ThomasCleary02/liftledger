@@ -75,6 +75,11 @@ Related code: `FullScreenSheet`, `SafeAreaInsets`, `fullScreenChrome`, `exercise
 - **Symptom:** Writing new analytics against `workouts`.
 - **Rule:** Source of truth is `days`. Do not write `workouts`.
 
+### Netlify silently cancels a release build
+- **Symptom:** Tag pushed, Netlify shows **Canceled**, live Settings footer still says the old version (v3.3.4 sat undeployed for this reason).
+- **Cause:** With no build cache, Netlify sets `CACHED_COMMIT_REF` = `COMMIT_REF`, so a bare `git diff` ignore rule sees no changes and skips.
+- **Rule:** Ignore logic lives in `scripts/netlify-ignore.sh` and builds whenever it can't prove nothing changed. After every release, confirm the live footer version.
+
 ---
 
 ## UI / UX (navigation & composition)

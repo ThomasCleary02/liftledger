@@ -24,6 +24,7 @@ Narrative of where the product has been and where it is headed. **Execution orde
 
 ## Near term (backlog Next)
 
+- **Rebrand** before any native/store presence — name crowded on Play Store. Visible branding + domain only; internal ids stay. See backlog Next.
 - Offline gym-floor logging; wire easy medal awards (share / friend / weigh-ins).
 - **Year wrapped**; import for a year; programs complete; head-to-head week.
 - Richer **share card family** (month / PR) beyond 3.3 week + medal share.

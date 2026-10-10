@@ -25,6 +25,9 @@ expo-env.d.ts
 # Metro
 .metro-health-check*
 
+# Prod migration backups (contain user workout data)
+.migration-backups/
+
 # Next.js
 .next/
 out/

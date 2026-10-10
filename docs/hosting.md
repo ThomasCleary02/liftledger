@@ -8,7 +8,7 @@
   - Publish: `web/.next`
   - Node 22
   - Plugin: `@netlify/plugin-nextjs`
-  - **Ignore rule**: only builds when `package.json` changes (version bumps control deploys)
+  - **Ignore rule**: `scripts/netlify-ignore.sh` — builds when `package.json` changes (version bumps control deploys) or when there is no cached build to compare against. **Canceled** in the Deploys list = skipped by this rule.
 - **Do not** set the Netlify base directory to `web/` — monorepo root is canonical.
 
 ### Required Netlify env
@@ -51,6 +51,7 @@ firebase deploy --only functions  # alternative direct command
 3. Tag `v3.x.y`, push commit + tag.
 4. Optional: `gh release create` with short notes.
 5. Netlify builds from `main`; deploy Firebase rules/indexes/functions when they change.
+6. Confirm it actually shipped: the live Settings footer (or the settings page chunk) shows the new version.
 
 ## Related
 

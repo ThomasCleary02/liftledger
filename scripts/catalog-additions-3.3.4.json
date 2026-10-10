@@ -3,6 +3,7 @@
   { "name": "Seated Calf Raise Machine", "muscleGroup": "calves", "modality": "strength" },
   { "name": "Standing Calf Raise Machine", "muscleGroup": "calves", "modality": "strength" },
   { "name": "Tricep Pushdown Machine", "muscleGroup": "triceps", "modality": "strength" },
+  { "name": "Tricep Press Machine", "muscleGroup": "triceps", "modality": "strength" },
   { "name": "Cable Tricep Pushdown", "muscleGroup": "triceps", "modality": "strength" },
   { "name": "Lat Pulldown Machine", "muscleGroup": "back", "modality": "strength" },
   { "name": "Seated Row Machine", "muscleGroup": "back", "modality": "strength" },

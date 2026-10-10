@@ -649,7 +649,7 @@ export default function Settings() {
 
           {/* App Info */}
           <div className="py-6 text-center">
-            <p className="text-sm text-gray-400">LiftLedger v3.3.4</p>
+            <p className="text-sm text-gray-400">LiftLedger v3.3.5</p>
           </div>
           </div>
         </div>
