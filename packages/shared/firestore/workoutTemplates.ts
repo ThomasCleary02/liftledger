@@ -42,6 +42,7 @@ export function cloneExercisesForTemplate(exercises: Exercise[]): Exercise[] {
     if (exercise.cardioData) {
       const cardio: CardioEntry = { duration: exercise.cardioData.duration };
       if (exercise.cardioData.distance != null) cardio.distance = exercise.cardioData.distance;
+      if (exercise.cardioData.steps != null) cardio.steps = exercise.cardioData.steps;
       if (exercise.cardioData.pace != null) cardio.pace = exercise.cardioData.pace;
       if (exercise.cardioData.activityType) cardio.activityType = exercise.cardioData.activityType;
       next.cardioData = cardio;

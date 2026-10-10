@@ -23,5 +23,6 @@ export * from "./import";
 export * from "./programs/starters";
 export * from "./sets";
 export * from "./achievements";
+export * from "./medalTiers";
 export * from "./plates";
 export * from "./holds";

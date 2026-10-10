@@ -22,6 +22,8 @@ import {
 import { AnalyticsSummary, ExercisePR, TimePeriod } from "../../../lib/analytics/types";
 import { ExerciseDoc } from "../../../lib/firestore/exercises";
 import { usePreferences } from "../../../lib/hooks/usePreferences";
+import { resolveCardioPrDisplay, type CardioPrDisplay, type CardioPrDisplayByActivity } from "@liftledger/shared/preferences";
+import { inferCardioActivityType } from "@liftledger/shared/cardio";
 import {
   formatWeight,
   formatDistance,
@@ -50,7 +52,8 @@ import { toast } from "../../../lib/toast";
 import { getAccountSummary } from "../../../lib/firestore/account";
 import { CARDIO_ACTIVITY_LABELS, cardioPaceKind, type CardioActivityType } from "@liftledger/shared";
 import { ExerciseNameLabel } from "../../../components/ExerciseNameLabel";
-import { shareWeekPng } from "../../../lib/shareWeekPng";
+import { prepareWeekSharePng, deliverPreparedSharePng, downloadBlob } from "../../../lib/shareWeekPng";
+import SharePreviewSheet from "../../../components/SharePreviewSheet";
 import { peekCatalog, peekDaysArray, daysListIsComplete } from "../../../lib/sessionCache";
 
 type TabType = "overview" | "strength" | "cardio" | "prs";
@@ -84,6 +87,23 @@ function periodStart(period: TimePeriod): Date | null {
   return start;
 }
 
+/** Local calendar range under period chips (matches filterDaysByPeriod cutoffs). */
+function formatPeriodRangeLabel(period: TimePeriod): string | null {
+  if (period === "all") return null;
+  const end = new Date();
+  end.setHours(0, 0, 0, 0);
+  const start = periodStart(period);
+  if (!start) return null;
+  const sameYear = start.getFullYear() === end.getFullYear();
+  const startLabel = sameYear
+    ? format(start, "MMM d")
+    : format(start, "MMM d, yyyy");
+  const endLabel = sameYear
+    ? format(end, "MMM d")
+    : format(end, "MMM d, yyyy");
+  return `${startLabel} – ${endLabel}`;
+}
+
 function mergeDays(existing: Day[], incoming: Day[]): Day[] {
   const map = new Map(existing.map((day) => [day.date, day]));
   incoming.forEach((day) => map.set(day.date, day));
@@ -106,7 +126,8 @@ export default function Analytics() {
   const [days, setDays] = useState<Day[]>(() => peekDaysArray());
   const [exercises, setExercises] = useState<Map<string, ExerciseDoc>>(catalogToMap);
   const [loading, setLoading] = useState(() => peekDaysArray().length === 0);
-  const { defaultChartView, loading: prefsLoading } = usePreferences();
+  const { defaultChartView, cardioPrDisplay, cardioPrDisplayByActivity, loading: prefsLoading } =
+    usePreferences();
   const [timePeriod, setTimePeriod] = useState<TimePeriod>("month");
   const chartSeededRef = useRef(false);
 
@@ -254,12 +275,19 @@ export default function Analytics() {
 
   const showSpinner = (authLoading || loading) && days.length === 0 && !loadError;
   const showEmpty = !loading && !loadError && days.length === 0 && timePeriod === "all";
+  const periodRangeLabel = formatPeriodRangeLabel(timePeriod);
+  const noWorkoutsInPeriod =
+    !loading &&
+    !loadError &&
+    !showEmpty &&
+    activeTab !== "prs" &&
+    summary.totalWorkouts === 0;
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-gray-50">
-      {/* Fixed Header */}
-      <header className="flex-shrink-0 border-b border-gray-200 bg-white">
-        <div className="px-4 pt-3 md:px-8">
+      {/* Title + period chips (fixed) */}
+      <header className="flex-shrink-0 bg-white">
+        <div className="px-4 pt-3 pb-2 md:px-8">
           <div className="mx-auto flex max-w-4xl items-center justify-between gap-3">
             <h1 className="min-w-0 truncate text-xl font-semibold text-gray-900 md:text-2xl">Analytics</h1>
             {activeTab === "prs" ? (
@@ -267,46 +295,57 @@ export default function Analytics() {
                 All time
               </p>
             ) : (
-              <div className="flex shrink-0 rounded-lg bg-gray-100 p-0.5">
-                {PERIODS.map((period) => (
-                  <button
-                    key={period.id}
-                    type="button"
-                    onClick={() => setTimePeriod(period.id)}
-                    aria-label={period.label}
-                    aria-current={timePeriod === period.id ? "true" : undefined}
-                    className={`rounded px-2.5 py-1.5 text-xs font-semibold transition-colors ${
-                      timePeriod === period.id
-                        ? "bg-brand text-brand-fg"
-                        : "text-gray-600 hover:bg-gray-200"
-                    }`}
-                  >
-                    {period.short}
-                  </button>
-                ))}
+              <div className="flex shrink-0 flex-col items-end gap-1">
+                <div className="flex rounded-lg bg-gray-100 p-0.5">
+                  {PERIODS.map((period) => (
+                    <button
+                      key={period.id}
+                      type="button"
+                      onClick={() => setTimePeriod(period.id)}
+                      aria-label={period.label}
+                      aria-current={timePeriod === period.id ? "true" : undefined}
+                      className={`rounded px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                        timePeriod === period.id
+                          ? "bg-brand text-brand-fg"
+                          : "text-gray-600 hover:bg-gray-200"
+                      }`}
+                    >
+                      {period.short}
+                    </button>
+                  ))}
+                </div>
+                {periodRangeLabel ? (
+                  <p className="text-[11px] font-medium tabular-nums text-gray-500">{periodRangeLabel}</p>
+                ) : (
+                  <p className="text-[11px] font-medium text-gray-500">All time</p>
+                )}
               </div>
             )}
           </div>
-          <div className="mx-auto mt-3 flex max-w-4xl">
-            {tabs.map((tab) => {
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setActiveTab(tab.id)}
-                  aria-current={isActive ? "page" : undefined}
-                  className={`flex-1 border-b-2 py-2.5 text-sm font-semibold transition-colors ${
-                    isActive ? "border-brand text-gray-900" : "border-transparent text-gray-500"
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              );
-            })}
-          </div>
         </div>
       </header>
+
+      {/* Stickier sub-tabs — solid bg-white so dark-mode remaps apply (bg-white/95 does not). */}
+      <div className="sticky top-0 z-20 flex-shrink-0 border-b border-gray-200 bg-white">
+        <div className="mx-auto flex max-w-4xl px-4 md:px-8">
+          {tabs.map((tab) => {
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                aria-current={isActive ? "page" : undefined}
+                className={`flex-1 border-b-2 py-2.5 text-sm font-semibold transition-colors ${
+                  isActive ? "border-brand text-gray-900" : "border-transparent text-gray-500"
+                }`}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       {/* Scrollable Content */}
       <main className="flex-1 overflow-y-auto">
@@ -330,19 +369,45 @@ export default function Analytics() {
               </button>
             </div>
           ) : showEmpty ? (
-            <div className="flex flex-col items-center px-6 py-12 text-center">
-              <BarChart3 className="mb-4 h-16 w-16 text-gray-300" />
-              <h2 className="mb-2 text-2xl font-bold text-gray-900">No analytics data yet</h2>
-              <p className="mb-6 max-w-md text-gray-500">
-                Start logging workouts to see your progress and analytics here.
+            <div className="flex flex-col items-center rounded-md border border-gray-100 bg-white px-6 py-12 text-center shadow-sm">
+              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-brand/10">
+                <BarChart3 className="h-7 w-7 text-brand" />
+              </div>
+              <p className="kicker mb-1">Analytics</p>
+              <h2 className="mb-2 text-xl font-semibold text-gray-900">No workouts yet</h2>
+              <p className="mb-6 max-w-md text-sm text-gray-500">
+                Log a session to unlock volume, cardio, streaks, and PRs here.
               </p>
-              <Link
-                href="/day/today"
-                prefetch
-                className="btn-primary rounded-xl px-6"
-              >
+              <Link href="/day/today" prefetch className="btn-primary rounded-xl px-6">
                 Log your first workout
               </Link>
+            </div>
+          ) : noWorkoutsInPeriod ? (
+            <div className="flex flex-col items-center rounded-md border border-gray-100 bg-white px-6 py-12 text-center shadow-sm">
+              <BarChart3 className="mb-4 h-12 w-12 text-gray-300" />
+              <h2 className="mb-2 text-lg font-semibold text-gray-900">No workouts in this period</h2>
+              <p className="mb-1 max-w-md text-sm text-gray-500">
+                {periodRangeLabel
+                  ? `Nothing logged between ${periodRangeLabel}.`
+                  : "Nothing logged in this window."}
+              </p>
+              <p className="mb-6 max-w-md text-sm text-gray-500">
+                Try a wider range, or log today’s session.
+              </p>
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                {timePeriod !== "all" ? (
+                  <button
+                    type="button"
+                    onClick={() => setTimePeriod("all")}
+                    className="btn-secondary rounded-xl px-5"
+                  >
+                    View all time
+                  </button>
+                ) : null}
+                <Link href="/day/today" prefetch className="btn-primary rounded-xl px-5">
+                  Log a workout
+                </Link>
+              </div>
             </div>
           ) : (
             <>
@@ -365,6 +430,8 @@ export default function Analytics() {
                   prs={prs}
                   longestDistanceByExercise={longestDistanceByExercise}
                   calisthenicsRepsByExercise={calisthenicsRepsByExercise}
+                  cardioPrDisplay={cardioPrDisplay}
+                  cardioPrDisplayByActivity={cardioPrDisplayByActivity}
                   trackingEmpty={trackedExerciseIds.length === 0}
                   lifetimeLoading={!lifetimeComplete}
                 />
@@ -400,6 +467,11 @@ function OverviewView({
 }) {
   const { units, trackBodyweight } = usePreferences();
   const [sharing, setSharing] = useState(false);
+  const [sharePreview, setSharePreview] = useState<{
+    url: string;
+    blob: Blob;
+    filename: string;
+  } | null>(null);
   const weighIns = useMemo(() => getBodyweightPoints(allDays), [allDays]);
   const weightChange = getBodyweightChangeLbs(weighIns);
 
@@ -410,14 +482,21 @@ function OverviewView({
   );
   const trainedThisWeek = weekDates.filter((date) => trained.has(format(date, "yyyy-MM-dd"))).length;
 
+  const closeSharePreview = () => {
+    if (sharePreview?.url) URL.revokeObjectURL(sharePreview.url);
+    setSharePreview(null);
+  };
+
   const handleShare = async () => {
     if (sharing) return;
     setSharing(true);
     try {
-      const result = await shareWeekPng(allDays, username, units);
-      if (result === "previewed") {
-        toast.success("Opened image — long-press to save");
-      }
+      const prepared = await prepareWeekSharePng(allDays, username, units);
+      setSharePreview({
+        url: prepared.previewUrl,
+        blob: prepared.blob,
+        filename: prepared.filename,
+      });
     } catch (error) {
       logger.error("Share week failed", error);
       toast.error("Could not create that image");
@@ -426,8 +505,39 @@ function OverviewView({
     }
   };
 
+  const confirmShare = async () => {
+    if (!sharePreview || sharing) return;
+    setSharing(true);
+    try {
+      const result = await deliverPreparedSharePng(sharePreview.blob, sharePreview.filename);
+      if (result === "previewed") toast.success("Opened image — long-press to save");
+      else if (result === "downloaded") toast.success("Saved image");
+      closeSharePreview();
+    } catch (error) {
+      logger.error("Share week deliver failed", error);
+      toast.error("Could not share that image");
+    } finally {
+      setSharing(false);
+    }
+  };
+
+  const saveShare = () => {
+    if (!sharePreview) return;
+    downloadBlob(sharePreview.blob, sharePreview.filename);
+    toast.success("Saved image");
+  };
+
   return (
     <div className="space-y-4">
+      <SharePreviewSheet
+        open={Boolean(sharePreview)}
+        imageUrl={sharePreview?.url || null}
+        title="This week"
+        sharing={sharing}
+        onClose={closeSharePreview}
+        onShare={() => void confirmShare()}
+        onSave={saveShare}
+      />
       {/* Stat Cards */}
       <div
         className={`grid gap-2.5 ${
@@ -455,9 +565,8 @@ function OverviewView({
         {summary.totalCalisthenicsReps > 0 ? (
           <StatCard
             icon={Activity}
-            label="Calisthenics"
+            label="Reps"
             value={formatGroupedNumber(summary.totalCalisthenicsReps, 0)}
-            hint="reps in period"
             color="bg-teal-100 text-teal-700"
           />
         ) : null}
@@ -465,12 +574,9 @@ function OverviewView({
 
       <div className="rounded-md border border-gray-100 bg-white p-4 shadow-sm">
         <div className="mb-2 flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-gray-900">This week</p>
-            <p className="text-xs text-gray-500">Mon–Sun calendar week</p>
-          </div>
+          <p className="min-w-0 text-sm font-semibold text-gray-900">This week</p>
           <div className="flex shrink-0 items-center gap-3">
-            <p className="text-sm text-gray-500">{trainedThisWeek} of 7 days with work</p>
+            <p className="text-sm text-gray-500">{trainedThisWeek} of 7</p>
             <button
               type="button"
               className="flex items-center gap-1 text-sm font-semibold text-gray-800 disabled:opacity-50"
@@ -948,12 +1054,16 @@ function PRsView({
   prs,
   longestDistanceByExercise,
   calisthenicsRepsByExercise,
+  cardioPrDisplay,
+  cardioPrDisplayByActivity,
   trackingEmpty,
   lifetimeLoading,
 }: {
   prs: ExercisePR[];
   longestDistanceByExercise: Map<string, ExercisePR>;
   calisthenicsRepsByExercise: Map<string, ExercisePR>;
+  cardioPrDisplay: CardioPrDisplay;
+  cardioPrDisplayByActivity: CardioPrDisplayByActivity;
   trackingEmpty: boolean;
   lifetimeLoading: boolean;
 }) {
@@ -965,6 +1075,36 @@ function PRsView({
     const calisthenics = prs.filter((p) => p.modality === "calisthenics");
     return { strength, cardio, calisthenics };
   }, [prs]);
+
+  const cardioRows = useMemo(() => {
+    return groupedPRs.cardio
+      .map((pr) => {
+        const distance = longestDistanceByExercise.get(pr.exerciseId);
+        const activity = inferCardioActivityType(pr.exerciseName, pr.exerciseId);
+        const display = resolveCardioPrDisplay(
+          { cardioPrDisplay, cardioPrDisplayByActivity },
+          activity
+        );
+        const lines: ExercisePR[] = [];
+
+        if (display === "pace") {
+          if (pr.prType === "bestPace") lines.push(pr);
+        } else if (display === "distance") {
+          if (distance) lines.push(distance);
+          else if (pr.prType === "maxDistance") lines.push(pr);
+        } else {
+          lines.push(pr);
+          if (pr.prType === "bestPace" && distance) lines.push(distance);
+        }
+
+        return {
+          exerciseId: pr.exerciseId,
+          exerciseName: pr.exerciseName,
+          lines,
+        };
+      })
+      .filter((row) => row.lines.length > 0);
+  }, [groupedPRs.cardio, longestDistanceByExercise, cardioPrDisplay, cardioPrDisplayByActivity]);
 
   const formatPRValue = (pr: ExercisePR): string => {
     if (pr.prType === "maxWeight") return formatWeight(pr.value, units);
@@ -1006,30 +1146,27 @@ function PRsView({
     );
   };
 
-  const CardioPRSection = ({ prs: sectionPRs }: { prs: ExercisePR[] }) => {
-    if (sectionPRs.length === 0) return null;
+  const CardioPRSection = () => {
+    if (cardioRows.length === 0) return null;
     return (
       <div className="mb-6">
         <h2 className="mb-3 text-lg font-semibold text-gray-700">Cardio</h2>
         <div className="overflow-hidden rounded-md border border-gray-100 bg-white shadow-sm">
-          {sectionPRs.map((pr, idx) => {
-            const longest =
-              pr.prType === "bestPace" ? longestDistanceByExercise.get(pr.exerciseId) : undefined;
-            return (
-              <div
-                key={`${pr.exerciseId}-${pr.prType}`}
-                className={`px-5 py-3 ${idx < sectionPRs.length - 1 ? "border-b border-gray-100" : ""}`}
-              >
-                <p className="font-semibold text-gray-900">
-                  <ExerciseNameLabel name={pr.exerciseName} />
-                </p>
-                <div className="mt-1 divide-y divide-gray-50">
-                  <MetricLine pr={pr} />
-                  {longest ? <MetricLine pr={longest} /> : null}
-                </div>
+          {cardioRows.map((row, idx) => (
+            <div
+              key={row.exerciseId}
+              className={`px-5 py-3 ${idx < cardioRows.length - 1 ? "border-b border-gray-100" : ""}`}
+            >
+              <p className="font-semibold text-gray-900">
+                <ExerciseNameLabel name={row.exerciseName} />
+              </p>
+              <div className="mt-1 divide-y divide-gray-50">
+                {row.lines.map((line) => (
+                  <MetricLine key={`${line.exerciseId}-${line.prType}`} pr={line} />
+                ))}
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       </div>
     );
@@ -1118,7 +1255,7 @@ function PRsView({
         </p>
       )}
       <PRSection title="Strength" prs={groupedPRs.strength} />
-      <CardioPRSection prs={groupedPRs.cardio} />
+      <CardioPRSection />
       <CalisthenicsPRSection prs={groupedPRs.calisthenics} />
       {!lifetimeLoading && prs.length === 0 && (
         <div className="rounded-md border border-gray-100 bg-white p-8 text-center shadow-sm">

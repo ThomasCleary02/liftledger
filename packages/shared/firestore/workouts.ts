@@ -53,6 +53,7 @@ export interface ListWorkoutsOptions {
 export interface CardioEntry {
   duration: number; // stored in seconds
   distance?: number; // stored in miles
+  steps?: number; // stair climber / Step Master step count
   pace?: number; // seconds per mile, when distance is present
   activityType?: CardioActivityType;
 }
@@ -128,6 +129,7 @@ export function normalizeExercise(ex: any): Exercise {
     const rawDuration = ex?.cardioData != null ? Number(ex.cardioData.duration) : NaN;
     if (ex?.cardioData && Number.isFinite(rawDuration) && rawDuration >= 0) {
       const rawDistance = ex.cardioData.distance != null ? Number(ex.cardioData.distance) : undefined;
+      const rawSteps = ex.cardioData.steps != null ? Number(ex.cardioData.steps) : undefined;
       const rawPace = ex.cardioData.pace != null ? Number(ex.cardioData.pace) : undefined;
       return {
         exerciseId: idIn,
@@ -138,6 +140,10 @@ export function normalizeExercise(ex: any): Exercise {
           distance:
             rawDistance != null && Number.isFinite(rawDistance) && rawDistance > 0
               ? rawDistance
+              : undefined,
+          steps:
+            rawSteps != null && Number.isFinite(rawSteps) && rawSteps > 0
+              ? Math.round(rawSteps)
               : undefined,
           pace: rawPace != null && Number.isFinite(rawPace) && rawPace > 0 ? rawPace : undefined,
           activityType: isCardioActivityType(ex.cardioData.activityType)

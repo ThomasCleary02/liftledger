@@ -7,7 +7,8 @@ import { useAuth } from "../../../providers/Auth";
 import { deleteUserAccount } from "../../../lib/firestore/account";
 import { accountService, app } from "../../../lib/firebase";
 import { deleteAvatarFile } from "../../../lib/avatar";
-import { UnitSystem, ThemePreference, RestTimerSeconds, DefaultChartView } from "@liftledger/shared/preferences";
+import { UnitSystem, ThemePreference, RestTimerSeconds, DefaultChartView, CardioPrDisplay, resolveCardioPrDisplay, type CardioPrDisplayByActivity } from "@liftledger/shared/preferences";
+import { CARDIO_ACTIVITY_LABELS } from "@liftledger/shared/cardio";
 import { usePreferences } from "../../../lib/hooks/usePreferences";
 import {
   Scale,
@@ -28,6 +29,7 @@ import {
   Lightbulb,
   BarChart3,
   Link2,
+  Timer,
 } from "lucide-react";
 import { toast } from "../../../lib/toast";
 import { logger } from "../../../lib/logger";
@@ -75,6 +77,7 @@ export default function Settings() {
   const [prNotifyModalOpen, setPrNotifyModalOpen] = useState(false);
   const [chartViewModalOpen, setChartViewModalOpen] = useState(false);
   const [supersetsModalOpen, setSupersetsModalOpen] = useState(false);
+  const [cardioPrDisplayModalOpen, setCardioPrDisplayModalOpen] = useState(false);
   const {
     units,
     theme,
@@ -83,6 +86,8 @@ export default function Settings() {
     prNotifications,
     defaultChartView,
     enableSupersets,
+    cardioPrDisplay,
+    cardioPrDisplayByActivity,
     updateUnits,
     updateTheme,
     updateRestTimer,
@@ -90,6 +95,8 @@ export default function Settings() {
     updatePRNotifications,
     updateChartView,
     updateEnableSupersets,
+    updateCardioPrDisplay,
+    updateCardioPrDisplayByActivity,
   } = usePreferences();
 
   // Add state for confirmations
@@ -380,6 +387,32 @@ export default function Settings() {
     return "Last 30 days";
   };
 
+  const getCardioPrDisplayLabel = (value: CardioPrDisplay) => {
+    if (value === "pace") return "Pace only";
+    if (value === "distance") return "Distance only";
+    return "Pace and distance";
+  };
+
+  const cardioPrSettingsSubtitle = (() => {
+    const keys = ["run", "walk", "hike", "bike", "row"] as const;
+    const overrides = keys.filter((k) => cardioPrDisplayByActivity?.[k]).length;
+    if (overrides === 0) return `Default: ${getCardioPrDisplayLabel(cardioPrDisplay)}`;
+    return `${overrides} activity override${overrides === 1 ? "" : "s"} · default ${getCardioPrDisplayLabel(cardioPrDisplay)}`;
+  })();
+
+  const setActivityCardioPrDisplay = async (
+    activity: keyof CardioPrDisplayByActivity,
+    value: CardioPrDisplay
+  ) => {
+    const next: CardioPrDisplayByActivity = { ...cardioPrDisplayByActivity };
+    if (value === cardioPrDisplay) {
+      delete next[activity];
+    } else {
+      next[activity] = value;
+    }
+    await updateCardioPrDisplayByActivity(next);
+  };
+
   const handleExportCsv = async () => {
     try {
       const days = await listDays({ limit: 2000, order: "asc" });
@@ -473,6 +506,12 @@ export default function Settings() {
                 onClick={() => setPrNotifyModalOpen(true)}
               />
               <SettingItem
+                icon={Timer}
+                title="Cardio PR display"
+                subtitle={cardioPrSettingsSubtitle}
+                onClick={() => setCardioPrDisplayModalOpen(true)}
+              />
+              <SettingItem
                 icon={Weight}
                 title="Bodyweight tracking"
                 subtitle={trackBodyweight ? "On — one weigh-in per day" : "Off"}
@@ -520,7 +559,7 @@ export default function Settings() {
               <SettingItem
                 icon={Lightbulb}
                 title="Tips"
-                subtitle="Supersets, favorites, analytics quirks"
+                subtitle="Search ranking, supersets, analytics quirks"
                 onClick={() => setTipsOpen(true)}
               />
             </div>
@@ -610,7 +649,7 @@ export default function Settings() {
 
           {/* App Info */}
           <div className="py-6 text-center">
-            <p className="text-sm text-gray-400">LiftLedger v3.3.3</p>
+            <p className="text-sm text-gray-400">LiftLedger v3.3.4</p>
           </div>
           </div>
         </div>
@@ -706,6 +745,65 @@ export default function Settings() {
           { value: "off", label: "Off", description: "No alerts" },
         ]}
       />
+      <FullScreenSheet
+        open={cardioPrDisplayModalOpen}
+        title="Cardio PR display"
+        onClose={() => setCardioPrDisplayModalOpen(false)}
+        footer={null}
+      >
+        <div className="space-y-5">
+          <p className="text-sm text-gray-500">
+            Choose pace, distance, or both per activity. Run and walk stay separate — treadmill run pace is not mixed with walk distance.
+          </p>
+          <div>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Default</p>
+            <div className="flex gap-1 rounded-lg bg-gray-100 p-1">
+              {(["both", "pace", "distance"] as CardioPrDisplay[]).map((opt) => (
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => void updateCardioPrDisplay(opt)}
+                  className={`flex-1 rounded-md py-2 text-xs font-semibold capitalize ${
+                    cardioPrDisplay === opt ? "bg-white text-gray-900 shadow-sm" : "text-gray-600"
+                  }`}
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="space-y-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Per activity</p>
+            {(["run", "walk", "hike", "bike", "row"] as const).map((activity) => {
+              const current = resolveCardioPrDisplay(
+                { cardioPrDisplay, cardioPrDisplayByActivity },
+                activity
+              );
+              return (
+                <div key={activity}>
+                  <p className="mb-1.5 text-sm font-semibold text-gray-900">
+                    {CARDIO_ACTIVITY_LABELS[activity]}
+                  </p>
+                  <div className="flex gap-1 rounded-lg bg-gray-100 p-1">
+                    {(["both", "pace", "distance"] as CardioPrDisplay[]).map((opt) => (
+                      <button
+                        key={opt}
+                        type="button"
+                        onClick={() => void setActivityCardioPrDisplay(activity, opt)}
+                        className={`flex-1 rounded-md py-2 text-xs font-semibold capitalize ${
+                          current === opt ? "bg-white text-gray-900 shadow-sm" : "text-gray-600"
+                        }`}
+                      >
+                        {opt}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </FullScreenSheet>
 
       <ConfirmDialog
         open={signOutConfirmOpen}
@@ -988,7 +1086,7 @@ function TemplateEditorModal({
   const [allExercises, setAllExercises] = useState<ExerciseDoc[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [strengthSets, setStrengthSets] = useState<{ reps: string; weight: string; warmup?: boolean }[]>([{ reps: "10", weight: formatWeightInput(135, units) }]);
-  const [cardioData, setCardioData] = useState<CardioData>({ duration: "30", distance: "" });
+  const [cardioData, setCardioData] = useState<CardioData>({ duration: "30", distance: "", steps: "" });
   const [cardioActivityType, setCardioActivityType] = useState<CardioActivityType>("other");
   const [calisthenicsSets, setCalisthenicsSets] = useState<{ reps: string; duration?: string }[]>([{ reps: "10" }]);
 
@@ -1013,7 +1111,7 @@ function TemplateEditorModal({
     setSelectedExercise({ id, name: exerciseName, modality });
     if (modality === "cardio") {
       setCardioActivityType(inferCardioActivityType(exerciseName, id));
-      setCardioData({ duration: "30", distance: "" });
+      setCardioData({ duration: "30", distance: "", steps: "" });
     } else if (modality === "calisthenics") {
       setCalisthenicsSets([{ reps: "10" }]);
     } else {
@@ -1043,6 +1141,7 @@ function TemplateEditorModal({
       setCardioData({
         duration: ex.cardioData ? String(Math.round(ex.cardioData.duration / 60)) : "30",
         distance: ex.cardioData?.distance != null ? formatDistanceInput(ex.cardioData.distance, units) : "",
+        steps: ex.cardioData?.steps != null ? String(ex.cardioData.steps) : "",
       });
     } else {
       setCalisthenicsSets(
@@ -1063,21 +1162,34 @@ function TemplateEditorModal({
       const durationMinutes = Number(cardioData.duration);
       const duration = durationMinutes * 60;
       const distanceDisplay = cardioData.distance ? Number(cardioData.distance) : undefined;
-      const distance =
-        distanceDisplay && isFinite(distanceDisplay) && distanceDisplay > 0
-          ? toStoredDistance(distanceDisplay, units)
-          : undefined;
+      const stepsCount = cardioData.steps ? Number(cardioData.steps) : undefined;
+
+      const cardioPayload: {
+        duration: number;
+        activityType: typeof cardioActivityType;
+        distance?: number;
+        steps?: number;
+        pace?: number;
+      } = {
+        duration,
+        activityType: cardioActivityType,
+      };
+
+      if (cardioActivityType === "stair") {
+        if (stepsCount && isFinite(stepsCount) && stepsCount > 0) {
+          cardioPayload.steps = Math.round(stepsCount);
+        }
+      } else if (distanceDisplay && isFinite(distanceDisplay) && distanceDisplay > 0) {
+        const distance = toStoredDistance(distanceDisplay, units);
+        cardioPayload.distance = distance;
+        if (duration > 0) cardioPayload.pace = duration / distance;
+      }
 
       exercise = {
         exerciseId: selectedExercise.id,
         name: selectedExercise.name,
         modality: "cardio",
-        cardioData: {
-          duration,
-          activityType: cardioActivityType,
-          distance,
-          pace: distance && duration > 0 ? duration / distance : undefined,
-        },
+        cardioData: cardioPayload,
       };
     } else if (selectedExercise.modality === "calisthenics") {
       const sets = calisthenicsSets
@@ -1297,6 +1409,8 @@ function TemplateEditorModal({
                     onDataChange={setCardioData}
                     activityType={cardioActivityType}
                     onActivityTypeChange={setCardioActivityType}
+                    exerciseName={selectedExercise.name}
+                    exerciseId={selectedExercise.id}
                   />
                 )}
 

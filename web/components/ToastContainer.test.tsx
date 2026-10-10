@@ -31,4 +31,15 @@ describe("toasts", () => {
     expect(screen.getByText("True PR")).toBeInTheDocument();
     expect(screen.getByText("Beat an earlier best on the same lift.")).toBeInTheDocument();
   });
+
+  it("shows medal Share action when provided", () => {
+    const onShare = vi.fn();
+    toast.medal("Volume blitz", "Hit 25k lb in 7 days.", {
+      action: { label: "Share", onClick: onShare },
+    });
+    render(<ToastContainer />);
+    fireEvent.click(screen.getByRole("button", { name: "Share" }));
+    expect(onShare).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("Volume blitz")).toBeNull();
+  });
 });

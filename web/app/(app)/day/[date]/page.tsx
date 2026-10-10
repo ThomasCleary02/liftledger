@@ -26,6 +26,7 @@ import {
   type WorkoutTemplate,
 } from "../../../../lib/firestore/workoutTemplates";
 import DayNavigation from "../../../../components/DayNavigation";
+import DayOverview from "../../../../components/DayOverview";
 import { BodyweightCard } from "../../../../components/BodyweightCard";
 import { Trash2, Dumbbell, Heart, Activity, Pencil, Plus, Moon, FileText, Link2, Unlink, MoreHorizontal, Bandage, History } from "lucide-react";
 import { usePreferences } from "../../../../lib/hooks/usePreferences";
@@ -111,10 +112,15 @@ function formatLastHint(
     return `Last: ${exercise.strengthSets.length} set${exercise.strengthSets.length === 1 ? "" : "s"}, last ${last.reps} × ${formatWeight(last.weight, units)}`;
   }
   if (exercise.modality === "cardio" && exercise.cardioData) {
-    const dist = exercise.cardioData.distance
-      ? ` • ${formatDistance(exercise.cardioData.distance, units)}`
-      : "";
-    return `Last: ${formatCardioDuration(exercise.cardioData.duration)}${dist}`;
+    const steps =
+      exercise.cardioData.steps && exercise.cardioData.steps > 0
+        ? ` • ${exercise.cardioData.steps.toLocaleString()} steps`
+        : "";
+    const dist =
+      !steps && exercise.cardioData.distance
+        ? ` • ${formatDistance(exercise.cardioData.distance, units)}`
+        : "";
+    return `Last: ${formatCardioDuration(exercise.cardioData.duration)}${steps || dist}`;
   }
   if (exercise.modality === "calisthenics" && exercise.calisthenicsSets && exercise.calisthenicsSets.length > 0) {
     const last = exercise.calisthenicsSets[exercise.calisthenicsSets.length - 1];
@@ -130,6 +136,10 @@ function cardioChipParts(
   if (ex.modality !== "cardio" || !ex.cardioData) return null;
   const data = ex.cardioData;
   let primary = formatCardioDuration(data.duration);
+  if (data.steps && data.steps > 0) {
+    primary += ` • ${data.steps.toLocaleString()} steps`;
+    return { primary, speedHint: null };
+  }
   if (data.distance) primary += ` • ${formatDistance(data.distance, units)}`;
 
   const kind = cardioPaceKind(resolveCardioActivityType(data.activityType, ex.name, ex.exerciseId));
@@ -162,7 +172,7 @@ export default function DayView() {
   const discardSessionDraftRef = useRef(false);
 
   const [strengthSets, setStrengthSets] = useState<StrengthSet[]>([{ reps: "10", weight: "135" }]);
-  const [cardioData, setCardioData] = useState<CardioData>({ duration: "30", distance: "" });
+  const [cardioData, setCardioData] = useState<CardioData>({ duration: "30", distance: "", steps: "" });
   const [cardioActivityType, setCardioActivityType] = useState<CardioActivityType>("other");
   const [calisthenicsSets, setCalisthenicsSets] = useState<CalisthenicsSet[]>([{ reps: "10" }]);
 
@@ -258,7 +268,7 @@ export default function DayView() {
     setLastHint(null);
     setShowTemplateSelector(false);
     setStrengthSets([{ reps: "10", weight: formatWeightInput(135, units) }]);
-    setCardioData({ duration: "30", distance: "" });
+    setCardioData({ duration: "30", distance: "", steps: "" });
     setCardioActivityType("other");
     setCalisthenicsSets([{ reps: "10" }]);
   };
@@ -308,6 +318,9 @@ export default function DayView() {
       const cleanCardio: any = { duration: ex.cardioData.duration };
       if (ex.cardioData.distance !== undefined && ex.cardioData.distance !== null) {
         cleanCardio.distance = ex.cardioData.distance;
+      }
+      if (ex.cardioData.steps !== undefined && ex.cardioData.steps !== null) {
+        cleanCardio.steps = ex.cardioData.steps;
       }
       if (ex.cardioData.pace !== undefined && ex.cardioData.pace !== null) {
         cleanCardio.pace = ex.cardioData.pace;
@@ -716,6 +729,7 @@ export default function DayView() {
       setCardioData({
         duration: ex.cardioData ? String(Math.round(ex.cardioData.duration / 60)) : "",
         distance: ex.cardioData?.distance != null ? formatDistanceInput(ex.cardioData.distance, units) : "",
+        steps: ex.cardioData?.steps != null ? String(ex.cardioData.steps) : "",
       });
     } else {
       setCalisthenicsSets(
@@ -793,7 +807,12 @@ export default function DayView() {
       }
 
       const cardioDataObj: any = { duration, activityType: cardioType };
-      if (distanceDisplay && isFinite(distanceDisplay) && distanceDisplay > 0) {
+      const stepsCount = cardioSource.steps ? Number(cardioSource.steps) : undefined;
+      if (cardioType === "stair") {
+        if (stepsCount && isFinite(stepsCount) && stepsCount > 0) {
+          cardioDataObj.steps = Math.round(stepsCount);
+        }
+      } else if (distanceDisplay && isFinite(distanceDisplay) && distanceDisplay > 0) {
         const distance = toStoredDistance(distanceDisplay, units);
         cardioDataObj.distance = distance;
         if (duration > 0) {
@@ -918,7 +937,7 @@ export default function DayView() {
         setSessionDraft(false);
         setLastHint(null);
         setStrengthSets([{ reps: "10", weight: formatWeightInput(135, units) }]);
-        setCardioData({ duration: "30", distance: "" });
+        setCardioData({ duration: "30", distance: "", steps: "" });
         setCalisthenicsSets([{ reps: "10" }]);
       }
       if (!silent) {
@@ -1039,8 +1058,9 @@ export default function DayView() {
               distance: lastExercise.cardioData.distance
                 ? formatDistanceInput(lastExercise.cardioData.distance, units)
                 : "",
+              steps: lastExercise.cardioData.steps ? String(lastExercise.cardioData.steps) : "",
             }
-          : { duration: "30", distance: "" };
+          : { duration: "30", distance: "", steps: "" };
       setCardioActivityType(activityType);
       setCardioData(nextCardio);
       void addExercise({
@@ -1394,6 +1414,8 @@ export default function DayView() {
                       setCardioActivityType(next);
                       queueComposerSave({ cardioActivityType: next });
                     }}
+                    exerciseName={selectedExercise.name}
+                    exerciseId={selectedExercise.id}
                   />
                 )}
 
@@ -1572,6 +1594,7 @@ export default function DayView() {
         <div>
         {hasExercises && (
           <div className="mb-6">
+            <DayOverview day={day} />
             <h2 className="mb-3 text-lg font-semibold text-gray-900">Exercises</h2>
             {showSupersetTip && enableSupersets && day!.exercises.length >= 2 && (
               <div className="mb-3 flex items-start justify-between gap-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-700">

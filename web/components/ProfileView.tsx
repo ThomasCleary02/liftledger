@@ -1,11 +1,14 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   ACHIEVEMENT_BY_ID,
-  ACHIEVEMENT_CATALOG,
   MAX_FEATURED_ACHIEVEMENTS,
+  browseAchievementCatalog,
+  formatAchievementProgress,
+  type AchievementDef,
   type AchievementProgress,
   type AchievementProgressMetric,
 } from "@liftledger/shared";
@@ -88,6 +91,81 @@ export function ProfileFriendsLink() {
   );
 }
 
+export type ActiveChallengeItem = {
+  def: AchievementDef;
+  metric: AchievementProgressMetric;
+  windowDays: number;
+};
+
+export function ActiveChallenges({
+  items,
+  onSelect,
+}: {
+  items: ActiveChallengeItem[];
+  onSelect: (id: string) => void;
+}) {
+  if (items.length === 0) return null;
+
+  return (
+    <section className="rounded-md border border-gray-200 bg-white p-5 shadow-[0_1px_0_rgb(20_83_45/0.08)] dark:border-gray-700 dark:bg-gray-950 dark:shadow-none">
+      <p className="kicker mb-3">Active challenges</p>
+      <ul className="space-y-2">
+        {items.map(({ def, metric, windowDays }) => {
+          const ratio = metric.target > 0 ? metric.current / metric.target : 0;
+          const nearComplete = ratio >= 0.7;
+          const progressText = formatAchievementProgress(metric);
+          return (
+            <li key={def.id}>
+              <button
+                type="button"
+                onClick={() => onSelect(def.id)}
+                aria-label={`${def.title}, ${progressText}, ${windowDays}-day window`}
+                className={`flex w-full items-center gap-3 rounded-md border px-3 py-2.5 text-left transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${
+                  nearComplete
+                    ? "border-brand/45 bg-brand/[0.04] shadow-[inset_0_0_0_1px_rgb(20_83_45/0.08)] hover:bg-brand/[0.07] dark:bg-brand/10 dark:hover:bg-brand/15"
+                    : "border-gray-200 bg-white hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-950 dark:hover:bg-gray-900"
+                }`}
+              >
+                <AchievementMedal
+                  def={def}
+                  earned={false}
+                  forceColor
+                  showTitle={false}
+                  size={48}
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-baseline justify-between gap-2">
+                    <span className="block text-sm font-semibold leading-snug text-gray-900 dark:text-gray-100">
+                      {def.title}
+                    </span>
+                    <span className="shrink-0 font-mono text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                      {windowDays}d
+                    </span>
+                  </span>
+                  <span className="mt-1.5 flex items-center justify-between gap-3 text-xs">
+                    <span className={nearComplete ? "font-medium text-brand" : "text-gray-500 dark:text-gray-400"}>
+                      {nearComplete ? "Almost there" : "Progress"}
+                    </span>
+                    <span className="font-mono tabular-nums text-gray-700 dark:text-gray-300">
+                      {progressText}
+                    </span>
+                  </span>
+                  <span className="mt-1.5 block h-1.5 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+                    <span
+                      className={`block h-full rounded-full transition-[width] duration-300 ease-out motion-reduce:transition-none ${nearComplete ? "bg-brand" : "bg-brand/70"}`}
+                      style={{ width: `${Math.max(4, Math.min(100, ratio * 100))}%` }}
+                    />
+                  </span>
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
 export function FeaturedRow({
   featuredIds,
   earned,
@@ -126,20 +204,115 @@ export function MedalCollection({
   progressById?: Record<string, AchievementProgressMetric>;
   onSelect: (id: string) => void;
 }) {
-  const unlocked = ACHIEVEMENT_CATALOG.filter((item) => progress.earned[item.id]).length;
+  const [filter, setFilter] = useState<"all" | "earned" | "locked">("all");
+  const [kindFilter, setKindFilter] = useState<"all" | "challenge" | "lifetime">(() => {
+    if (typeof window === "undefined") return "all";
+    try {
+      const raw = sessionStorage.getItem("ll-medal-kind");
+      if (raw === "challenge" || raw === "lifetime" || raw === "all") return raw;
+    } catch {
+      /* ignore */
+    }
+    return "all";
+  });
+  /** Default: common → rare (Platinum at the bottom). */
+  const [rareFirst, setRareFirst] = useState(false);
+  const catalog = useMemo(() => browseAchievementCatalog(progress.earned), [progress.earned]);
+  const unlocked = catalog.filter((item) => progress.earned[item.id]).length;
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem("ll-medal-kind", kindFilter);
+    } catch {
+      /* ignore */
+    }
+  }, [kindFilter]);
+
+  const items = useMemo(() => {
+    const sorted = [...catalog].sort((a, b) => {
+      if (a.tier !== b.tier) return rareFirst ? b.tier - a.tier : a.tier - b.tier;
+      return a.title.localeCompare(b.title);
+    });
+    return sorted.filter((item) => {
+      if (filter === "earned" && !progress.earned[item.id]) return false;
+      if (filter === "locked" && progress.earned[item.id]) return false;
+      if (kindFilter === "challenge" && item.kind !== "challenge") return false;
+      if (kindFilter === "lifetime" && item.kind !== "lifetime") return false;
+      return true;
+    });
+  }, [catalog, filter, kindFilter, rareFirst, progress.earned]);
+
+  const chipClass = (active: boolean) =>
+    `flex-1 rounded-md py-1.5 text-xs font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${
+      active
+        ? "bg-white text-gray-900 shadow-sm dark:bg-gray-800 dark:text-gray-100"
+        : "text-gray-600 dark:text-gray-400"
+    }`;
+
   return (
     <div>
       <p className="kicker mb-2">Medals</p>
-      <p className="mb-6 text-sm text-gray-500">
-        {unlocked} of {ACHIEVEMENT_CATALOG.length} earned. Pin up to {MAX_FEATURED_ACHIEVEMENTS} on your profile.
+      <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
+        {unlocked} of {catalog.length} earned. Pin up to {MAX_FEATURED_ACHIEVEMENTS} on your profile.
       </p>
-      <AchievementGrid
-        items={ACHIEVEMENT_CATALOG}
-        earned={progress.earned}
-        featuredIds={progress.featuredIds}
-        progressById={progressById}
-        onSelect={onSelect}
-      />
+      <div className="mb-2 flex gap-1 rounded-lg bg-gray-100 p-1 dark:bg-gray-900">
+        {(
+          [
+            { id: "all", label: "All" },
+            { id: "earned", label: "Earned" },
+            { id: "locked", label: "Locked" },
+          ] as const
+        ).map((opt) => (
+          <button
+            key={opt.id}
+            type="button"
+            onClick={() => setFilter(opt.id)}
+            className={chipClass(filter === opt.id)}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+      <div className="mb-3 flex gap-1 rounded-lg bg-gray-100 p-1 dark:bg-gray-900">
+        {(
+          [
+            { id: "all", label: "Any" },
+            { id: "challenge", label: "Challenges" },
+            { id: "lifetime", label: "Lifetime" },
+          ] as const
+        ).map((opt) => (
+          <button
+            key={opt.id}
+            type="button"
+            onClick={() => setKindFilter(opt.id)}
+            className={chipClass(kindFilter === opt.id)}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+      <div className="mb-5 flex justify-end">
+        <button
+          type="button"
+          onClick={() => setRareFirst((v) => !v)}
+          className="text-xs font-semibold text-gray-600 underline-offset-2 hover:text-gray-900 hover:underline dark:text-gray-400 dark:hover:text-gray-100"
+        >
+          {rareFirst ? "Sort: rare → common" : "Sort: common → rare"}
+        </button>
+      </div>
+      {items.length === 0 ? (
+        <p className="py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+          {filter === "earned" ? "No medals earned yet." : "Nothing in this filter."}
+        </p>
+      ) : (
+        <AchievementGrid
+          items={items}
+          earned={progress.earned}
+          featuredIds={progress.featuredIds}
+          progressById={progressById}
+          onSelect={onSelect}
+        />
+      )}
     </div>
   );
 }

@@ -12,6 +12,8 @@ import type {
   DefaultChartView,
   ThemePreference,
   RestTimerSeconds,
+  CardioPrDisplay,
+  CardioPrDisplayByActivity,
 } from "../preferences";
 
 /**
@@ -28,6 +30,8 @@ export interface PreferencesService {
   updateRestTimerSeconds(seconds: RestTimerSeconds): Promise<void>;
   updateTrackBodyweight(enabled: boolean): Promise<void>;
   updateEnableSupersets(enabled: boolean): Promise<void>;
+  updateCardioPrDisplay(display: CardioPrDisplay): Promise<void>;
+  updateCardioPrDisplayByActivity(byActivity: CardioPrDisplayByActivity): Promise<void>;
 }
 
 type PreferencesContextType = {
@@ -41,6 +45,8 @@ type PreferencesContextType = {
   updateRestTimer: (seconds: RestTimerSeconds) => Promise<void>;
   updateTrackBodyweight: (enabled: boolean) => Promise<void>;
   updateEnableSupersets: (enabled: boolean) => Promise<void>;
+  updateCardioPrDisplay: (display: CardioPrDisplay) => Promise<void>;
+  updateCardioPrDisplayByActivity: (byActivity: CardioPrDisplayByActivity) => Promise<void>;
   // Convenience getters
   units: UnitSystem;
   defaultChartView: DefaultChartView;
@@ -49,6 +55,8 @@ type PreferencesContextType = {
   restTimerSeconds: RestTimerSeconds;
   trackBodyweight: boolean;
   enableSupersets: boolean;
+  cardioPrDisplay: CardioPrDisplay;
+  cardioPrDisplayByActivity: CardioPrDisplayByActivity;
 };
 
 const PreferencesContext = createContext<PreferencesContextType | undefined>(undefined);
@@ -111,6 +119,16 @@ export function createPreferencesProvider(service: PreferencesService) {
       await loadPreferences();
     };
 
+    const updateCardioPrDisplayPref = async (display: CardioPrDisplay) => {
+      await service.updateCardioPrDisplay(display);
+      await loadPreferences();
+    };
+
+    const updateCardioPrDisplayByActivityPref = async (byActivity: CardioPrDisplayByActivity) => {
+      await service.updateCardioPrDisplayByActivity(byActivity);
+      await loadPreferences();
+    };
+
     const value: PreferencesContextType = {
       preferences,
       loading,
@@ -122,6 +140,8 @@ export function createPreferencesProvider(service: PreferencesService) {
       updateRestTimer: updateRestTimerPref,
       updateTrackBodyweight: updateTrackBodyweightPref,
       updateEnableSupersets: updateEnableSupersetsPref,
+      updateCardioPrDisplay: updateCardioPrDisplayPref,
+      updateCardioPrDisplayByActivity: updateCardioPrDisplayByActivityPref,
       units: preferences?.units || "imperial",
       defaultChartView: preferences?.defaultChartView || "month",
       prNotifications: preferences?.prNotifications ?? true,
@@ -129,6 +149,8 @@ export function createPreferencesProvider(service: PreferencesService) {
       restTimerSeconds: preferences?.restTimerSeconds ?? 0,
       trackBodyweight: preferences?.trackBodyweight ?? false,
       enableSupersets: preferences?.enableSupersets ?? false,
+      cardioPrDisplay: preferences?.cardioPrDisplay ?? "both",
+      cardioPrDisplayByActivity: preferences?.cardioPrDisplayByActivity ?? {},
     };
 
     return (

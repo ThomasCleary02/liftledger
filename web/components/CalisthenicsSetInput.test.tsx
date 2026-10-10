@@ -26,6 +26,8 @@ describe("CalisthenicsSetInput", () => {
     expect(onSetsChange).toHaveBeenCalledWith([{ reps: "8", duration: "" }]);
     fireEvent.change(screen.getByLabelText("Set 1 hold time in seconds"), { target: { value: "30s" } });
     expect(onSetsChange).toHaveBeenCalledWith([{ reps: "10", duration: "30" }]);
+    fireEvent.change(screen.getByLabelText("Set 1 added weight in lb"), { target: { value: "25" } });
+    expect(onSetsChange).toHaveBeenCalledWith([{ reps: "10", duration: "", addedWeight: "25" }]);
     fireEvent.click(screen.getByRole("button", { name: "Add Set" }));
     expect(onSetsChange).toHaveBeenLastCalledWith([
       { reps: "10", duration: "" },

@@ -1,0 +1,21 @@
+[
+  { "name": "Russian Twist", "muscleGroup": "abs", "modality": "calisthenics" },
+  { "name": "Bicycle Crunch", "muscleGroup": "abs", "modality": "calisthenics" },
+  { "name": "Torso Rotation Machine", "muscleGroup": "abs", "modality": "strength" },
+  { "name": "Wood Chop", "muscleGroup": "abs", "modality": "strength" },
+  { "name": "Side Bend", "muscleGroup": "abs", "modality": "strength" },
+  { "name": "Inverted Row", "muscleGroup": "back", "modality": "calisthenics" },
+  { "name": "Incline Push-Up", "muscleGroup": "chest", "modality": "calisthenics" },
+  { "name": "Decline Push-Up", "muscleGroup": "chest", "modality": "calisthenics" },
+  { "name": "Pike Push-Up", "muscleGroup": "shoulders", "modality": "calisthenics" },
+  { "name": "Handstand Push-Up", "muscleGroup": "shoulders", "modality": "calisthenics" },
+  { "name": "L-Sit", "muscleGroup": "abs", "modality": "calisthenics" },
+  { "name": "Bodyweight Squat", "muscleGroup": "legs", "modality": "calisthenics" },
+  { "name": "Lunge", "muscleGroup": "legs", "modality": "calisthenics" },
+  { "name": "Reverse Lunge", "muscleGroup": "legs", "modality": "calisthenics" },
+  { "name": "Step-Up", "muscleGroup": "legs", "modality": "calisthenics" },
+  { "name": "Bodyweight Calf Raise", "muscleGroup": "calves", "modality": "calisthenics" },
+  { "name": "Single-Leg Calf Raise", "muscleGroup": "calves", "modality": "calisthenics" },
+  { "name": "Single-Leg Glute Bridge", "muscleGroup": "glutes", "modality": "calisthenics" },
+  { "name": "Nordic Hamstring Curl", "muscleGroup": "legs", "modality": "calisthenics" }
+]

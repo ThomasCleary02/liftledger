@@ -33,9 +33,9 @@ npm run deploy:storage:rules
 
 Rules apply immediately. Composite indexes may stay in “Building” for a few minutes after deploy.
 
-### Functions (AI Chat Beta)
+### Functions (AI Chat Beta — planned, not set up yet)
 
-Firebase Functions stored in `functions/` folder, ignored by Netlify builds. Deployed separately:
+Firebase Functions will live in `functions/` (needs Blaze plan), ignored by Netlify builds. Access is gated by the `premium` custom claim — see [`BACKLOG.md`](../BACKLOG.md) AI Training Chat. Deployed separately once it exists:
 
 ```bash
 npm run deploy:functions          # deploy cloud functions only

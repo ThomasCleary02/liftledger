@@ -11,7 +11,7 @@ test.describe("settings surfaces", () => {
     const restStart = await restRow.innerText();
 
     await themeRow.click();
-    await page.getByRole("button", { name: /^Dark/ }).click();
+    await page.getByRole("radio", { name: /^Dark/ }).click();
     await page.getByRole("button", { name: "Done" }).first().click();
     await page.reload();
     await expect(page.getByRole("button", { name: /Theme/ })).toContainText("Dark");
@@ -22,11 +22,11 @@ test.describe("settings surfaces", () => {
       : themeStart.includes("Dark")
         ? /^Dark/
         : /Match device/;
-    await page.getByRole("button", { name: restoreTheme }).click();
+    await page.getByRole("radio", { name: restoreTheme }).click();
     await page.getByRole("button", { name: "Done" }).first().click();
 
     await page.getByRole("button", { name: /Rest timer/ }).click();
-    await page.getByRole("button", { name: /^90 seconds/ }).click();
+    await page.getByRole("radio", { name: /^90 seconds/ }).click();
     await page.getByRole("button", { name: "Done" }).first().click();
     await page.reload();
     await expect(page.getByRole("button", { name: /Rest timer/ })).toContainText("1.5 min");
@@ -41,7 +41,7 @@ test.describe("settings surfaces", () => {
           : restStart.includes("1 min")
             ? /^1 minute/
             : /^Off/;
-    await page.getByRole("button", { name: restoreRest }).click();
+    await page.getByRole("radio", { name: restoreRest }).click();
     await page.getByRole("button", { name: "Done" }).first().click();
   });
 
@@ -62,12 +62,12 @@ test.describe("settings surfaces", () => {
     await expect(page.getByText("Push (PPL)")).toBeVisible();
 
     await page.goto("/settings");
-    await page.getByRole("button", { name: /Favorite Exercises/ }).click();
-    await expect(page.getByRole("heading", { name: "Favorite Exercises" })).toBeVisible();
+    await page.getByRole("button", { name: /Favorite exercises/i }).click();
+    await expect(page.getByRole("heading", { name: /Favorite exercises/i })).toBeVisible();
     await page.getByLabel("Close favorites").click();
 
-    await page.getByRole("button", { name: /My Exercises/ }).click();
-    await expect(page.getByRole("heading", { name: "My Exercises" })).toBeVisible();
+    await page.getByRole("button", { name: /My exercises/i }).click();
+    await expect(page.getByRole("heading", { name: /My exercises/i })).toBeVisible();
     await expect(page.getByRole("button", { name: "Done" }).first()).toBeVisible();
   });
 });

@@ -34,7 +34,7 @@ Point Next at **production** Firebase only when intentional:
 | Unit (web) | `npm test -w liftledger-web` | Vitest / jsdom |
 | Firestore rules | `npm run test:rules` | Emulator + rules vitest |
 | Full pre-commit style | `npm test` | Workspaces + rules |
-| E2E | `npm run playwright:install` then `npm run test:e2e` | Playwright vs local emulators |
+| E2E | `npm run playwright:install` then `npm run test:e2e` | Playwright vs local emulators. Smoke only — hard 5 min `globalTimeout`; no local retries. Put edge cases in unit tests, not e2e. |
 
 Typecheck: `npm run type-check` (workspaces) or `npm run type-check -w liftledger-web`.
 

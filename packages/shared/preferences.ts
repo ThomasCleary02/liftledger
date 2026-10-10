@@ -9,6 +9,11 @@ export type UnitSystem = "metric" | "imperial";
 export type DefaultChartView = "week" | "month" | "year";
 export type ThemePreference = "system" | "light" | "dark";
 export type RestTimerSeconds = 0 | 60 | 90 | 120 | 180;
+export type CardioPrDisplay = "pace" | "distance" | "both";
+/** Per-activity override for Analytics cardio PR rows. Missing keys use cardioPrDisplay. */
+export type CardioPrDisplayByActivity = Partial<
+  Record<"run" | "walk" | "hike" | "bike" | "row" | "elliptical" | "swim" | "stair" | "other", CardioPrDisplay>
+>;
 // TimePeriod is exported from ./analytics/types to avoid duplicate exports
 
 export interface UserPreferences {
@@ -21,6 +26,10 @@ export interface UserPreferences {
   trackBodyweight: boolean;
   /** When false (default), hide day-log superset pair controls. */
   enableSupersets: boolean;
+  /** Default how cardio PRs surface pace vs distance. Overridden per activity when set. */
+  cardioPrDisplay: CardioPrDisplay;
+  /** Optional per-activity overrides (e.g. run: both, walk: distance). */
+  cardioPrDisplayByActivity: CardioPrDisplayByActivity;
 }
 
 /**
@@ -43,7 +52,21 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   restTimerSeconds: 0,
   trackBodyweight: false,
   enableSupersets: false,
+  cardioPrDisplay: "both",
+  cardioPrDisplayByActivity: {},
 };
+
+export function resolveCardioPrDisplay(
+  prefs: Pick<UserPreferences, "cardioPrDisplay" | "cardioPrDisplayByActivity"> | null | undefined,
+  activity: keyof CardioPrDisplayByActivity | string
+): CardioPrDisplay {
+  const by = prefs?.cardioPrDisplayByActivity;
+  if (by && activity in by) {
+    const override = by[activity as keyof CardioPrDisplayByActivity];
+    if (override) return override;
+  }
+  return prefs?.cardioPrDisplay ?? "both";
+}
 
 /**
  * Create a preferences service with the provided storage implementation
@@ -53,7 +76,15 @@ export function createPreferencesService(storage: PreferencesStorage) {
     try {
       const stored = await storage.getItem(PREFERENCES_KEY);
       if (stored) {
-        return { ...DEFAULT_PREFERENCES, ...JSON.parse(stored) };
+        const parsed = JSON.parse(stored) as Partial<UserPreferences>;
+        return {
+          ...DEFAULT_PREFERENCES,
+          ...parsed,
+          cardioPrDisplayByActivity: {
+            ...DEFAULT_PREFERENCES.cardioPrDisplayByActivity,
+            ...(parsed.cardioPrDisplayByActivity || {}),
+          },
+        };
       }
       return DEFAULT_PREFERENCES;
     } catch (error) {
@@ -101,6 +132,16 @@ export function createPreferencesService(storage: PreferencesStorage) {
     await savePreferences({ enableSupersets });
   }
 
+  async function updateCardioPrDisplay(cardioPrDisplay: CardioPrDisplay): Promise<void> {
+    await savePreferences({ cardioPrDisplay });
+  }
+
+  async function updateCardioPrDisplayByActivity(
+    cardioPrDisplayByActivity: CardioPrDisplayByActivity
+  ): Promise<void> {
+    await savePreferences({ cardioPrDisplayByActivity });
+  }
+
   return {
     getPreferences,
     savePreferences,
@@ -111,6 +152,8 @@ export function createPreferencesService(storage: PreferencesStorage) {
     updateRestTimerSeconds,
     updateTrackBodyweight,
     updateEnableSupersets,
+    updateCardioPrDisplay,
+    updateCardioPrDisplayByActivity,
   };
 }
 

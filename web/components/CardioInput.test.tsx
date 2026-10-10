@@ -28,4 +28,19 @@ describe("CardioInput", () => {
     fireEvent.click(screen.getByRole("button", { name: "Bike" }));
     expect(onActivityTypeChange).toHaveBeenCalledWith("bike");
   });
+
+  it("shows steps instead of distance for stair climbers", () => {
+    const onDataChange = vi.fn();
+    render(
+      <CardioInput
+        data={{ duration: "20", distance: "", steps: "150" }}
+        onDataChange={onDataChange}
+        activityType="stair"
+        exerciseName="Stair Climber"
+      />
+    );
+    expect(screen.queryByLabelText("Distance")).toBeNull();
+    fireEvent.change(screen.getByLabelText("Steps"), { target: { value: "200a" } });
+    expect(onDataChange).toHaveBeenCalledWith({ duration: "20", distance: "", steps: "200" });
+  });
 });

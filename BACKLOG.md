@@ -6,13 +6,46 @@ Durable product/engineering knowledge lives in [`docs/`](./docs/README.md). Keep
 
 ## Now
 
-**Target: 3.3.4 - Bug Fixes & Polish** (Prioritize before 3.4.0)
+**Target: 3.3.4 patch** — ship before weekend; then **3.4.0** Account & Auth. See also [`docs/release-plan-3.3.4.md`](./docs/release-plan-3.3.4.md).
 
-- **Calisthenics input width fix** - When +lbs field is shown (weighted push-ups, etc.), row is too wide and X button gets cut off screen. Reduce field widths or wrap to two rows on mobile.
-- **Stair Stepper / Step Master cardio input** - Should track steps, not miles/distance. Currently uses distance field which doesn't make sense for stair climbers.
-- **Day overview summary** - Add overview somewhere in app showing what you've done for the day (total volume, exercises completed, duration, etc.) or summary at end of day. Help users see progress without navigating to Analytics.
+### Bugs & day log
+- **Calisthenics input width fix** - When +lbs is shown, row is too wide and X gets cut off. Wrap/narrow on mobile.
+- **Stair Stepper / Step Master** - Track **steps**, not miles. Optional `steps` on cardio; keep distance for run/walk/bike.
+- **Day overview summary** - Collapsible end-of-day (or on-day) stats: volume, exercise count, cardio duration/distance/steps, PRs today — without leaving the day log.
+- **Overview calisthenics card copy** - “reps in period” hint looks out of place vs peer Overview cards. Match layout.
 
-**Next: 3.4.0 - Account & Auth Polish**
+### Search & discovery
+- **Rank by personal history** - Boost hits the user has logged (identity aliases + session count). Favorites optional. Empty query: recent/frequent over A–Z.
+- **Recent strip** - Last few logged lifts above results (companion to history ranking).
+- **Soft modality chips** - Strength / Cardio / Calisthenics filter chips on search (not a full Settings redesign).
+- **Stronger post-save hints** - Streak / “first leg day this week” style copy where cheap (logic mostly exists).
+
+### Cardio PRs & taxonomy
+- **Cardio PR display preference** - Pace, distance, or both on PR rows/cards.
+- **Cardio classification audit** - Expand beyond `run|walk|bike|row|other` toward MapMy-style roots (elliptical, stair, swim, hike, machine cardio) without copying hundreds of subtypes. Still no run↔walk PR merge.
+
+### Catalog
+- **Machine naming & gaps** - Explicit floor names (Calf Raise Machine, Tricep Pushdown Machine, etc.).
+- **Planet Fitness / Crunch / OneLife pass** - Selectorized + cable + smith gaps. Emulator JSON **and** production CLI upsert. Keep barbell / Smith / machine distinct.
+
+### Medals
+- **Platinum + Diamond + challenges (live)** - Hybrid C lifetime (Heartwood / Ninety / Half year rhythm + Evergreen / Two moons + Mileage club / Long haul / True dynasty / Year of iron / Smelter). Soft-retire stops new awards for `sessions_250` / `volume_2_5m`. Named challenges through Diamond (Foundry week, Iron month, Road siege, PR monsoon, Hybrid siege, Anvil month, Odyssey, Unbroken, True tempest, Ultramarathon week). Legendary deferred.
+- Optional stretch: wire week-share / first-friend / twelve-weigh-ins awards if hooks are cheap.
+
+### Share cards
+- **Better week (and medal) share PNGs** - Clearer hierarchy, typography, tier-aware styling, week key stats not only calendar.
+- **In-app share preview** - Always preview before/with OS share; Confirm / Share / Save. Optional swipe between week vs medal card.
+
+### Analytics polish
+- **Period date range under chips** - e.g. “Mar 10 – Mar 16” under 7d/30d/1y.
+- **Stickier Analytics sub-tabs** while scrolling (small CSS).
+- **Leaderboards: distance by family** - Keep Volume + Consistency. Today’s “cardio” board is actually **duration** (fair across modalities) — rename honestly. Add distance boards split by comparable families: **Foot miles** (run+walk+hike), **Bike miles**, Row only if distance is trustworthy else time, **Stairs steps** (pairs with stair `steps` field). Optional Run/Walk sub-chips under Foot; still no run↔walk PR merge. UI: Time + Distance family chips; hide/empty-state families with no data. Shared: `getCardioDurationLeaderboard` + `getCardioDistanceLeaderboard(..., family)`.
+
+### Empty / tips
+- **Empty states** - One better each: Analytics (no workouts), Profile friends, Templates.
+- **Tip** - Settings tip that search learns from history once ranking ships.
+
+**Weekend next: 3.4.0 - Account & Auth Polish**
 
 - **Password reset** - Improve visibility/flow of existing reset email feature.
 - **Email change** - Allow users to update their sign-in email from Settings → Account.
@@ -24,18 +57,13 @@ Durable product/engineering knowledge lives in [`docs/`](./docs/README.md). Keep
 **After 3.4.0:**
 
 - Gym-floor offline logging: precache day shell + Firestore cache write-through.
-- Wire medals the product already supports (week share, first friend, twelve weigh-ins) — pairs well with progress UI once those hooks exist.
+- Wire medals the product already supports (week share, first friend, twelve weigh-ins) — if not absorbed in 3.3.4.
 - **Year wrapped** (+ light calisthenics line if earned). Persist `wrappedYearSeen`. Not a tab.
 - Import that can prove a year of history.
 - Starter programs with a real complete state.
 - Head-to-head week on leaderboards.
 - **Share card visual enhancements (phased):**
-  - **Phase 1 - Enhanced static PNGs:**
-    - Tier-specific gradients/effects (Bronze = copper gradient, Silver = metallic shine, Gold = rich highlights, Platinum = silver sparkle, Diamond = prismatic blue, Ledgendary = rainbow/animated gradient effect)
-    - Better typography (bolder numbers, modern fonts, drop shadows)
-    - Visual hierarchy improvements (larger achievement focus, mini charts, better whitespace)
-    - Week overview redesign with key stats, not just calendar grid
-    - Month share card with similar visual style
+  - Phase 1 (week/medal PNG polish + **in-app preview**) ships in **3.3.4**.
   - **Phase 2 - Animated GIFs for special occasions:**
     - Medal unlock celebrations (spinning medal with shine effect, ~2-3 sec loop)
     - New PR achievements (confetti + counter animation)
@@ -50,87 +78,79 @@ Durable product/engineering knowledge lives in [`docs/`](./docs/README.md). Keep
 - Day **notes** editor (product/import already support notes; day UI never exposes them).
 - **Calisthenics hold duration analytics:** calculate and display total hold time alongside total reps. Complements reps visibility.
 - **Settings redesign** - Group settings into logical sections (Account, Preferences, Training, Data, Help). See `docs/ux-audit-2026-09.md` for full mockup.
-- **Enhanced empty states** - Better first-run experience for Analytics (no workouts), Profile (no friends), Templates (none created).
-- **Exercise search improvements** - Recently used section, muscle group filters, modality tabs (Strength/Cardio/Calisthenics).
-- **Medal UI enhancements** - Group medals by tier (Bronze/Silver/Gold sections), medal detail modal with earn date/rarity %, progress bars (opt-in).
+- **Exercise search filters** - Deeper muscle-group filters beyond 3.3.4 soft modality chips.
+- **Medal UI extras** - Rarity %, opt-in progress bars (tier grouping + detail sheet ship in 3.3.4).
 - **Analytics charts expansion** - Muscle group breakdown chart, cardio distance/duration trends, bodyweight trend line if tracking enabled.
-- **Progress hints expansion** - Celebrate streaks, note muscle group balance, volume milestones (beyond just PRs).
+- **Progress hints expansion** - Beyond the light post-save hints in 3.3.4.
 - **Profile enhancements** - Avatar preview before save, bio field option, friend search/filter.
 - **Day log polish** - Bodyweight quick-add without navigating to settings, bodyweight trend on day page if tracking enabled.
 
 ## Later
 
+Durable medals philosophy: [`docs/medals.md`](./docs/medals.md) (one idea → one medal; lifetime vs challenge; no ROADMAP ghosts).
+
 - Offline-first medal (“Quiet gym”) once offline logging works.
 - Night/dawn medals if we store local log time.
 - More medals as features land — do not grow the live catalog in bulk.
-- **Medal design:** enough easy badges already. New catalog medals should be **harder** (or creative / tied to a new feature). Cardio already has live **Engine** (10 hr). ROADMAP: **Mileage club** (100 mi run, no walk) and **Long haul** (50 hr cardio) in `ACHIEVEMENT_ROADMAP` — keep them ROADMAP until we deliberately promote.
-- **Medal tier expansion:**
-  - **Platinum (tier 4), Diamond (tier 5), Ledgendary (tier 6)** - Extend existing medal progression with higher thresholds. Same medal types (sessions, volume, cardio, streaks, challenges), just harder. User has 150+ sessions, 30+ hr cardio, 400k+ volume — current caps at tier 3 (Century: 100 sessions, Engine: 10 hr, Quarter million: 250k lb).
-  - **Challenge medals (all tiers)** - New medal category: specific dedication challenges. Bronze/Silver/Gold/Platinum/Diamond/Ledgendary tiers, progressively harder. Examples: Daily push-ups for 7/14/21/28/60/90 days. If you make it 20 days but miss one, you still earn the tier you completed (Gold = 21 days), not nothing. Ledgendary = month+ challenges requiring serious dedication.
-  - **Important:** Hard challenge medals cannot use rest days to preserve streak. Must be actual trained days. Design these after tier 4/5 numeric medals ship.
+- **Medal design:** enough easy badges already. New medals should be a **distinct story** (harder bar, creative name, or new feature) — not another twin of sessions/volume/cardio. Prefer soft-retire before adding. Live cardio ladder: **Engine** (10h) → **Heartwood** (30h) → **Long haul** (50h). Lifetime **Mileage club** (100 mi run) + **Ground game** (100 mi foot). Race run windows never merge walk miles; foot umbrellas may combine run+walk+hike for work medals only.
+- **Lifetime milestones (sparse):** Named career floors only. Platinum + Diamond live (incl. Evergreen, Two moons, Smelter, Year of iron, Ground game). Soft-retired: Quarter thousand / Two and a half million / PR burst ladder / Road fever & Road siege / Stair spark & Plank pulse (history only). **Master** (or Champion) then **Legendary** reserved after Diamond — no live defs yet.
+- **Challenge medals:** Fixed windows / bursts with unique names — not infinite tier ladders. Hard challenges count trained days only (rest does not fill; Unbroken breaks on rest). No N-PRs-in-M-days ladders. Live set in medals.md (lean: Foundry Silver, Rep siege Gold, modality umbrellas).
+- **Custom challenges (Later):** MapMyWalk-style user goals OK for retention. Official medals only for *meta* engagement (create first goal / complete N goals) — never one catalog medal per custom goal.
 - **Progression system expansion (multi-phase):**
   - **Phase 2 (later):** Profile XP / ranks / titles — XP accumulates from training sessions, unlocks ranks and titles visible on profile. Inspired by Laracasts/Boot.dev: useful tool + fun progression that recognizes real work, not arbitrary gamification.
-  - **Phase 3 (much later, if traction/users):** Quests / challenges — daily/weekly goals that encourage healthy training patterns (hit all muscle groups, maintain streaks, try new exercises, PRs). Optional engagement layer that guides good habits.
-  - **Phase 4 (long-term, community-dependent):** Forum / community platform (Laracasts-style) — place to discuss training, share achievements, show off badges/ranks/Ledgendary status. Only viable with real user base and moderation capacity. Gives progression system a social showcase.
+  - **Phase 3 (much later, if traction/users):** Quests / daily–weekly goals that encourage healthy patterns (muscle-group coverage, streaks, new exercises, PRs). Optional habit layer — separate from unique challenge medals.
+  - **Phase 4 (long-term, community-dependent):** Forum / community platform (Laracasts-style) — discuss training, share achievements, show off rare medals. Needs real user base + moderation.
 - **Customizable Analytics Overview:** let users choose which stat widgets/cards to show (volume, cardio distance/duration, calisthenics reps/holds, bodyweight, etc.). Pairs with exposing more calisthenics metrics.
 - **Calisthenics analytics (opt-in)** — not a mandatory Strength/Cardio peer.
 - Template editor: nested sheet Back vs Done; calisthenics templates thinner than day log (pairs with hold timer).
 - **Global leaderboards** - Competition beyond friends. Could add friends from leaderboard. Privacy settings: discoverable by email only, opt-out of global boards, etc. Needs careful privacy design before shipping.
-- **AI Training Chat (Beta Feature - Token Cost Warning):**
-  - **Cost:** Heavy token usage (500-1000 per query). Beta scale (2 users, 10 queries/day) = ~$20-40/month Claude API costs. Evaluate ROI before broader rollout.
-  - **Setup:** Firebase Functions in repo (`functions/` folder), ignored by Netlify, deployed separately via `firebase deploy --only functions`
-  - **Tools:** `get_user_stats`, `get_recent_workouts`, `get_exercise_prs`, `get_medal_progress`, `compare_with_friend`
-  - **Safety:** Rate limiting (10/day, 100/month), whitelist beta users, usage tracking in Firestore
-  - **UI:** Simple chat route at `/ai-chat` with message history
-  - **Resume value:** AI/ML API integration, serverless architecture, natural language interface, cost management
-  - **Decision point:** Evaluate after 1 month beta. If costs justify engagement, expand. If too costly, pivot to paid premium or sunset.
+- **AI Training Chat (premium beta — owner + 1 tester):** goal is learning, not revenue; never lose more than the prepaid API balance.
+  - **Access = premium custom claim:** Firebase Auth custom claim `premium: true`, granted by hand via `node scripts/set-premium.cjs <email>` (`--revoke` to remove; Firebase CLI auth like the catalog seed). **Never** store premium on `accounts/{uid}` — users can write their own account doc. New claims show after token refresh (≤1h or sign out/in).
+  - **Server enforces, UI only hides:** Firebase Function (`functions/`, Blaze plan, deployed separately — Netlify ignores it) rejects any request without `premium` on the verified ID token. Client reads the same claim to show/hide the `/ai-chat` entry; that is cosmetic, not security.
+  - **Spend ceiling:** prepaid provider API balance (e.g. $10), **auto-reload off**. Key lives only in Functions secrets, never in the client bundle.
+  - **Caps:** per-user daily question limit (~20, tracked server-side in Firestore, not client-writable); per-request `max_tokens` + compact training summary instead of full history; small/cheap model by default. Expected worst case ≈ $5–10/month for 2 users at cap — check current model pricing.
+  - **Tools (read-only, user-scoped):** `get_user_stats`, `get_recent_workouts`, `get_exercise_prs`, `get_medal_progress`. No writes back to logs in beta.
+  - **UI:** simple chat at `/ai-chat` with message history; show "questions left today."
+  - **Later — Stripe prepaid credits (only if opened beyond friends):** Checkout → signed webhook (idempotent) grants claim or credit balance → Function deducts actual usage atomically; zero balance = refuse. No pay-as-you-go billing.
+  - **Decision point:** after ~1 month, keep / expand / sunset based on actual use and spend.
 - Native Expo integrations → candidate **v4**.
 
-## Challenge Medal Ideas (All Tiers - Design Later)
+## Challenge medal ideas (Later — distinct stories)
 
-Specific dedication challenges with tiered progression. Rest days don't count for hard challenges. If you fail mid-way, you keep the tier you completed.
+See [`docs/medals.md`](./docs/medals.md). Each row is a **named window**, not a Bronze→Legendary twin of the same metric. Rest days do not count for hard challenges. Earn the story you finish.
 
-**Daily Push-Up Challenge:**
-- Bronze: 50 push-ups/day × 7 days (350 total)
-- Silver: 75 push-ups/day × 14 days (1,050 total)
-- Gold: 100 push-ups/day × 21 days (2,100 total)
-- Platinum: 100 push-ups/day × 28 days (2,800 total)
-- Diamond: 100 push-ups/day × 60 days (6,000 total)
-- **Ledgendary: 100 push-ups/day × 90 days (9,000 total)** - requires months of dedication
+**Daily push-ups (habit windows)** — pick one story at a time if/when shipped:
+- Week spark: 50/day × 7 · Fortnight: 75/day × 14 · Three-week grind: 100/day × 21 · Month siege: 100/day × 28
 
-**Volume Blitz:**
-- Bronze: 25k lb in one week
-- Silver: 50k lb in two weeks
-- Gold: 75k lb in three weeks
-- Platinum: 100k lb in one month
-- Diamond: 200k lb in two months
-- **Ledgendary: 500k lb in three months** - sustained intensity
+**Volume windows** (v1 live — see medals.md):
+- **Volume blitz** — 25k lb in any 7 days (live)
+- **Volume siege** — 50k lb in any 14 days (live)
+- Later stretch stories only if distinct (e.g. multi-month campaign with its own name) — not Blitz II/III
 
-**Distance Demon (Running):**
-- Bronze: 10 miles in one week
-- Silver: 25 miles in two weeks
-- Gold: 50 miles in one month
-- Platinum: 75 miles in one month
-- Diamond: 100 miles in one month
-- **Ledgendary: 200 miles in two months** - marathon-level commitment
+**Distance:**
+- **Distance demon** — 10 mi run in any 7 days (live); never merge walk miles
+- **Footwork** — 40 mi foot (run+walk+hike) in any 14 days (live)
+- **Sidewalk stroll** / **Ridge day** / **Spin spark** — modality identity (live)
+- **Odyssey** — 75 mi run in any 30 days (live Platinum)
+- **Ultramarathon week** — 40 mi run in any 7 days (live Diamond)
+- **Mileage club** — 100 mi lifetime run (live Diamond); never merge walk miles
+- **Ground game** — 100 mi lifetime foot (live Platinum)
+- Soft-retired: Road fever, Road siege, Stair spark (history only)
 
-**PR Machine:**
-- Bronze: 3 PRs in 7 days
-- Silver: 5 PRs in 14 days
-- Gold: 8 PRs in 21 days
-- Platinum: 10 PRs in 30 days
-- Diamond: 15 PRs in 45 days
-- **Ledgendary: 25 PRs in 60 days** - constant progression
+**PR stories** (improvements, not openers; no N-in-M-days bursts):
+- Soft-retired: PR spark / weather / monsoon / tempest / Five PRs
+- **Return fire** — true PR within 14d after ≥21d off (live)
+- **Same fight** / **Stale kill** — consistency / long-horizon (live)
+- **True PR** / **PR machine** / **True dynasty** — lifetime floors (live)
 
-**Iron Streak (No Rest Days):**
-- Bronze: 7 consecutive trained days
-- Silver: 14 consecutive trained days
-- Gold: 21 consecutive trained days
-- Platinum: 30 consecutive trained days
-- Diamond: 45 consecutive trained days
-- **Ledgendary: 60 consecutive trained days (no rest)** - extreme dedication
-
-These scale from achievable (Bronze) to grueling (Ledgendary). Emphasize competitiveness and engagement. You earn credit for the tier you complete, even if you don't make it to the top.
+**Trained-day / hybrid / cali challenges:**
+- **Iron fortnight** — 10 trained days in any 14d (live; rest does not preserve)
+- **Hybrid month** — ≥20k lb volume and ≥60 min cardio in the same 30d window (live; dual floors honest)
+- **Hybrid siege** — ≥40k lb + ≥2h cardio same 30d (live)
+- **Foundry week** — 40k lb / 7d (live Silver)
+- **Rep siege** — 500 calisthenics reps / 7d (live Gold)
+- **Push-up week** — 150 push-up reps / 7d (live Silver identity)
+- Soft-retired: Plank pulse
 
 ## Explicitly not doing
 

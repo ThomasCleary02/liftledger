@@ -35,9 +35,9 @@ const toastConfig = {
   },
   medal: {
     icon: Medal,
-    bg: "bg-white",
-    border: "border-brand/50",
-    text: "text-gray-900",
+    bg: "bg-white dark:bg-gray-950",
+    border: "border-brand/50 dark:border-brand/40",
+    text: "text-gray-900 dark:text-gray-100",
     iconColor: "text-brand",
   },
 };
@@ -75,7 +75,20 @@ export function ToastContainer() {
                 <>
                   <p className="text-xs font-semibold uppercase tracking-[0.08em] text-brand">Medal unlocked</p>
                   <p className={`mt-0.5 text-sm font-semibold ${config.text}`}>{toast.title ?? toast.message}</p>
-                  {toast.title ? <p className="mt-0.5 text-sm text-gray-600">{toast.message}</p> : null}
+                  {toast.title ? <p className="mt-0.5 text-sm text-gray-600 dark:text-gray-400">{toast.message}</p> : null}
+                  {toast.action ? (
+                    <button
+                      type="button"
+                      className="mt-2 text-sm font-semibold text-brand underline-offset-2 hover:underline"
+                      onClick={() => {
+                        const run = toast.action?.onClick;
+                        removeToast(toast.id);
+                        run?.();
+                      }}
+                    >
+                      {toast.action.label}
+                    </button>
+                  ) : null}
                 </>
               ) : (
                 <p className={`text-sm font-medium ${config.text}`}>{toast.message}</p>

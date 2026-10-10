@@ -207,10 +207,13 @@ export function searchExerciseCatalog(
   allDocs: ExerciseDoc[],
   queryText: string,
   filters?: { muscleGroup?: MuscleGroup; modality?: ExerciseModality },
-  limitCount = 50
+  limitCount = 50,
+  /** Session counts by exercise id — boosts / empty-query ranking for logged lifts. */
+  historySessions?: Record<string, number>
 ): ExerciseDoc[] {
   const qFold = foldName(queryText).trim();
   const queryWords = qFold.split(/\s+/).filter((w) => w.length > 0);
+  const history = historySessions || {};
 
   let filtered = allDocs;
   if (filters?.muscleGroup) {
@@ -220,10 +223,16 @@ export function searchExerciseCatalog(
     filtered = filtered.filter((d) => d.modality === filters.modality);
   }
 
+  const historyBoost = (id: string) => {
+    const sessions = history[id] || 0;
+    if (sessions <= 0) return 0;
+    return 80 + Math.min(120, sessions * 12);
+  };
+
   if (qFold) {
     const scored = filtered.map((ex) => ({
       exercise: ex,
-      score: calculateRelevanceScore(ex, queryText, queryWords),
+      score: calculateRelevanceScore(ex, queryText, queryWords) + historyBoost(ex.id),
     }));
     filtered = scored
       .filter((item) => item.score > 0)
@@ -232,6 +241,13 @@ export function searchExerciseCatalog(
         return a.exercise.nameFolded.localeCompare(b.exercise.nameFolded);
       })
       .map((item) => item.exercise);
+  } else if (Object.keys(history).length > 0) {
+    filtered = [...filtered].sort((a, b) => {
+      const sa = history[a.id] || 0;
+      const sb = history[b.id] || 0;
+      if (sb !== sa) return sb - sa;
+      return a.nameFolded.localeCompare(b.nameFolded);
+    });
   } else {
     filtered = [...filtered].sort((a, b) => a.nameFolded.localeCompare(b.nameFolded));
   }

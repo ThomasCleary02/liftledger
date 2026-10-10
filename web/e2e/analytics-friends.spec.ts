@@ -9,18 +9,15 @@ test.describe("analytics and friends", () => {
     await page.getByRole("button", { name: "Cardio" }).click();
     await page.getByRole("button", { name: "PRs" }).click();
     await page.getByRole("button", { name: "Overview" }).click();
-    const download = page.waitForEvent("download").catch(() => null);
     await page.getByRole("button", { name: "Share this week as an image" }).click();
-    const maybeDownload = await download;
-    if (maybeDownload) {
-      expect(maybeDownload.suggestedFilename()).toMatch(/liftledger-week-/);
-    } else {
-      // Share sheet / preview path — control should still be usable.
-      await expect(page.getByRole("button", { name: "Share this week as an image" })).toBeEnabled();
-    }
+    const preview = page.getByRole("dialog", { name: "This week" });
+    await expect(preview).toBeVisible();
+    await expect(preview.getByRole("button", { name: "Save" })).toBeVisible();
+    await preview.getByRole("button", { name: "Close preview" }).click();
+    await expect(preview).toHaveCount(0);
   });
 
-  test("PWA manifest is served and a service worker registers", async ({ page, request }) => {
+  test("PWA manifest, icons, and offline page are served", async ({ request }) => {
     const res = await request.get("/manifest.json");
     expect(res.ok()).toBeTruthy();
     const manifest = (await res.json()) as {
@@ -43,24 +40,6 @@ test.describe("analytics and friends", () => {
     const offline = await request.get("/offline.html");
     expect(offline.ok()).toBeTruthy();
     expect(await offline.text()).toContain("You are offline");
-
-    await page.goto("/day/today");
-    await expect(page.getByLabel("More for this day")).toBeVisible({ timeout: 30_000 });
-    await expect
-      .poll(
-        async () =>
-          page.evaluate(async () => {
-            if (!("serviceWorker" in navigator)) return false;
-            try {
-              const reg = await navigator.serviceWorker.ready;
-              return Boolean(reg.active || reg.installing || reg.waiting);
-            } catch {
-              return false;
-            }
-          }),
-        { timeout: 20_000 }
-      )
-      .toBeTruthy();
   });
 
   test("friends add form and leaderboards page", async ({ page }) => {

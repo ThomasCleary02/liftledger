@@ -37,9 +37,11 @@ export default defineConfig({
   testDir: "./e2e",
   fullyParallel: false,
   workers: 1,
-  retries: 1,
-  timeout: 60_000,
-  expect: { timeout: 15_000 },
+  retries: process.env.CI ? 1 : 0,
+  // Hard budget for the whole run — keep the suite a smoke pass, not a regression farm.
+  globalTimeout: 5 * 60_000,
+  timeout: 30_000,
+  expect: { timeout: 10_000 },
   reporter: "list",
   use: {
     baseURL: process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3000",
@@ -54,7 +56,7 @@ export default defineConfig({
         browserName: "chromium",
       },
     },
-    { name: "setup", testMatch: /auth\.setup\.ts/, timeout: 90_000 },
+    { name: "setup", testMatch: /auth\.setup\.ts/, timeout: 60_000 },
     {
       name: "iphone",
       dependencies: ["setup"],

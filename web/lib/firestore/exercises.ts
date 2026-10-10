@@ -40,10 +40,11 @@ export async function getExercise(id: string): Promise<ExerciseDoc | null> {
 export async function searchExercisesRemote(
   queryText: string,
   filters?: { muscleGroup?: MuscleGroup; modality?: ExerciseModality },
-  limitCount = 50
+  limitCount = 50,
+  historySessions?: Record<string, number>
 ): Promise<ExerciseDoc[]> {
   const all = await loadCatalog();
-  return searchExerciseCatalog(all, queryText, filters, limitCount);
+  return searchExerciseCatalog(all, queryText, filters, limitCount, historySessions);
 }
 
 export async function searchExercisesRemoteLegacy(

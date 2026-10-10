@@ -117,23 +117,23 @@ export default function CalisthenicsSetInput({
       {sets.map((set, idx) => (
         <div key={idx} className="mb-3">
           {!holdFocused ? (
-            <div className="flex items-center">
-              <span className="w-8 text-gray-600">{idx + 1}.</span>
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="w-8 shrink-0 text-gray-600">{idx + 1}.</span>
               <input
                 type="text"
                 inputMode="numeric"
-                className="mr-2 min-h-[48px] flex-1 rounded-lg bg-gray-100 px-3 py-3 text-base tabular-nums text-gray-900 placeholder:text-gray-400 outline-none focus:bg-white focus:ring-2 focus:ring-brand"
+                className="min-h-[48px] w-16 shrink-0 rounded-lg bg-gray-100 px-2 py-3 text-center text-base tabular-nums text-gray-900 placeholder:text-gray-400 outline-none focus:bg-white focus:ring-2 focus:ring-brand sm:w-20"
                 value={set.reps}
                 onChange={(e) => updateSet(idx, "reps", e.target.value)}
                 placeholder="Reps"
                 enterKeyHint="next"
                 aria-label={`Set ${idx + 1} reps`}
               />
-              <span className="w-12 text-gray-600">reps</span>
+              <span className="shrink-0 text-gray-600">reps</span>
               <input
                 type="text"
                 inputMode="decimal"
-                className="ml-2 min-h-[48px] w-20 rounded-lg bg-gray-100 px-3 py-3 text-base tabular-nums text-gray-900 placeholder:text-gray-400 outline-none focus:bg-white focus:ring-2 focus:ring-brand"
+                className="min-h-[48px] w-16 shrink-0 rounded-lg bg-gray-100 px-2 py-3 text-center text-base tabular-nums text-gray-900 placeholder:text-gray-400 outline-none focus:bg-white focus:ring-2 focus:ring-brand sm:w-20"
                 value={set.addedWeight || ""}
                 onChange={(e) => updateSet(idx, "addedWeight", e.target.value)}
                 onKeyDown={(e) => {
@@ -150,7 +150,7 @@ export default function CalisthenicsSetInput({
                 <button
                   onClick={() => removeSet(idx)}
                   type="button"
-                  className="ml-2 flex min-h-[44px] min-w-[44px] items-center justify-center text-red-600 transition-colors hover:text-red-700"
+                  className="ml-auto flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center text-red-600 transition-colors hover:text-red-700"
                   aria-label={`Remove set ${idx + 1}`}
                 >
                   <X className="h-5 w-5" />

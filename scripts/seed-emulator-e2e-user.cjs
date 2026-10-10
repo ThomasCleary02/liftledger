@@ -69,6 +69,32 @@ async function main() {
     },
     { merge: true },
   );
+  // Recent day so Analytics has data in its default window (otherwise empty state hides Share).
+  const recent = new Date();
+  recent.setDate(recent.getDate() - 1);
+  const recentDate = [
+    recent.getFullYear(),
+    String(recent.getMonth() + 1).padStart(2, "0"),
+    String(recent.getDate()).padStart(2, "0"),
+  ].join("-");
+  await db.collection("days").doc(`${user.uid}_${recentDate}`).set(
+    {
+      userId: user.uid,
+      date: recentDate,
+      isRestDay: false,
+      exercises: [
+        {
+          exerciseId: "barbell_curl",
+          name: "Barbell Curl",
+          modality: "strength",
+          strengthSets: [{ reps: 10, weight: 25 }],
+        },
+      ],
+      createdAt: now,
+      updatedAt: now,
+    },
+    { merge: true },
+  );
   console.log(`[seed] e2e user ready (${user.uid})`);
 }
 

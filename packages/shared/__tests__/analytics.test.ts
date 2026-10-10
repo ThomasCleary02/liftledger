@@ -17,8 +17,17 @@ import {
   getVolumeDataPoints,
   getBodyweightPoints,
   getBodyweightChangeLbs,
+  sumCardioDistanceByFamily,
+  sumCardioDurationByFamily,
 } from "../analytics/calculations";
-import { getCardioDistanceLeaderboard, getConsistencyLeaderboard, getVolumeLeaderboard } from "../analytics/leaderboards";
+import {
+  availableCardioDistanceFamilies,
+  getCardioDistanceLeaderboard,
+  getCardioDistanceLeaderboardUnit,
+  getCardioDurationLeaderboard,
+  getConsistencyLeaderboard,
+  getVolumeLeaderboard,
+} from "../analytics/leaderboards";
 import { groupDaysByUserId } from "../firestore/leaderboards";
 import { makeDay, strength } from "./dayFixture";
 
@@ -250,7 +259,108 @@ describe("analytics from days", () => {
     expect(board[1].rank).toBe(2);
     expect(board[2].rank).toBe(2);
     expect(getConsistencyLeaderboard(grouped, "all")[0].value).toBe(1);
+    expect(getCardioDurationLeaderboard(grouped, "all")[0].value).toBe(0);
+    // Deprecated 2-arg alias still ranks by duration
     expect(getCardioDistanceLeaderboard(grouped, "all")[0].value).toBe(0);
+  });
+
+  it("ranks cardio distance by comparable family", () => {
+    const alice = makeDay("2026-01-01", {
+      userId: "alice",
+      exercises: [
+        {
+          name: "Easy run",
+          modality: "cardio",
+          cardioData: { duration: 1800, distance: 3, activityType: "run" },
+        },
+        {
+          name: "Walk",
+          modality: "cardio",
+          cardioData: { duration: 1200, distance: 1, activityType: "walk" },
+        },
+      ],
+    });
+    const bob = makeDay("2026-01-01", {
+      userId: "bob",
+      exercises: [
+        {
+          name: "Ride",
+          modality: "cardio",
+          cardioData: { duration: 3600, distance: 12, activityType: "bike" },
+        },
+        {
+          name: "Stairs",
+          modality: "cardio",
+          cardioData: { duration: 600, steps: 400, activityType: "stair" },
+        },
+      ],
+    });
+    const cara = makeDay("2026-01-01", {
+      userId: "cara",
+      exercises: [
+        {
+          name: "Row",
+          modality: "cardio",
+          cardioData: { duration: 1200, distance: 2, activityType: "row" },
+        },
+      ],
+    });
+    const grouped = groupDaysByUserId([alice, bob, cara]);
+
+    expect(sumCardioDistanceByFamily([alice], "foot")).toBe(4);
+    expect(sumCardioDistanceByFamily([bob], "bike")).toBe(12);
+    expect(sumCardioDistanceByFamily([bob], "stair")).toBe(400);
+    expect(sumCardioDistanceByFamily([cara], "row")).toBe(2);
+
+    const foot = getCardioDistanceLeaderboard(grouped, "all", "foot");
+    expect(foot[0]).toMatchObject({ userId: "alice", value: 4, rank: 1 });
+    expect(getCardioDistanceLeaderboardUnit(grouped, "all", "foot")).toBe("miles");
+
+    const bike = getCardioDistanceLeaderboard(grouped, "all", "bike");
+    expect(bike[0]).toMatchObject({ userId: "bob", value: 12 });
+
+    const stairs = getCardioDistanceLeaderboard(grouped, "all", "stair");
+    expect(stairs[0]).toMatchObject({ userId: "bob", value: 400 });
+    expect(getCardioDistanceLeaderboardUnit(grouped, "all", "stair")).toBe("steps");
+
+    const row = getCardioDistanceLeaderboard(grouped, "all", "row");
+    expect(row[0]).toMatchObject({ userId: "cara", value: 2 });
+    expect(getCardioDistanceLeaderboardUnit(grouped, "all", "row")).toBe("miles");
+
+    expect(availableCardioDistanceFamilies(grouped, "all").sort()).toEqual(
+      ["bike", "foot", "row", "stair"].sort()
+    );
+    expect(getCardioDurationLeaderboard(grouped, "all")[0].userId).toBe("bob");
+  });
+
+  it("falls back to row duration when no row miles exist", () => {
+    const alice = makeDay("2026-01-01", {
+      userId: "alice",
+      exercises: [
+        {
+          name: "Erg",
+          modality: "cardio",
+          cardioData: { duration: 900, activityType: "row" },
+        },
+      ],
+    });
+    const bob = makeDay("2026-01-01", {
+      userId: "bob",
+      exercises: [
+        {
+          name: "Erg",
+          modality: "cardio",
+          cardioData: { duration: 600, activityType: "row" },
+        },
+      ],
+    });
+    const grouped = groupDaysByUserId([alice, bob]);
+    expect(sumCardioDistanceByFamily([alice], "row")).toBe(0);
+    expect(sumCardioDurationByFamily([alice], "row")).toBe(900);
+    expect(getCardioDistanceLeaderboardUnit(grouped, "all", "row")).toBe("seconds");
+    const board = getCardioDistanceLeaderboard(grouped, "all", "row");
+    expect(board[0]).toMatchObject({ userId: "alice", value: 900, rank: 1 });
+    expect(availableCardioDistanceFamilies(grouped, "all")).toEqual(["row"]);
   });
 
   it("summarizes workouts and calisthenics reps", () => {

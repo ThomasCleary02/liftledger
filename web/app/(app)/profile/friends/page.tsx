@@ -365,12 +365,21 @@ export default function Friends() {
             <section>
               <h2 className="kicker mb-3">Friends ({friends.length})</h2>
               {friends.length === 0 ? (
-                <div className="rounded-md border border-gray-200 bg-white p-12 text-center shadow-[0_1px_0_rgb(20_83_45/0.08)]">
-                  <Users className="mx-auto h-12 w-12 text-gray-300" />
-                  <p className="mt-4 font-medium text-gray-900">No friends yet</p>
-                  <p className="mt-1 text-sm text-gray-500">
-                    Use the form above to send a request by username. Once they accept, you can compare on leaderboards.
+                <div className="rounded-md border border-gray-200 bg-white px-6 py-12 text-center shadow-[0_1px_0_rgb(20_83_45/0.08)]">
+                  <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-brand/10">
+                    <Users className="h-7 w-7 text-brand" />
+                  </div>
+                  <p className="kicker mb-1">Friends</p>
+                  <p className="text-lg font-semibold text-gray-900">Invite someone to train with</p>
+                  <p className="mx-auto mt-2 max-w-sm text-sm text-gray-500">
+                    Send a request by username above. After they accept, you can compare streaks, volume, and cardio on
+                    leaderboards.
                   </p>
+                  {incomingRequests.length === 0 && outgoingRequests.length === 0 ? (
+                    <p className="mt-4 text-xs text-gray-400">
+                      Tip: ask a training partner for their LiftLedger username.
+                    </p>
+                  ) : null}
                 </div>
               ) : (
                 <div className="overflow-hidden rounded-md border border-gray-200 bg-white shadow-[0_1px_0_rgb(20_83_45/0.08)]">

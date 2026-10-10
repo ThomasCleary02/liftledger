@@ -7,6 +7,8 @@ import { strengthVolume, workingStrengthSets, maxWorkingWeight } from "../sets";
 import {
   CARDIO_ACTIVITY_TYPES,
   type CardioActivityType,
+  type CardioDistanceFamily,
+  cardioDistanceFamily,
   cardioPaceKind,
   milesPerHour,
   resolveCardioActivityType,
@@ -314,6 +316,43 @@ export function calculateTotalCardioDurationFromDays(days: Day[]): number {
     }, 0);
     
     return sum + dayDuration;
+  }, 0);
+}
+
+/**
+ * Sum comparable cardio for a distance family (leaderboard miles / steps).
+ * foot/bike/row → miles; stair → steps. Does not merge run↔walk for PRs — family sum only.
+ */
+export function sumCardioDistanceByFamily(days: Day[], family: CardioDistanceFamily): number {
+  return days.reduce((sum, day) => {
+    if (!day || !Array.isArray(day.exercises)) return sum;
+
+    for (const ex of day.exercises) {
+      if (ex.modality !== "cardio" || !ex.cardioData) continue;
+      const type = resolveCardioActivityType(ex.cardioData.activityType, ex.name, ex.exerciseId);
+      if (cardioDistanceFamily(type) !== family) continue;
+      if (family === "stair") {
+        sum += ex.cardioData.steps || 0;
+      } else {
+        sum += ex.cardioData.distance || 0;
+      }
+    }
+    return sum;
+  }, 0);
+}
+
+/** Sum cardio duration (seconds) for activities in a distance family. Used for row fallback. */
+export function sumCardioDurationByFamily(days: Day[], family: CardioDistanceFamily): number {
+  return days.reduce((sum, day) => {
+    if (!day || !Array.isArray(day.exercises)) return sum;
+
+    for (const ex of day.exercises) {
+      if (ex.modality !== "cardio" || !ex.cardioData) continue;
+      const type = resolveCardioActivityType(ex.cardioData.activityType, ex.name, ex.exerciseId);
+      if (cardioDistanceFamily(type) !== family) continue;
+      sum += ex.cardioData.duration || 0;
+    }
+    return sum;
   }, 0);
 }
 

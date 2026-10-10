@@ -2,16 +2,27 @@
 
 type ToastType = "success" | "error" | "info" | "warning" | "medal";
 
+export type ToastAction = {
+  label: string;
+  onClick: () => void;
+};
+
 export interface Toast {
   id: string;
   message: string;
   type: ToastType;
   /** Optional headline (used for medal unlocks). */
   title?: string;
+  action?: ToastAction;
 }
 
 let toasts: Toast[] = [];
 let listeners: Array<() => void> = [];
+
+export type MedalToastOptions = {
+  duration?: number;
+  action?: ToastAction;
+};
 
 export const toast = {
   success: (message: string, duration?: number) => {
@@ -26,20 +37,25 @@ export const toast = {
   warning: (message: string, duration?: number) => {
     return addToast({ message, type: "warning" }, duration);
   },
-  medal: (title: string, detail?: string, duration?: number) => {
+  medal: (title: string, detail?: string, durationOrOptions?: number | MedalToastOptions) => {
+    const options =
+      typeof durationOrOptions === "number"
+        ? { duration: durationOrOptions }
+        : durationOrOptions ?? {};
     return addToast(
       {
         type: "medal",
         title,
         message: detail?.trim() || "Pinned to your collection if there is room.",
+        action: options.action,
       },
-      duration
+      options.duration
     );
   },
 };
 
 function addToast(
-  partial: { message: string; type: ToastType; title?: string },
+  partial: { message: string; type: ToastType; title?: string; action?: ToastAction },
   duration?: number
 ): string {
   try {

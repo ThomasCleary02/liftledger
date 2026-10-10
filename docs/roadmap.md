@@ -19,7 +19,8 @@ Narrative of where the product has been and where it is headed. **Execution orde
 
 ## Current focus (see backlog Now)
 
-- **3.4.0** Account & Auth polish (password reset visibility, email change, OAuth, Account hierarchy).
+- **3.3.4** this week — see [`release-plan-3.3.4.md`](./release-plan-3.3.4.md): bugs (calisthenics width, stair steps), day overview, search history ranking + recent strip, share PNG + preview, Platinum medals, cardio prefs/taxonomy, gym catalog, Analytics/empty polish, **leaderboard distance-by-family**.
+- **3.4.0** weekend — Account & Auth (password reset visibility, email change, OAuth, Account hierarchy).
 
 ## Near term (backlog Next)
 
@@ -58,7 +59,7 @@ Natural language queries over user's training data via Model Context Protocol (M
 - Template generation from natural language
 
 **Technical Considerations:**
-- Host MCP server (Cloud Run, Railway, Render)
+- Beta first: Firebase Function gated by a manually granted `premium` custom claim, prepaid API balance with auto-reload off (see [`BACKLOG.md`](../BACKLOG.md) AI Training Chat). MCP server hosting (Cloud Run, Railway, Render) only if it outgrows that.
 - LLM API costs (Claude/GPT) - monitor usage carefully
 - Caching layer for common queries (reduce Firebase reads)
 - Rate limiting per user

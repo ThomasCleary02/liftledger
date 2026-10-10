@@ -24,4 +24,9 @@ export const TIPS = [
     title: "Share this week",
     body: "On Analytics → Overview, Share builds a simple image of which days you trained. Handy for a friend or your notes — it is not a social feed.",
   },
+  {
+    id: "search-history",
+    title: "Search learns from you",
+    body: "Once you’ve logged workouts, exercise search ranks lifts you’ve done before higher so repeats are faster to find.",
+  },
 ] as const;

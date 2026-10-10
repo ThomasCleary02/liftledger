@@ -54,17 +54,33 @@ export function TemplatePicker({
         </form>
       )}
       {templates.length === 0 ? (
-        <div className="py-8 text-center">
+        <div className="rounded-md border border-gray-200 bg-white px-4 py-10 text-center">
           <FileText className="mx-auto mb-3 h-12 w-12 text-gray-300" />
-          <p className="text-gray-500">No templates yet</p>
-          <p className="mt-1 text-sm text-gray-400">Save today, or grab a starter program.</p>
-          <Link
-            href="/settings/import?tab=programs"
-            prefetch
-            className="mt-4 inline-block text-sm font-semibold text-brand underline"
-          >
-            Starter programs
-          </Link>
+          <p className="font-semibold text-gray-900">No templates yet</p>
+          <p className="mx-auto mt-2 max-w-sm text-sm text-gray-500">
+            {canSaveCurrent
+              ? "Save today’s workout as a template above, or import a starter program."
+              : "Log a workout on a day, then save it as a template — or grab a starter program."}
+          </p>
+          <div className="mt-5 flex flex-col items-center gap-2">
+            {!canSaveCurrent ? (
+              <Link href="/day/today" prefetch className="btn-primary px-5 py-2.5 text-sm" onClick={onClose}>
+                Log a workout
+              </Link>
+            ) : null}
+            <Link
+              href="/settings/import?tab=programs"
+              prefetch
+              className={
+                canSaveCurrent
+                  ? "btn-primary px-5 py-2.5 text-sm"
+                  : "text-sm font-semibold text-brand underline"
+              }
+              onClick={onClose}
+            >
+              Browse starter programs
+            </Link>
+          </div>
         </div>
       ) : (
         <div className="space-y-2">

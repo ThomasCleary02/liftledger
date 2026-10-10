@@ -10,6 +10,7 @@ Scannable knowledge base for humans and LLMs. Start here, then open the page you
 | [Development](./development.md) | Local run, tests, conventions |
 | [Hosting](./hosting.md) | Netlify + Firebase deploy |
 | [Roadmap](./roadmap.md) | Shipped phases + future direction |
+| [Medals](./medals.md) | Engagement design: lifetime vs challenge, cadence, soft-retire |
 | [Pitfalls](./pitfalls.md) | Recurring bugs (PWA keyboard, identity, SW, share) |
 | [Agent workflow](./agent-workflow.md) | Skills, rules, hooks, efficient loops |
 

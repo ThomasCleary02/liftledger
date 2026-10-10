@@ -8,20 +8,31 @@ import { db, auth } from "../../../../../lib/firebase";
 import { fetchDaysForLeaderboard } from "@liftledger/shared/firestore/leaderboards";
 import {
   getVolumeLeaderboard,
+  getCardioDurationLeaderboard,
   getCardioDistanceLeaderboard,
+  getCardioDistanceLeaderboardUnit,
   getConsistencyLeaderboard,
+  availableCardioDistanceFamilies,
   type LeaderboardTimePeriod,
 } from "@liftledger/shared/analytics/leaderboards";
-import { formatWeight, formatCardioDuration } from "../../../../../lib/utils/units";
+import {
+  CARDIO_DISTANCE_FAMILY_LABELS,
+  type CardioDistanceFamily,
+} from "@liftledger/shared/cardio";
+import { formatWeight, formatCardioDuration, formatDistance } from "../../../../../lib/utils/units";
 import { usePreferences } from "../../../../../lib/hooks/usePreferences";
-import { Trophy, ArrowLeft } from "lucide-react";
+import { Trophy, ArrowLeft, ChevronDown } from "lucide-react";
 import { Avatar } from "../../../../../components/Avatar";
 import { logger } from "../../../../../lib/logger";
 import { accountService } from "../../../../../lib/firebase";
 import { rememberDays } from "../../../../../lib/sessionCache";
 import type { Day } from "../../../../../lib/firestore/days";
 
-type MetricType = "volume" | "cardio" | "consistency";
+type MetricType = "volume" | "cardio" | "consistency" | CardioDistanceFamily;
+
+function isDistanceFamily(metric: MetricType): metric is CardioDistanceFamily {
+  return metric === "foot" || metric === "bike" || metric === "row" || metric === "stair";
+}
 
 export default function Leaderboards() {
   const router = useRouter();
@@ -76,21 +87,75 @@ export default function Leaderboards() {
     }
   };
 
+  const distanceFamilies = useMemo(() => {
+    if (!daysByUser) return [] as CardioDistanceFamily[];
+    return availableCardioDistanceFamilies(daysByUser, timePeriod);
+  }, [daysByUser, timePeriod]);
+
+  // If the selected family chip disappears for this period, fall back to Cardio time.
+  useEffect(() => {
+    if (isDistanceFamily(metric) && !distanceFamilies.includes(metric)) {
+      setMetric("cardio");
+    }
+  }, [metric, distanceFamilies]);
+
+  const distanceUnit = useMemo(() => {
+    if (!daysByUser || !isDistanceFamily(metric)) return null;
+    return getCardioDistanceLeaderboardUnit(daysByUser, timePeriod, metric);
+  }, [daysByUser, metric, timePeriod]);
+
   const leaderboardData = useMemo(() => {
     if (!daysByUser) return [];
     if (metric === "volume") return getVolumeLeaderboard(daysByUser, timePeriod);
-    if (metric === "cardio") return getCardioDistanceLeaderboard(daysByUser, timePeriod);
+    if (metric === "cardio") return getCardioDurationLeaderboard(daysByUser, timePeriod);
+    if (isDistanceFamily(metric)) return getCardioDistanceLeaderboard(daysByUser, timePeriod, metric);
     return getConsistencyLeaderboard(daysByUser, timePeriod);
   }, [daysByUser, metric, timePeriod]);
 
   const formatValue = (value: number): string => {
-    if (metric === "volume") {
-      return formatWeight(value, units);
-    } else if (metric === "cardio") {
-      return formatCardioDuration(value);
+    if (metric === "volume") return formatWeight(value, units);
+    if (metric === "cardio") return formatCardioDuration(value);
+    if (metric === "consistency") return `${value} days`;
+    if (distanceUnit === "steps") {
+      return `${Math.round(value).toLocaleString()} steps`;
     }
-    return `${value} days`;
+    if (distanceUnit === "seconds") return formatCardioDuration(value);
+    return formatDistance(value, units);
   };
+
+  const emptyCopy = (): string => {
+    if (metric === "cardio") {
+      return "Cardio time needs logged cardio sessions from you or your friends.";
+    }
+    if (metric === "volume") {
+      return "Volume needs strength work logged in this period.";
+    }
+    if (metric === "consistency") {
+      return "Consistency counts days with a workout or rest day logged.";
+    }
+    if (metric === "stair") {
+      return "Stairs needs step counts logged for stair sessions.";
+    }
+    if (metric === "row" && distanceUnit === "seconds") {
+      return "Row needs logged rowing sessions from you or your friends.";
+    }
+    return `${CARDIO_DISTANCE_FAMILY_LABELS[metric]} needs distance logged in this period.`;
+  };
+
+  const metricOptions = useMemo(() => {
+    const base: Array<{ id: MetricType; label: string }> = [
+      { id: "volume", label: "Volume (strength)" },
+      { id: "cardio", label: "Cardio time (all modalities)" },
+      { id: "consistency", label: "Consistency (active days)" },
+    ];
+    return [
+      ...base,
+      ...distanceFamilies.map((family) => ({
+        id: family as MetricType,
+        label: CARDIO_DISTANCE_FAMILY_LABELS[family],
+      })),
+    ];
+  }, [distanceFamilies]);
 
   if (!authLoading && !user) {
     return null;
@@ -111,41 +176,57 @@ export default function Leaderboards() {
             </Link>
             <p className="kicker mb-1">Profile</p>
             <h1 className="mb-2 text-2xl font-semibold text-gray-900 md:text-3xl">Leaderboards</h1>
-            <p className="text-sm text-gray-500">Compare streaks, volume, and cardio time</p>
+            <p className="text-sm text-gray-500">
+              Compare volume, cardio time, consistency (active days), and distance by family
+            </p>
           </div>
 
-          <div className="mx-auto mt-4 max-w-4xl border-t border-gray-100 pt-4">
-            <div className="flex gap-2">
-              {(["volume", "cardio", "consistency"] as MetricType[]).map((m) => (
-                <button
-                  key={m}
-                  onClick={() => setMetric(m)}
-                  className={`flex-1 rounded-lg py-2 px-3 text-xs font-semibold transition-colors ${
-                    metric === m
-                      ? "bg-brand text-brand-fg"
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                  }`}
+          <div className="mx-auto mt-4 flex max-w-4xl flex-col gap-3 border-t border-gray-100 pt-4 sm:flex-row sm:items-end sm:justify-between">
+            <div className="min-w-0 flex-1">
+              <label className="kicker mb-2 block" htmlFor="leaderboard-metric">
+                Board
+              </label>
+              <div className="relative">
+                <select
+                  id="leaderboard-metric"
+                  value={metric}
+                  onChange={(e) => setMetric(e.target.value as MetricType)}
+                  className="w-full appearance-none rounded-md border border-gray-200 bg-white py-3 pl-3 pr-10 text-sm font-semibold text-gray-900 shadow-[0_1px_0_rgb(20_83_45/0.06)] outline-none focus:border-brand focus:ring-1 focus:ring-brand"
                 >
-                  {m === "volume" ? "Volume" : m === "cardio" ? "Cardio time" : "Consistency"}
-                </button>
-              ))}
+                  {metricOptions.map((opt) => (
+                    <option key={opt.id} value={opt.id}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown
+                  className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+                  aria-hidden
+                />
+              </div>
             </div>
-          </div>
-
-          <div className="mx-auto mt-4 max-w-4xl border-t border-gray-100 pt-4">
-            <div className="flex items-center justify-end">
-              <div className="flex rounded-lg bg-gray-100 p-1">
-                {(["7days", "30days", "all"] as LeaderboardTimePeriod[]).map((period) => (
+            <div className="flex shrink-0 justify-end">
+              <div className="flex rounded-lg bg-gray-100 p-1" role="group" aria-label="Time period">
+                {(
+                  [
+                    { id: "7days", label: "7 days", aria: "Last 7 days" },
+                    { id: "30days", label: "30 days", aria: "Last 30 days" },
+                    { id: "all", label: "All time", aria: "All time" },
+                  ] as const
+                ).map((period) => (
                   <button
-                    key={period}
-                    onClick={() => setTimePeriod(period)}
-                    className={`rounded px-3 py-1 text-xs font-semibold transition-colors ${
-                      timePeriod === period
+                    key={period.id}
+                    type="button"
+                    onClick={() => setTimePeriod(period.id)}
+                    aria-label={period.aria}
+                    aria-pressed={timePeriod === period.id}
+                    className={`min-h-[36px] rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
+                      timePeriod === period.id
                         ? "bg-brand text-brand-fg"
                         : "text-gray-600 hover:bg-gray-200"
                     }`}
                   >
-                    {period === "7days" ? "7D" : period === "30days" ? "30D" : "All"}
+                    {period.label}
                   </button>
                 ))}
               </div>
@@ -176,13 +257,7 @@ export default function Leaderboards() {
             <div className="rounded-md border border-gray-100 bg-white p-12 text-center shadow-sm">
               <Trophy className="mx-auto h-12 w-12 text-gray-300" />
               <p className="mt-4 font-medium text-gray-900">Nothing to rank yet</p>
-              <p className="mt-1 text-sm text-gray-500">
-                {metric === "cardio"
-                  ? "Cardio time needs logged cardio sessions from you or your friends."
-                  : metric === "volume"
-                    ? "Volume needs strength work logged in this period."
-                    : "Consistency counts days with a workout or rest day logged."}
-              </p>
+              <p className="mt-1 text-sm text-gray-500">{emptyCopy()}</p>
               <Link
                 href="/profile/friends"
                 prefetch

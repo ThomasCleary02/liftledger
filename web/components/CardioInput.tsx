@@ -5,12 +5,15 @@ import { usePreferences } from "../lib/hooks/usePreferences";
 import {
   CARDIO_ACTIVITY_TYPES,
   CARDIO_ACTIVITY_LABELS,
+  isStepsFocusedCardio,
   type CardioActivityType,
 } from "@liftledger/shared";
 
 export interface CardioData {
   duration: string;
   distance: string;
+  /** Stair climber / Step Master step count (optional string for the form). */
+  steps?: string;
 }
 
 interface CardioInputProps {
@@ -18,6 +21,9 @@ interface CardioInputProps {
   onDataChange: (data: CardioData) => void;
   activityType?: CardioActivityType;
   onActivityTypeChange?: (type: CardioActivityType) => void;
+  /** Used with activityType to decide steps vs distance field. */
+  exerciseName?: string;
+  exerciseId?: string;
 }
 
 const sanitizeValue = (value: string, allowDecimal: boolean) => {
@@ -38,10 +44,13 @@ export default function CardioInput({
   onDataChange,
   activityType = "other",
   onActivityTypeChange,
+  exerciseName,
+  exerciseId,
 }: CardioInputProps) {
   const { units } = usePreferences();
   const distanceUnit = units === "metric" ? "km" : "mi";
-  const showDistancePrompt = activityType !== "other";
+  const stepsFocused = isStepsFocusedCardio(activityType, exerciseName, exerciseId);
+  const showDistancePrompt = activityType !== "other" && !stepsFocused;
 
   return (
     <div>
@@ -89,26 +98,47 @@ export default function CardioInput({
         </div>
       </div>
 
-      <div>
-        <label className="mb-2 block text-sm font-medium text-gray-700">
-          {showDistancePrompt ? "Distance" : "Distance (optional)"}
-        </label>
-        <div className="flex items-center">
-          <input
-            type="text"
-            inputMode="decimal"
-            pattern="[0-9.]*"
-            className="min-h-[48px] flex-1 rounded-lg bg-gray-100 px-3 py-3 text-base tabular-nums text-gray-900 placeholder:text-gray-400 outline-none transition-all focus:bg-white focus:ring-2 focus:ring-brand"
-            value={data.distance}
-            onChange={(e) =>
-              onDataChange({ ...data, distance: sanitizeValue(e.target.value, true) })
-            }
-            placeholder={distanceUnit === "km" ? "Kilometers" : "Miles"}
-            aria-label="Distance"
-          />
-          <span className="ml-3 w-20 font-medium text-gray-600">{distanceUnit}</span>
+      {stepsFocused ? (
+        <div>
+          <label className="mb-2 block text-sm font-medium text-gray-700">Steps</label>
+          <div className="flex items-center">
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              className="min-h-[48px] flex-1 rounded-lg bg-gray-100 px-3 py-3 text-base tabular-nums text-gray-900 placeholder:text-gray-400 outline-none transition-all focus:bg-white focus:ring-2 focus:ring-brand"
+              value={data.steps || ""}
+              onChange={(e) =>
+                onDataChange({ ...data, steps: sanitizeValue(e.target.value, false), distance: "" })
+              }
+              placeholder="Steps"
+              aria-label="Steps"
+            />
+            <span className="ml-3 w-20 font-medium text-gray-600">steps</span>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div>
+          <label className="mb-2 block text-sm font-medium text-gray-700">
+            {showDistancePrompt ? "Distance" : "Distance (optional)"}
+          </label>
+          <div className="flex items-center">
+            <input
+              type="text"
+              inputMode="decimal"
+              pattern="[0-9.]*"
+              className="min-h-[48px] flex-1 rounded-lg bg-gray-100 px-3 py-3 text-base tabular-nums text-gray-900 placeholder:text-gray-400 outline-none transition-all focus:bg-white focus:ring-2 focus:ring-brand"
+              value={data.distance}
+              onChange={(e) =>
+                onDataChange({ ...data, distance: sanitizeValue(e.target.value, true) })
+              }
+              placeholder={distanceUnit === "km" ? "Kilometers" : "Miles"}
+              aria-label="Distance"
+            />
+            <span className="ml-3 w-20 font-medium text-gray-600">{distanceUnit}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
