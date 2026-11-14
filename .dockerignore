@@ -1,0 +1,9 @@
+**/node_modules
+**/.next
+.git
+expo-app/**
+!expo-app/package.json
+emulator-data
+docs
+.migration-backups
+*.log
