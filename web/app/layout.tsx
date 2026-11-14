@@ -33,12 +33,12 @@ const plexMono = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "LiftLedger — The training log",
+    default: "LiftLedger",
     template: "%s | LiftLedger",
   },
-  description:
-    "A day-based workout ledger you can install on your phone. Log strength, cardio, and calisthenics. Import Strong or Hevy. PRs, streaks, and friends stay in sync.",
+  description: "Personal training log.",
   manifest: "/manifest.json",
+  robots: { index: false, follow: false },
   metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"),
   icons: {
     icon: [
@@ -47,21 +47,6 @@ export const metadata: Metadata = {
     ],
     apple: [
       { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
-    ],
-  },
-  keywords: ["workout tracker", "fitness app", "exercise log", "strength training", "cardio tracker"],
-  authors: [{ name: "LiftLedger" }],
-  openGraph: {
-    title: "LiftLedger",
-    description: "Track your workouts, achieve your goals",
-    type: "website",
-    images: [
-      {
-        url: "/icon-512.png",
-        width: 512,
-        height: 512,
-        alt: "LiftLedger",
-      },
     ],
   },
   appleWebApp: {

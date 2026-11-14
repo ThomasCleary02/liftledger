@@ -2,15 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "../../../providers/Auth";
+import { useAuth } from "../../providers/Auth";
 import { Mail, Lock, Eye, EyeOff, User } from "lucide-react";
 import { sendPasswordResetEmail } from "firebase/auth";
-import { auth } from "../../../lib/firebase";
-import { toast } from "../../../lib/toast";
-import { BrandMark } from "../../../components/BrandMark";
+import { auth } from "../../lib/firebase";
+import { toast } from "../../lib/toast";
+import { BrandMark } from "../../components/BrandMark";
 import { isValidUsername } from "@liftledger/shared";
-import { friendlyAuthError } from "../../../lib/authErrors";
-import { shouldUseFirebaseEmulators } from "../../../lib/firebaseEmulators";
+import { friendlyAuthError } from "../../lib/authErrors";
+import { shouldUseFirebaseEmulators } from "../../lib/firebaseEmulators";
 
 export default function Login() {
   const router = useRouter();

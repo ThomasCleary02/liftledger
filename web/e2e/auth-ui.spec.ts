@@ -1,13 +1,10 @@
 import { expect, test } from "@playwright/test";
 
 test.describe("auth UI (no account writes)", () => {
-  test("marketing home loads", async ({ page }) => {
+  test("root redirects to sign in", async ({ page }) => {
     await page.goto("/");
-    await expect(
-      page.getByRole("heading", {
-        name: /The training log that looks like a ledger/,
-      })
-    ).toBeVisible();
+    await expect(page).toHaveURL(/\/login$/);
+    await expect(page.getByRole("button", { name: "Sign In" })).toBeVisible({ timeout: 20_000 });
   });
 
   test("sign up form asks for a username", async ({ page }) => {
