@@ -5,7 +5,8 @@ COPY package.json package-lock.json ./
 COPY packages/shared/package.json packages/shared/
 COPY web/package.json web/
 COPY expo-app/package.json expo-app/
-RUN npm ci --workspace=liftledger-web --include-workspace-root=false
+# The root "prepare" script runs husky, which isn't installed when only the web workspace is.
+RUN npm pkg delete scripts.prepare && npm ci --workspace=liftledger-web --include-workspace-root=false
 FROM deps AS build
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
